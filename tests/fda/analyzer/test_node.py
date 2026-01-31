@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from fda.analyzer.node import ASTNodeWrapper
+from fda.node.wrapper import ASTNodeWrapper
 
 
 class TestASTNodeWrapper:

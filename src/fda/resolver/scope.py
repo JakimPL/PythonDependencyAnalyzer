@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from fda.analyzer.node import ASTNodeWrapper
+from fda.node.wrapper import ASTNodeWrapper
 
 
 class Scope:
