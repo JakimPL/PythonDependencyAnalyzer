@@ -3,11 +3,11 @@ from __future__ import annotations
 import ast
 from collections import defaultdict, deque
 from pathlib import Path
-from typing import DefaultDict, Deque, Dict, Optional, Set, TypeAlias
+from typing import Any, DefaultDict, Deque, Dict, Optional, Set, TypeAlias
 
-from analyzer.node import ASTNodeWrapper
+from fda.analyzer.node import ASTNodeWrapper
 
-NodeWrapperMap: TypeAlias = Dict[ast.AST, ASTNodeWrapper]
+NodeWrapperMap: TypeAlias = Dict[ast.AST, ASTNodeWrapper[Any]]
 FunctionCalls: TypeAlias = DefaultDict[ASTNodeWrapper[ast.FunctionDef], Set[ASTNodeWrapper[ast.Call]]]
 SimplifiedFunctionCalls: TypeAlias = Dict[str, Set[str]]
 
@@ -17,26 +17,21 @@ class FunctionDependencyAnalyzer(ast.NodeVisitor):
         self.filepath = filepath
         self.nodes: NodeWrapperMap = {}
         self.function_calls: FunctionCalls = defaultdict(set)
-        self.root: Optional[ASTNodeWrapper] = None
+        self.root: Optional[ASTNodeWrapper[Any]] = None
 
-    def get_wrapper(self, node: ast.AST) -> ASTNodeWrapper:
+    def get_wrapper(self, node: ast.AST) -> ASTNodeWrapper[Any]:
         return self.nodes[node]
 
     def generic_visit(self, node: ast.AST) -> None:
-        return
-        if hasattr(node, "name"):
-            name = getattr(node, "name")
-            print(f"Visiting node type: {type(node).__name__}: {name}")
-        else:
-            print(f"Visiting node type: {type(node).__name__}")
+        pass
 
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:  # pylint: disable=invalid-name
         self.generic_visit(node)
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # pylint: disable=invalid-name
         self.generic_visit(node)
 
-    def visit_Call(self, node: ast.Call) -> None:
+    def visit_Call(self, node: ast.Call) -> None:  # pylint: disable=invalid-name
         wrapper = self.nodes[node]
         if wrapper.parent and wrapper.functions:
             last_function = wrapper.functions[-1]
@@ -53,14 +48,14 @@ class FunctionDependencyAnalyzer(ast.NodeVisitor):
         return simplified
 
     def analyze(self, tree: ast.AST) -> SimplifiedFunctionCalls:
-        self.root = ASTNodeWrapper(tree, filepath=self.filepath)
-        self.nodes: NodeWrapperMap = {tree: self.root}
-        nodes: Deque[ASTNodeWrapper] = deque([self.root])
+        self.root = ASTNodeWrapper[Any](tree, filepath=self.filepath)
+        self.nodes = {tree: self.root}
+        nodes: Deque[ASTNodeWrapper[Any]] = deque([self.root])
         while nodes:
             node = nodes.popleft()
             self.visit(node.ast_node)
             for child in ast.iter_child_nodes(node.ast_node):
-                child_wrapper = ASTNodeWrapper(child, filepath=self.filepath, parent=node)
+                child_wrapper = ASTNodeWrapper[Any](child, filepath=self.filepath, parent=node)
                 self.nodes[child] = child_wrapper
                 nodes.append(child_wrapper)
 
