@@ -10,7 +10,7 @@ from anytree import Node
 NodeT = TypeVar("NodeT", bound=ast.AST)
 
 
-class ASTNodeWrapper(Node, Generic[NodeT]):
+class ASTNodeWrapper(Node, Generic[NodeT]):  # type: ignore[misc]
     def __init__(
         self,
         ast_node: NodeT,
