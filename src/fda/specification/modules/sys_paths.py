@@ -35,7 +35,11 @@ class SysPaths(metaclass=Singleton):
         return candidates
 
     @classmethod
-    def resolve(cls, origin: Union[Path, ModuleSpec], base_path: Optional[Pathlike] = None) -> ImportPath:
+    def resolve(
+        cls,
+        origin: Union[Path, ModuleSpec],
+        base_path: Optional[Pathlike] = None,
+    ) -> ImportPath:
         if isinstance(origin, ModuleSpec):
             validate_spec_origin(origin)
             assert origin.origin is not None

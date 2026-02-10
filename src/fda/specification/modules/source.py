@@ -7,14 +7,12 @@ from typing import Optional, Self
 from pydantic import Field, model_validator
 
 from fda.constants import DELIMITER
-from fda.exceptions import FDAImportError, FDAMissingModuleNameError, FDASourceFileOutsideProjectError
+from fda.exceptions import FDAMissingModuleNameError, FDASourceFileOutsideProjectError
 from fda.parser import validate_python_file
 from fda.specification.base import Specification
 from fda.specification.imports.path import ImportPath
 from fda.specification.modules.module import Module
-from fda.specification.modules.spec import is_spec_origin_valid, validate_spec
-from fda.specification.modules.sys_paths import SysPaths
-from fda.tools import logger
+from fda.specification.modules.spec import validate_spec
 
 
 class ModuleSource(Specification):
@@ -121,14 +119,3 @@ class ModuleSource(Specification):
 
         file_spec = find_spec(module_name, self.package)
         return validate_spec(file_spec, validate_origin=validate_origin)
-
-    def resolve(self, path: ImportPath) -> Optional[ImportPath]:
-        try:
-            spec = self.get_spec(path, validate_origin=True)
-            if not is_spec_origin_valid(spec.origin):
-                return None
-        except (ImportError, ModuleNotFoundError, ValueError, FDAImportError):
-            logger.warning("Could not resolve import path '%s' in module '%s'", path, self.module.name)
-            return None
-
-        return SysPaths.resolve(spec, base_path=self.base_path)

@@ -94,7 +94,7 @@ class ImportPath(Specification):
 
     @cached_property
     def path(self) -> str:
-        return self.join(include_name=False)
+        return self.join(include_name=False, truncate_init=True)
 
     @property
     def absolute(self) -> bool:
@@ -125,9 +125,16 @@ class ImportPath(Specification):
 
     @cached_property
     def key(self) -> Tuple[int, int, str]:
-        return (self.level, len(self.parts), self.join(include_name=True))
+        return (
+            self.level,
+            len(self.parts),
+            self.join(
+                include_name=True,
+                truncate_init=False,
+            ),
+        )
 
-    def join(self, include_name: bool = True) -> str:
+    def join(self, include_name: bool = True, truncate_init: bool = True) -> str:
         result = DELIMITER * self.level
 
         if self.module:
@@ -139,7 +146,7 @@ class ImportPath(Specification):
 
             result += self.name or ""
 
-        return result
+        return result.removesuffix(f"{DELIMITER}__init__") if truncate_init else result
 
     def get_module_path(self) -> Self:
         cls = self.__class__
