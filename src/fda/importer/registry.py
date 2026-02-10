@@ -1,112 +1,157 @@
 from __future__ import annotations
 
-from collections import deque
-from typing import Deque, Dict, List, Optional, Set, Tuple
+import ast
+from pathlib import Path
+from typing import Dict, List, Optional, Set
 
+import networkx as nx
+from anytree import PreOrderIter
+
+from fda.exceptions import FDAImportError
 from fda.importer.config import ImportConfig
-from fda.importer.graph import ModuleDependencyGraph
-from fda.importer.spec import Module
+from fda.node import AST
+from fda.specification import ImportPath, Module, ModuleSource, OriginType
+from fda.tools import logger
+from fda.types import Pathlike
 
 
 class ModuleRegistry:
-    def __init__(self, config: ImportConfig) -> None:
-        self.config = config
-        self.modules: Dict[str, Module] = {}
-        self.pending: Set[str] = set()
-        self.graph = ModuleDependencyGraph()
-
-    def __call__(self, start_module: str) -> Set[str]:
-        return self.traverse_dependencies(start_module)
-
-    def __getitem__(self, fqn: str) -> Module:
-        return self.modules[fqn]
-
-    def register_module(self, module: Module) -> None:
-        fqn = module.spec.fqn
-        self.modules[fqn] = module
-        self.graph.add_node(module)
-
-        for import_stmt in module.imports:
-            self.graph.add_dependency(fqn, import_stmt.target_module)
-
-    def get(self, fqn: str) -> Optional[Module]:
-        return self.modules.get(fqn)
-
-    def has(self, fqn: str) -> bool:
-        return fqn in self.modules
-
-    def mark_pending(self, fqn: str) -> None:
-        self.pending.add(fqn)
-
-    def unmark_pending(self, fqn: str) -> None:
-        self.pending.discard(fqn)
-
-    def is_pending(self, fqn: str) -> bool:
-        return fqn in self.pending
-
-    def detect_cycles(self) -> List[List[str]]:
-        return self.graph.find_cycles()
-
-    def traverse_dependencies(
+    def __init__(
         self,
-        start_module: str,
-        visited: Optional[Set[str]] = None,
-        depth: int = 0,
-    ) -> Set[str]:
-        if visited is None:
-            visited = set()
+        import_config: ImportConfig,
+        project_root: Pathlike,
+        package: str,
+    ) -> None:
+        self.import_config = import_config
+        self.project_root = Path(project_root).resolve()
+        self.package = package
 
-        if start_module in visited:
-            return visited
+    def __call__(self, filepath: Path) -> nx.DiGraph:
+        dependency_graph = nx.DiGraph()
 
-        if self.config.max_depth is not None and depth >= self.config.max_depth:
-            return visited
+        root_source = ModuleSource(
+            origin=filepath,
+            base_path=self.project_root,
+            package=self.package,
+        )
 
-        visited.add(start_module)
+        root = root_source.module
+        dependency_graph.add_node(root)
 
-        module = self.get(start_module)
-        if not module:
-            return visited
+        processed: Set[str] = set()
+        modules: Dict[str, Module] = {root.name: root}
+        new_modules: Set[Module] = {root}
 
-        if not self.config.scan_external and module.spec.origin:
-            if not self.config.is_internal_module(module.spec.origin):
-                return visited
-
-        for dependency in self.graph.get_dependencies(start_module):
-            self.traverse_dependencies(dependency, visited, depth + 1)
-
-        return visited
-
-    def get_all_internal_modules(self) -> List[Module]:
-        return [
-            module
-            for module in self.modules.values()
-            if module.spec.origin and self.config.is_internal_module(module.spec.origin)
-        ]
-
-    def get_import_chain_to(self, target: str, start: Optional[str] = None) -> Optional[List[str]]:
-        if start is None:
-            internal = self.get_all_internal_modules()
-            if not internal:
-                return None
-            start = internal[0].spec.fqn
-
-        visited: Set[str] = set()
-        queue: Deque[Tuple[str, List[str]]] = deque([(start, [start])])
-
-        while queue:
-            current, path = queue.popleft()
-
-            if current == target:
-                return path
-
-            if current in visited:
+        while new_modules:
+            module = new_modules.pop()
+            if module.name in processed:
                 continue
 
-            visited.add(current)
+            processed.add(module.name)
+            imported_modules = self.analyze_module(module)
+            for module_name, module in imported_modules.items():
+                if module_name not in modules:
+                    modules[module_name] = module
+                    dependency_graph.add_node(module)
 
-            for neighbor in self.graph.get_dependencies(current):
-                if neighbor not in visited:
-                    queue.append((neighbor, path + [neighbor]))
+                target_module = modules[module_name]
+                dependency_graph.add_edge(module, target_module)
+                new_modules.add(target_module)
 
-        return None
+        return dependency_graph
+
+    def analyze_file(
+        self,
+        filepath: Path,
+        base_path: Path,
+        package: str,
+    ) -> Dict[str, Module]:
+        """
+        Analyze a Python file to extract all imported module paths,
+        and return their corresponding file paths.
+        """
+        tree = AST(filepath)
+        module_source = ModuleSource(origin=filepath, base_path=base_path, package=package)
+        import_paths = self._collect_imports(module_source, tree)
+        return self._collect_modules(module_source, import_paths)
+
+    def analyze_module(
+        self,
+        module: Module,
+    ) -> Dict[str, Module]:
+        """
+        Analyze a module to extract all imported module paths,
+        and return their corresponding file paths.
+        """
+        if module.origin_type != OriginType.PYTHON:
+            return {}
+
+        assert module.origin is not None
+        return self.analyze_file(
+            module.origin,
+            module.base_path,
+            module.top_level_module,
+        )
+
+    def _collect_imports(
+        self,
+        module_source: ModuleSource,
+        tree: AST,
+    ) -> Dict[ImportPath, None]:
+        module_paths: Dict[ImportPath, None] = {}
+        import_paths = self._collect_import_paths(tree)
+        for import_path in import_paths:
+            module_path = module_source.resolve(import_path)
+            if module_path is not None:
+                module_paths[module_path] = None
+
+        return module_paths
+
+    def _collect_import_paths(
+        self,
+        tree: AST,
+    ) -> List[ImportPath]:
+        import_paths: Dict[ImportPath, None] = {}
+        for node in PreOrderIter(tree.root):
+            if node.type in (ast.Import, ast.ImportFrom):
+                import_node = node.ast
+                new_paths = {import_path.get_module_path() for import_path in ImportPath.from_ast(import_node)}
+                import_paths.update({path: None for path in new_paths})
+
+        return list(import_paths.keys())
+
+    def _collect_modules(
+        self,
+        module_source: ModuleSource,
+        module_paths: Dict[ImportPath, None],
+    ) -> Dict[str, Module]:
+        modules: Dict[str, Module] = {}
+        for module_path in module_paths:
+            module = self._get_module_from_import_path(module_source, module_path)
+            if module is not None:
+                modules[module.name] = module
+
+        return modules
+
+    def _get_module_from_import_path(
+        self,
+        module_source: ModuleSource,
+        module_path: ImportPath,
+    ) -> Optional[Module]:
+        try:
+            spec = module_source.get_spec(module_path)
+            package_spec = module_source.get_package_spec(module_path)
+        except (ImportError, ModuleNotFoundError, ValueError):
+            logger.warning("Could not resolve import path '%s' in module '%s'", module_path, module_source.module.name)
+            return None
+
+        try:
+            package = package_spec.name if package_spec is not None else None
+            return Module.from_spec(spec, package=package)
+        except FDAImportError:
+            logger.warning(
+                "Could not create module from spec for import path '%s' in module '%s'",
+                module_path,
+                module_source.module.name,
+            )
+            return None

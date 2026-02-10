@@ -1,17 +1,29 @@
 from fda.exceptions.base import FDAException
 from fda.exceptions.imports import (
+    FDAEmptyOriginError,
+    FDAFrozenOriginError,
+    FDAImportError,
     FDAImportResolutionError,
-    FDAMissingPackageNameError,
+    FDAInvalidOriginTypeError,
+    FDAMissingModuleNameError,
+    FDAMissingModuleSpecError,
+    FDAOriginFileNotFoundError,
     FDAPathResolutionError,
-    FDARelativeProjectRootError,
+    FDARelativeBasePathError,
     FDASourceFileOutsideProjectError,
 )
 
 __all__ = [
     "FDAException",
+    "FDAImportError",
     "FDAImportResolutionError",
     "FDAPathResolutionError",
+    "FDAEmptyOriginError",
+    "FDAFrozenOriginError",
+    "FDAMissingModuleSpecError",
+    "FDAOriginFileNotFoundError",
+    "FDAInvalidOriginTypeError",
     "FDASourceFileOutsideProjectError",
-    "FDAMissingPackageNameError",
-    "FDARelativeProjectRootError",
+    "FDAMissingModuleNameError",
+    "FDARelativeBasePathError",
 ]

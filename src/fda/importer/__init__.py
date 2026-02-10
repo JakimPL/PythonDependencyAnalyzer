@@ -1,21 +1,9 @@
-from .analyzer import ModuleAnalyzer
-from .config import ImportConfig
-from .graph import ModuleDependencyGraph
-from .registry import ModuleRegistry
-from .resolver import ImportResolver
-from .spec import ImportItem, ImportStatement, Module, ModuleAvailability, ModuleSpec, Symbol, SymbolKind
+from fda.importer.collector import ModulesCollector
+from fda.importer.config import ImportConfig
+from fda.importer.registry import ModuleRegistry
 
 __all__ = [
+    "ModulesCollector",
     "ImportConfig",
-    "ImportResolver",
     "ModuleRegistry",
-    "ModuleDependencyGraph",
-    "ModuleSpec",
-    "Module",
-    "Symbol",
-    "SymbolKind",
-    "ImportStatement",
-    "ImportItem",
-    "ModuleAvailability",
-    "ModuleAnalyzer",
 ]

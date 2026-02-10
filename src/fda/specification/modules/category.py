@@ -17,13 +17,3 @@ class ModuleCategory(StrEnum):
 
     """Uninstalled or unresolvable modules."""
     UNAVAILABLE = "unavailable"
-
-    @staticmethod
-    def from_syspath_key(key: str) -> ModuleCategory:
-        match key:
-            case "stdlib":
-                return ModuleCategory.STDLIB
-            case "purelib":
-                return ModuleCategory.EXTERNAL
-
-        return ModuleCategory.UNAVAILABLE

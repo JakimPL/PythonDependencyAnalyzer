@@ -1,17 +1,14 @@
 import ast
-import os
 import re
 from functools import cached_property
-from importlib.util import resolve_name
 from pathlib import Path
-from typing import List, NamedTuple, Optional, Self, Union
+from typing import List, NamedTuple, Optional, Self, Tuple, Union
 
 from pydantic import Field, model_validator
 
+from fda.constants import DELIMITER
 from fda.node import Node, get_ast
 from fda.specification.base import Specification
-from fda.specification.constants import DELIMITER
-from fda.types import Pathlike
 
 
 class PartsAndLevel(NamedTuple):
@@ -42,6 +39,12 @@ class ImportPath(Specification):
     def __bool__(self) -> bool:
         return bool(self.parts or self.level > 0)
 
+    def __lt__(self, other: Self) -> bool:
+        if not isinstance(other, ImportPath):
+            return NotImplemented
+
+        return self.key < other.key
+
     def __str__(self) -> str:
         return self.join()
 
@@ -65,18 +68,16 @@ class ImportPath(Specification):
         if not isinstance(other, cls):
             raise TypeError(f"Unsupported operand type(s) for /: '{type(self)}' and '{type(other)}'")
 
-        if other.level > 0:
-            self = self.get_parent(other.level)
-
-        if not self.module:
+        parent = self.get_parent(other.level) if other.relative else self
+        if not parent.module:
             module = other.module
         else:
-            module = f"{self.module}{DELIMITER}{other.module}" if other.module else self.module
+            module = f"{parent.module}{DELIMITER}{other.module}" if other.module else parent.module
 
         return cls(
             module=module,
             name=other.name,
-            level=self.level,
+            level=parent.level,
             asname=other.asname,
         )
 
@@ -100,6 +101,10 @@ class ImportPath(Specification):
         return self.level == 0
 
     @property
+    def relative(self) -> bool:
+        return not self.absolute
+
+    @property
     def is_module(self) -> bool:
         return not self.name
 
@@ -110,6 +115,17 @@ class ImportPath(Specification):
             result += self.parts[0]
 
         return result
+
+    @cached_property
+    def top_level(self) -> Optional[str]:
+        if self.relative:
+            raise ValueError("Top-level name is not defined for relative imports")
+
+        return self.parts[0] if self.parts else None
+
+    @cached_property
+    def key(self) -> Tuple[int, int, str]:
+        return (self.level, len(self.parts), self.join(include_name=True))
 
     def join(self, include_name: bool = True) -> str:
         result = DELIMITER * self.level
@@ -248,40 +264,12 @@ class ImportPath(Specification):
     @classmethod
     def from_path(
         cls,
-        path: Pathlike,
-        project_root: Optional[Pathlike] = None,
-    ) -> Self:
-        path = Path(path)
-        if path.is_absolute():
-            if all(part == DELIMITER * 2 for part in path.parts):
-                return cls(level=len(path.parts) + 1)
-
-            if project_root:
-                project_root = Path(project_root)
-                if not project_root.is_absolute():
-                    raise ValueError("Project root must be an absolute path")
-
-                if not project_root.is_dir():
-                    raise ValueError(f"Project root '{project_root}' must be a directory")
-
-                path = path.relative_to(project_root)
-
-        name = str(path.with_suffix("")).replace(os.path.sep, DELIMITER).removesuffix(".__init__")
-        package = str(project_root).replace(os.path.sep, DELIMITER) if project_root else None
-        return cls.from_string(resolve_name(name, package))
-
-    @classmethod
-    def get_relative_path(
-        cls,
         origin: Path,
-        package_root: Path,
+        root: Path,
     ) -> Optional[Self]:
         try:
-            relative = origin.relative_to(package_root).with_suffix("")
+            relative = origin.relative_to(root).with_suffix("")
             parts = relative.parts
-            if parts[-1] == "__init__":
-                parts = parts[:-1]
-
             return cls(module=DELIMITER.join(parts))
         except ValueError:
             return None

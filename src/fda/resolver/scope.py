@@ -2,23 +2,23 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple
 
-from fda.importer.spec import Symbol
-from fda.node.wrapper import ASTNodeWrapper
+from fda.node.ast_node import ASTNode
+from fda.specification import Symbol
 
 
 class Scope:
     def __init__(self, parent: Optional[Scope] = None) -> None:
         self.parent = parent
-        self.symbols: Dict[str, ASTNodeWrapper[Any]] = {}
+        self.symbols: Dict[str, ASTNode[Any]] = {}
         self.imported_symbols: Dict[str, Symbol] = {}
 
-    def define(self, name: str, node: ASTNodeWrapper[Any]) -> None:
+    def define(self, name: str, node: ASTNode[Any]) -> None:
         self.symbols[name] = node
 
     def import_symbol(self, local_name: str, symbol: Symbol) -> None:
         self.imported_symbols[local_name] = symbol
 
-    def resolve(self, name: str) -> Optional[ASTNodeWrapper[Any]]:
+    def resolve(self, name: str) -> Optional[ASTNode[Any]]:
         if name in self.symbols:
             return self.symbols[name]
 
@@ -36,7 +36,7 @@ class Scope:
 
         return None
 
-    def resolve_with_imports(self, name: str) -> Tuple[Optional[ASTNodeWrapper[Any]], Optional[Symbol]]:
+    def resolve_with_imports(self, name: str) -> Tuple[Optional[ASTNode[Any]], Optional[Symbol]]:
         local = self.resolve(name)
         imported = self.resolve_import(name)
         return local, imported
