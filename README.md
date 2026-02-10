@@ -1,1 +1,1 @@
-# Function Dependency Analyzer
+# `pydepgraph` — Python Dependency Analyzer
