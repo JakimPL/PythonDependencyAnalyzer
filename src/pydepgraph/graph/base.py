@@ -1,12 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Any, Generic, List, Optional, Tuple, Type, TypeAlias, TypeVar
+from typing import Any, Generic, List, Optional, Self, Type
 
 import networkx as nx
 
-from pydepgraph.config.graph import GraphOptions
-
-NodeT = TypeVar("NodeT")
-Edge: TypeAlias = Tuple[NodeT, NodeT]
+from pydepgraph.config import GraphOptions
+from pydepgraph.graph.types import Edge, NodeT
 
 
 class BaseGraph(Generic[NodeT], ABC):
@@ -20,18 +18,28 @@ class BaseGraph(Generic[NodeT], ABC):
         super().__init_subclass__()
         cls.graph_type = graph_type
 
-    def __init__(self, options: Optional[GraphOptions] = None) -> None:
+    def __init__(self, options: Optional[GraphOptions] = None, graph: Optional[nx.Graph] = None) -> None:
         self.config = options or GraphOptions()
-        self._graph = self.__class__.graph_type()
+        self._graph = graph or self.__class__.graph_type()
 
     def __len__(self) -> int:
         return int(self._graph.number_of_nodes())
 
     @abstractmethod
-    def __call__(self, *args: Any, **kwargs: Any) -> nx.DiGraph:
+    def __call__(self, *args: Any, **kwargs: Any) -> nx.Graph:
         """
         Create the output graph based on the provided options.
         """
+
+    def clear(self) -> None:
+        self._graph.clear()
+
+    def copy(self) -> Self:
+        cls = self.__class__
+        return cls(
+            options=self.config,
+            graph=self._graph.copy(),
+        )
 
     def has_node(self, module: NodeT) -> bool:
         return bool(self._graph.has_node(module))

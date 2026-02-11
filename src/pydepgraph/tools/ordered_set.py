@@ -10,24 +10,8 @@ class OrderedSet(Generic[T]):
             for item in iterable:
                 self._dict[item] = None
 
-    def add(self, item: T) -> None:
-        self._dict[item] = None
-
-    def discard(self, item: T) -> None:
-        self._dict.pop(item, None)
-
-    def remove(self, item: T) -> None:
-        del self._dict[item]
-
-    def pop(self) -> T:
-        return self._dict.popitem()[0]
-
-    def clear(self) -> None:
-        self._dict.clear()
-
-    def update(self, iterable: Iterable[T]) -> None:
-        for item in iterable:
-            self._dict[item] = None
+    def __bool__(self) -> bool:
+        return bool(self._dict)
 
     def __contains__(self, item: T) -> bool:
         return item in self._dict
@@ -46,3 +30,22 @@ class OrderedSet(Generic[T]):
             return NotImplemented
 
         return tuple(self) == tuple(other)
+
+    def add(self, item: T) -> None:
+        self._dict[item] = None
+
+    def discard(self, item: T) -> None:
+        self._dict.pop(item, None)
+
+    def remove(self, item: T) -> None:
+        del self._dict[item]
+
+    def pop(self) -> T:
+        return self._dict.popitem()[0]
+
+    def clear(self) -> None:
+        self._dict.clear()
+
+    def update(self, iterable: Iterable[T]) -> None:
+        for item in iterable:
+            self._dict[item] = None

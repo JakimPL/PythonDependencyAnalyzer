@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import Enum
 
 
-class ModuleCategory(StrEnum):
+class ModuleCategory(Enum):
     """Categorizes modules by their origin and relationship to the project."""
 
     """Project modules under project_root."""

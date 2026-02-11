@@ -1,20 +1,23 @@
 from __future__ import annotations
 
 import ast
+from copy import copy
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Union
+from typing import List, Optional, Set
 
 import networkx as nx
 from anytree import PreOrderIter
 
-from pydepgraph.config import ImporterConfig
+from pydepgraph.analyzer import BaseAnalyzer
+from pydepgraph.config import ModuleImportsAnalyzerConfig
 from pydepgraph.exceptions import PDGImportError
-from pydepgraph.importer.graph import ImportGraph
+from pydepgraph.graph import ImportGraph
 from pydepgraph.node import AST
 from pydepgraph.specification import (
     ImportPath,
     Module,
     ModuleCategory,
+    ModuleDict,
     ModuleSource,
     OriginType,
     SysPaths,
@@ -24,36 +27,70 @@ from pydepgraph.tools import OrderedSet, logger
 from pydepgraph.types import Pathlike
 
 
-class ModuleRegistry:
+class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, nx.DiGraph]):
     def __init__(
         self,
-        config: ImporterConfig,
+        config: ModuleImportsAnalyzerConfig,
         project_root: Pathlike,
         package: str,
     ) -> None:
-        self.config = config
-        self.project_root = Path(project_root).resolve()
-        self.package = package
-        self.modules: Dict[str, Module] = {}
-        self.graph: ImportGraph = ImportGraph()
-        self.filepath: Optional[Path] = None
+        super().__init__(config=config, project_root=project_root, package=package)
 
-    def __call__(self, filepath: Path) -> Union[nx.DiGraph, nx.DiGraph]:
-        if self.graph.empty or self.filepath != filepath:
+        self._filepath: Optional[Path] = None
+        self._modules: ModuleDict = {}  # TODO: change to ModulesCollection
+        self._graph: ImportGraph = ImportGraph()
+
+    def __bool__(self) -> bool:
+        return not self._graph.empty
+
+    def __call__(self, filepath: Path, refresh: bool = False) -> nx.DiGraph:
+        self._create_graph_if_needed(filepath, refresh=refresh)
+        return self._graph(self.config.node_format)
+
+    def clear(self) -> None:
+        self._filepath = None
+        self._modules.clear()
+        self._graph.clear()
+
+    @property
+    def filepath(self) -> Optional[Path]:
+        return copy(self._filepath)
+
+    @property
+    def modules(self) -> ModuleDict:
+        self._create_graph_if_needed()
+        return self._modules.copy()
+
+    @property
+    def graph(self) -> ImportGraph:
+        self._create_graph_if_needed()
+        return self._graph.copy()
+
+    @classmethod
+    def default_config(cls) -> ModuleImportsAnalyzerConfig:
+        return ModuleImportsAnalyzerConfig()
+
+    def _create_graph_if_needed(
+        self,
+        filepath: Optional[Path] = None,
+        refresh: bool = False,
+    ) -> None:
+        filepath = filepath or self._filepath
+        if not filepath:
+            raise ValueError("No module has been analyzed yet")
+
+        if refresh or not self or self._filepath != filepath:
             self._create_graph(filepath)
 
-        self._check_graph()
-        return self.graph(self.config.node_format)
-
     def _create_graph(self, filepath: Path) -> None:
-        self.graph = ImportGraph()
-        self.filepath = filepath
+        self.clear()
 
+        self._filepath = filepath
         root = self._create_root(filepath)
-        self.graph.add_node(root)
+        self._graph.add_node(root)
 
         processed: Set[Optional[Path]] = {None}
-        self.modules = {root.name: root}
+        self._modules = {root.name: root}
         new_modules: OrderedSet[Module] = OrderedSet([root])
 
         while new_modules:
@@ -68,10 +105,10 @@ class ModuleRegistry:
             )
 
     def _check_graph(self) -> None:
-        if self.graph.empty:
+        if self._graph.empty:
             logger.warning("The dependency graph is empty.")
 
-        cycle = self.graph.find_cycle()
+        cycle = self._graph.find_cycle()
         if cycle is not None:
             logger.warning(
                 "The dependency graph has a cycle. Example cycle:\n : %s",
@@ -84,7 +121,7 @@ class ModuleRegistry:
         base_path: Path,
         package: str,
         processed: Optional[Set[Optional[Path]]] = None,
-    ) -> Dict[str, Module]:
+    ) -> ModuleDict:
         """
         Analyze a Python file to extract all imported module paths,
         and return their corresponding file paths.
@@ -98,7 +135,7 @@ class ModuleRegistry:
         self,
         module: Module,
         processed: Optional[Set[Optional[Path]]] = None,
-    ) -> Dict[str, Module]:
+    ) -> ModuleDict:
         """
         Analyze a module to extract all imported module paths,
         and return their corresponding file paths.
@@ -122,7 +159,7 @@ class ModuleRegistry:
         if module.origin_type != OriginType.PYTHON:
             return False
 
-        category = module.get_category(self.project_root)
+        category = module.get_category(self._project_root)
         if not self.config.scan_stdlib and category == ModuleCategory.STDLIB:
             return False
 
@@ -168,8 +205,8 @@ class ModuleRegistry:
         self,
         module_source: ModuleSource,
         module_paths: List[ImportPath],
-    ) -> Dict[str, Module]:
-        modules: Dict[str, Module] = {}
+    ) -> ModuleDict:
+        modules: ModuleDict = {}
         for module_path in module_paths:
             module = self._get_module_from_import_path(
                 module_source,
@@ -210,10 +247,13 @@ class ModuleRegistry:
             return None
 
     def _create_root(self, filepath: Path) -> Module:
+        if self._project_root is None or self._package is None:
+            raise ValueError("Project root and package must be set to create the root module")
+
         root_source = ModuleSource(
             origin=filepath,
-            base_path=self.project_root,
-            package=self.package,
+            base_path=self._project_root,
+            package=self._package,
         )
 
         return root_source.module
@@ -227,11 +267,11 @@ class ModuleRegistry:
         processed.add(module.origin)
         imported_modules = self.analyze_module(module)
         for imported_module_name, imported_module in imported_modules.items():
-            if imported_module_name not in self.modules:
-                self.modules[imported_module_name] = imported_module
+            if imported_module_name not in self._modules:
+                self._modules[imported_module_name] = imported_module
 
-            target_module = self.modules[imported_module_name]
-            self.graph.add_edge(module, target_module)
+            target_module = self._modules[imported_module_name]
+            self._graph.add_edge(module, target_module)
             new_modules.add(target_module)
 
     def _resolve(

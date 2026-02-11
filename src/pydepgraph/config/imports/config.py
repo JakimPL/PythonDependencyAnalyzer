@@ -1,15 +1,12 @@
-from __future__ import annotations
-
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
-from pydepgraph.config.importer.output import ImportGraphNodeFormatEnum
+from pydepgraph.config.base import BaseConfig
+from pydepgraph.config.imports.output import ImportGraphNodeFormatEnum
 
 
-class ImporterConfig(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True, use_enum_values=True)
-
+class ModuleImportsAnalyzerConfig(BaseConfig):
     ignore_cycles: bool = Field(default=False, description="Ignore cycles in the dependency graph")
     scan_stdlib: bool = Field(default=False, description="Include standard library modules")
     scan_external: bool = Field(default=False, description="Include stdlib/site-packages")

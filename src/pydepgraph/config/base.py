@@ -9,6 +9,7 @@ class BaseConfig(BaseModel, ABC):
     """
 
     model_config = ConfigDict(
+        arbitrary_types_allowed=True,
         extra="forbid",
         use_enum_values=True,
     )

@@ -9,7 +9,7 @@ from typing import Union
 class OriginType(StrEnum):
     NONE = "none"
     PYTHON = "python"
-    NON_PYTHON = "non-python"
+    NO_PYTHON = "no-python"
     FROZEN = "frozen"
     BUILT_IN = "built-in"
 
@@ -28,4 +28,4 @@ class OriginType(StrEnum):
                 if path.suffix == ".py":
                     return cls.PYTHON
 
-                return cls.NON_PYTHON
+                return cls.NO_PYTHON

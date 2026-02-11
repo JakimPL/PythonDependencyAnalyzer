@@ -1,6 +1,6 @@
-from pydepgraph.config import ImporterConfig
+from pydepgraph.config import ModuleImportsAnalyzerConfig
 from pydepgraph.constants import APPLICATION_NAME
-from pydepgraph.importer import ModuleRegistry
+from pydepgraph.imports import ModuleImportsAnalyzer
 from pydepgraph.node import AST, ASTNode
 from pydepgraph.parser import parse_python_file
 from pydepgraph.specification import ImportPath, Module, ModuleCategory, ModuleSource, SysPaths
@@ -8,13 +8,13 @@ from pydepgraph.specification import ImportPath, Module, ModuleCategory, ModuleS
 __all__ = [
     "AST",
     "ASTNode",
-    "ImporterConfig",
+    "ModuleImportsAnalyzerConfig",
     "ImportPath",
     "SysPaths",
     "ModuleCategory",
     "Module",
     "ModuleSource",
-    "ModuleRegistry",
+    "ModuleImportsAnalyzer",
     "parse_python_file",
     "APPLICATION_NAME",
 ]

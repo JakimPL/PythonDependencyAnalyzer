@@ -28,12 +28,12 @@ def is_spec_origin_valid(origin: Optional[str]) -> bool:
     return path.is_file() or path.is_dir()
 
 
-def validate_spec_origin(spec: ModuleSpec) -> None:
+def validate_spec_origin(spec: ModuleSpec, expect_python: bool = True) -> None:
     name = spec.name
     if not spec.origin:
         raise PDGEmptyOriginError(f"Module spec '{name}' has no origin path")
 
-    if spec.origin in SPECIAL_ORIGINS:
+    if expect_python and spec.origin in SPECIAL_ORIGINS:
         raise PDGFrozenOriginError(f"Module '{name}' is frozen/built-in and cannot be analyzed")
 
     origin = Path(spec.origin)
@@ -45,16 +45,20 @@ def validate_spec_origin(spec: ModuleSpec) -> None:
             f"Module '{name}' has origin '{spec.origin}' that does not exist or is not a file"
         )
 
-    if origin.is_file() and origin.suffix != ".py":
+    if expect_python and origin.is_file() and origin.suffix != ".py":
         raise PDGInvalidOriginTypeError(f"Module '{name}' has non-Python origin file: '{spec.origin}'")
 
 
-def validate_spec(spec: Optional[ModuleSpec], validate_origin: bool = True) -> ModuleSpec:
+def validate_spec(
+    spec: Optional[ModuleSpec],
+    validate_origin: bool = True,
+    expect_python: bool = False,
+) -> ModuleSpec:
     if not spec:
         raise PDGMissingModuleSpecError("Module spec not found")
 
     if validate_origin:
-        validate_spec_origin(spec)
+        validate_spec_origin(spec, expect_python=expect_python)
 
     return spec
 

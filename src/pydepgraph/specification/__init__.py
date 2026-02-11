@@ -13,6 +13,8 @@ from pydepgraph.specification.modules.spec import (
     validate_spec_origin,
 )
 from pydepgraph.specification.modules.sys_paths import SysPaths
+from pydepgraph.specification.modules.types import ModuleDict, ModulesCollection
+from pydepgraph.specification.modules.wrapper import ModuleWrapper
 from pydepgraph.specification.source.span import SourceSpan
 from pydepgraph.specification.symbols.kind import SymbolKind
 from pydepgraph.specification.symbols.symbol import Symbol
@@ -21,11 +23,14 @@ __all__ = [
     "Specification",
     "ImportCondition",
     "ImportStatement",
+    "ModuleDict",
+    "ModulesCollection",
     "OriginType",
     "SysPaths",
     "ModuleCategory",
-    "ModuleSource",
     "Module",
+    "ModuleSource",
+    "ModuleWrapper",
     "SymbolKind",
     "Symbol",
     "SourceSpan",
