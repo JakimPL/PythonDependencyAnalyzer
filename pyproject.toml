@@ -1,6 +1,6 @@
 [project]
-name = "pydepgraph"
-version = "0.0.1"
+name = "pda"
+version = "0.0.2"
 description = "Python Dependency Analyzer - Analyze and visualize module/function dependencies in Python projects."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -29,7 +29,7 @@ target-version = ["py312"]
 [tool.isort]
 profile = "black"
 line_length = 120
-known_first_party = ["pydepgraph"]
+known_first_party = ["pda"]
 
 [tool.pytest.ini_options]
 addopts = """
@@ -40,11 +40,11 @@ addopts = """
 show_missing = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/pydepgraph"]
+packages = ["src/pda"]
 
 [tool.mypy]
 python_version = "3.12"
-files = "src/pydepgraph"
+files = "src/pda"
 exclude = ["^tests/", "^\\..*"]
 ignore_missing_imports = true
 strict = true
