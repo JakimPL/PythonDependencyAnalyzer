@@ -5,7 +5,7 @@ from collections import deque
 from pathlib import Path
 from typing import Any, Deque, Dict, List, Optional, Tuple
 
-from pydepgraph.node import ASTNode, NodeMapping
+from pydepgraph.nodes import ASTNode, NodeMapping
 from pydepgraph.resolver.scope import Scope
 
 
@@ -74,14 +74,14 @@ class NameResolver(ast.NodeVisitor):
     def _analyze_node(self, wrapper: ASTNode[Any]) -> List[ASTNode[Any]]:
         nodes: List[ASTNode[Any]] = []
         for child in ast.iter_child_nodes(wrapper.ast):
-            child_wrapper = ASTNode[Any](child, filepath=self.filepath, parent=wrapper)
+            child_wrapper = ASTNode[Any](child, parent=wrapper)
             self.wrappers[child] = child_wrapper
             nodes.append(child_wrapper)
 
         return nodes
 
     def _analyze_tree(self, tree: ast.AST) -> None:
-        self.root = ASTNode[Any](tree, filepath=self.filepath)
+        self.root = ASTNode[Any](tree)
         self.wrappers = {tree: self.root}
         wrappers: Deque[ASTNode[Any]] = deque([self.root])
         while wrappers:

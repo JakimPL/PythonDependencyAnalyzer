@@ -14,7 +14,7 @@ from pydepgraph.specification.base import Specification
 from pydepgraph.specification.modules.category import ModuleCategory
 from pydepgraph.specification.modules.origin import OriginType
 from pydepgraph.specification.modules.spec import validate_spec
-from pydepgraph.tools.utils import resolve_path
+from pydepgraph.tools.paths import resolve_path
 
 
 class Module(Specification):
@@ -71,15 +71,24 @@ class Module(Specification):
     @property
     def base_path(self) -> Path:
         spec = find_spec(self.top_level_module)
+        path: Optional[Path] = None
         if spec and spec.origin:
             if spec.submodule_search_locations:
-                return resolve_path(spec.submodule_search_locations[0]).parent
+                path = resolve_path(spec.submodule_search_locations[0])
+            else:
+                path = resolve_path(spec.origin)
 
-            return resolve_path(spec.origin).parent
+        if path is None:
+            raise PDGPathResolutionError(
+                f"Cannot determine base path for module '{self.name}' with top-level '{self.top_level_module}'"
+            )
 
-        raise PDGPathResolutionError(
-            f"Cannot determine base path for module '{self.name}' with top-level '{self.top_level_module}'"
-        )
+        return path.parent
+
+    @staticmethod
+    def retrieve_submodule_search_locations(spec: ModuleSpec) -> Tuple[Path, ...]:
+        locations = spec.submodule_search_locations or []
+        return tuple(path for location in locations if (path := resolve_path(location)) is not None)
 
     @classmethod
     def from_spec(
@@ -95,7 +104,7 @@ class Module(Specification):
 
         origin_type = OriginType.from_spec(spec)
         origin = resolve_path(spec.origin)
-        submodule_search_locations = tuple(resolve_path(location) for location in spec.submodule_search_locations or [])
+        submodule_search_locations = cls.retrieve_submodule_search_locations(spec)
 
         return cls(
             name=spec.name,

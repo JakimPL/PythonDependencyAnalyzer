@@ -4,11 +4,10 @@ from typing import Any, Generic, Optional
 
 from pydepgraph.config import ConfigT
 from pydepgraph.tools import logger
-from pydepgraph.tools.utils import resolve_path
-from pydepgraph.types import Pathlike, T
+from pydepgraph.types import AnyT, Pathlike
 
 
-class BaseAnalyzer(ABC, Generic[ConfigT, T]):
+class BaseAnalyzer(ABC, Generic[ConfigT, AnyT]):
     def __init__(
         self,
         config: Optional[ConfigT] = None,
@@ -16,7 +15,7 @@ class BaseAnalyzer(ABC, Generic[ConfigT, T]):
         package: Optional[str] = None,
     ) -> None:
         self.config = self.default_config() if config is None else config
-        self._project_root = resolve_path(project_root)
+        self._project_root = Path(project_root).resolve() if project_root is not None else None
         self._package = package
 
     @classmethod
@@ -29,7 +28,7 @@ class BaseAnalyzer(ABC, Generic[ConfigT, T]):
         """Return True if the analyzer has processed data, False otherwise."""
 
     @abstractmethod
-    def __call__(self, *args: Any, **kwargs: Any) -> T:
+    def __call__(self, *args: Any, **kwargs: Any) -> AnyT:
         """Run the analyzer and return the result."""
 
     @abstractmethod
@@ -42,7 +41,7 @@ class BaseAnalyzer(ABC, Generic[ConfigT, T]):
 
     @project_root.setter
     def project_root(self, value: Optional[Pathlike]) -> None:
-        self._project_root = resolve_path(value)
+        self._project_root = Path(value).resolve() if value is not None else None
         if self:
             logger.info("Project root changed. Clearing the graph and modules.")
 

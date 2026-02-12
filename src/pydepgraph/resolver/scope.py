@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple
 
-from pydepgraph.node.ast_node import ASTNode
+from pydepgraph.nodes.python.node import ASTNode
 from pydepgraph.specification import Symbol
 
 

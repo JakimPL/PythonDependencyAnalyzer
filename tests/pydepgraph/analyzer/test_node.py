@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from pydepgraph.node.ast_node import ASTNode
+from pydepgraph.nodes.python.node import ASTNode
 
 
 class TestASTNodeWrapper:

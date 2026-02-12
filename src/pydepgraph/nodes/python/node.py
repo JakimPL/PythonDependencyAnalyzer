@@ -2,25 +2,21 @@ from __future__ import annotations
 
 import ast
 from functools import cached_property
-from pathlib import Path
-from typing import Any, Generic, Iterable, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Generic, Iterable, Optional, Tuple, Type, Union
 
 from anytree import NodeMixin
 
-NodeT = TypeVar("NodeT", bound=ast.AST)
+from pydepgraph.graph.types import NodeT
 
 
 class ASTNode(NodeMixin, Generic[NodeT]):  # type: ignore[misc]
     def __init__(
         self,
         node: NodeT,
-        filepath: Path,
         parent: Optional[ASTNode[Any]] = None,
     ) -> None:
         self.ast: NodeT = node
         self.type: Type[NodeT] = type(node)
-        self.filepath: Path = filepath.with_suffix("")
-
         self.parent: Optional[ASTNode[Any]] = parent
 
     @cached_property

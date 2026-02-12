@@ -12,7 +12,7 @@ from pydepgraph.analyzer import BaseAnalyzer
 from pydepgraph.config import ModuleImportsAnalyzerConfig
 from pydepgraph.exceptions import PDGImportError
 from pydepgraph.graph import ImportGraph
-from pydepgraph.node import AST
+from pydepgraph.nodes import ASTForest
 from pydepgraph.specification import (
     ImportPath,
     Module,
@@ -126,7 +126,7 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, nx.DiGraph
         Analyze a Python file to extract all imported module paths,
         and return their corresponding file paths.
         """
-        tree = AST(filepath)
+        tree = ASTForest(filepath)
         module_source = ModuleSource(origin=filepath, base_path=base_path, package=package)
         import_paths = self._collect_imports(module_source, tree, processed=processed)
         return self._collect_modules(module_source, import_paths)
@@ -176,7 +176,7 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, nx.DiGraph
     def _collect_imports(
         self,
         module_source: ModuleSource,
-        tree: AST,
+        tree: ASTForest,
         processed: Optional[Set[Optional[Path]]] = None,
     ) -> List[ImportPath]:
         module_paths: OrderedSet[ImportPath] = OrderedSet()
@@ -190,14 +190,24 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, nx.DiGraph
 
     def _collect_import_paths(
         self,
-        tree: AST,
+        tree: ASTForest,
     ) -> List[ImportPath]:
         import_paths: OrderedSet[ImportPath] = OrderedSet()
-        for node in PreOrderIter(tree.root):
-            if node.type in (ast.Import, ast.ImportFrom):
-                import_node = node.ast
-                new_paths = [import_path.get_module_path() for import_path in ImportPath.from_ast(import_node)]
-                import_paths.update(new_paths)
+        nodes = [
+            node
+            for root in tree.roots
+            for node in PreOrderIter(root)
+            if node.type
+            in (
+                ast.Import,
+                ast.ImportFrom,
+            )
+        ]
+
+        for node in nodes:
+            import_node = node.ast
+            new_paths = [import_path.get_module_path() for import_path in ImportPath.from_ast(import_node)]
+            import_paths.update(new_paths)
 
         return list(import_paths)
 

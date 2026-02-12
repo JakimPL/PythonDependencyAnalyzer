@@ -7,7 +7,7 @@ from typing import List, NamedTuple, Optional, Self, Tuple, Union
 from pydantic import Field, model_validator
 
 from pydepgraph.constants import DELIMITER
-from pydepgraph.node import Node, get_ast
+from pydepgraph.nodes import Node, get_ast
 from pydepgraph.specification.base import Specification
 
 

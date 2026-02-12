@@ -12,6 +12,7 @@ from pydepgraph.exceptions.imports import (
     PDGRelativeBasePathError,
     PDGSourceFileOutsideProjectError,
 )
+from pydepgraph.exceptions.paths import PDGPathNotAvailableError
 
 __all__ = [
     "PDGException",
@@ -26,4 +27,5 @@ __all__ = [
     "PDGSourceFileOutsideProjectError",
     "PDGMissingModuleNameError",
     "PDGRelativeBasePathError",
+    "PDGPathNotAvailableError",
 ]

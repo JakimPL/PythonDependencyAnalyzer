@@ -1,7 +1,7 @@
 import ast
 from typing import Any, Dict, TypeAlias, TypeVar, Union, cast, overload
 
-from pydepgraph.node.ast_node import ASTNode
+from pydepgraph.nodes.python.node import ASTNode
 
 NodeMapping: TypeAlias = Dict[ast.AST, ASTNode[Any]]
 NodeT = TypeVar("NodeT", bound=ast.AST)

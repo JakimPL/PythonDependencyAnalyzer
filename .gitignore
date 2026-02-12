@@ -17,9 +17,11 @@ __pycache__/
 *.coverage
 
 *.txt
+*.json
 *.log
 *.png
 *.dot
 *.pdf
+*.svg
 
 *.ipynb

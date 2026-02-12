@@ -1,6 +1,7 @@
 import pkgutil
 from importlib.machinery import ModuleSpec
-from typing import Dict, Optional, Tuple, Union, overload
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union, overload
 
 import networkx as nx
 
@@ -18,7 +19,7 @@ from pydepgraph.specification import (
     find_module_spec,
 )
 from pydepgraph.tools import logger
-from pydepgraph.tools.utils import resolve_path
+from pydepgraph.tools.paths import is_dir, is_file, iterdir, resolve_path
 from pydepgraph.types import Pathlike
 
 
@@ -128,6 +129,40 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, nx.DiGraph]):
         if parent:
             self._graph.add_edge(parent, module)
 
+    def _collect_modules(self) -> None:
+        self.clear()
+        self._collect_external_modules()
+        self._collect_internal_modules()
+
+    def _collect_external_modules(self) -> None:
+        for pkg_module in self._pkg_modules.values():
+            name = pkg_module.name
+            is_package = pkg_module.ispkg
+            package = name if is_package else None
+            self._add_module(name, package=package)
+
+    def _collect_internal_modules(self) -> None:
+        if not self._project_root:
+            return
+
+        files = sorted(self._project_root.glob("**/*.py"))
+        for path in files:
+            import_path = self._get_import_path_from_file(path, self._project_root)
+            if import_path is None:
+                continue
+
+            self._add_module(str(import_path), package=self._package)
+
+    def _get_import_path_from_file(self, path: Path, base_path: Path) -> Optional[ImportPath]:
+        if not is_file(path) or path.suffix.lower() != ".py":
+            return None
+
+        import_path = ImportPath.from_path(path, base_path)
+        if import_path is None:
+            logger.warning("Could not determine import path for %s", path)
+
+        return import_path
+
     def _add_module(
         self,
         name: str,
@@ -162,14 +197,22 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, nx.DiGraph]):
         package: Optional[str] = None,
     ) -> None:
         origin = resolve_path(location)
-        files = list(origin.glob("*.py"))
-        for path in files:
-            import_path = ImportPath.from_path(path, origin.parent)
-            if import_path is None:
-                logger.warning("Could not determine import path for %s", path)
-                continue
+        if not origin:
+            return
 
+        files = self._get_submodule_paths(origin)
+        import_paths = self._get_import_paths_from_files(files, origin)
+        for import_path in import_paths:
             self._add_submodule_from_file(import_path, parent, package=package)
+
+    def _get_import_paths_from_files(self, files: List[Path], base_path: Path) -> List[ImportPath]:
+        import_paths: List[ImportPath] = []
+        for path in files:
+            import_path = self._get_import_path_from_file(path, base_path)
+            if import_path is not None:
+                import_paths.append(import_path)
+
+        return import_paths
 
     def _add_submodule_from_file(self, import_path: ImportPath, parent: Module, package: Optional[str] = None) -> None:
         name = str(import_path)
@@ -193,6 +236,9 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, nx.DiGraph]):
             return None
 
         origin = resolve_path(spec.origin)
+        if not origin:
+            return None
+
         if origin.suffix.lower() != ".py":
             logger.debug("Module %s has non-Python origin: %s", name, origin)
 
@@ -203,26 +249,9 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, nx.DiGraph]):
 
         return ModuleWrapper(spec, module, category)
 
-    def _collect_modules(self) -> None:
-        self.clear()
-        self._collect_external_modules()
-        self._collect_internal_modules()
+    def _get_submodule_paths(self, origin: Optional[Path]) -> List[Path]:
+        if origin is None:
+            return []
 
-    def _collect_external_modules(self) -> None:
-        for pkg_module in self._pkg_modules.values():
-            name = pkg_module.name
-            is_package = pkg_module.ispkg
-            package = name if is_package else None
-            self._add_module(name, package=package)
-
-    def _collect_internal_modules(self) -> None:
-        if not self._project_root:
-            return
-
-        for path in self._project_root.rglob("*.py"):
-            import_path = ImportPath.from_path(path, self._project_root)
-            if import_path is None:
-                logger.warning("Could not determine import path for %s", path)
-                continue
-
-            self._add_module(str(import_path), package=self._package)
+        files: List[Path] = iterdir(origin)
+        return sorted(path for path in files if is_file(path) and path.suffix.lower() == ".py" or is_dir(path))
