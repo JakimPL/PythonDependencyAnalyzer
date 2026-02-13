@@ -263,18 +263,26 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, nx.DiGraph
         if is_namespace_package(spec):
             return None
 
+        package = package_spec.name if package_spec is not None else None
         try:
-            package = package_spec.name if package_spec is not None else None
             return CategorizedModule.from_spec(
                 spec,
                 project_root=self._project_root,
                 package=package,
             )
+        except (AttributeError, KeyError, IndexError) as error:
+            logger.warning(
+                "Module '%s' error:\n%s: [%s]",
+                spec.name,
+                error.__class__.__name__,
+                error,
+            )
+            return None
         except PDAImportPathError as import_error:
             logger.debug(
-                "%s: %s [%s]",
-                import_error.__class__.__name__,
+                "Module '%s' import path error:\n%s: [%s]",
                 spec.name,
+                import_error.__class__.__name__,
                 import_error,
             )
             return None

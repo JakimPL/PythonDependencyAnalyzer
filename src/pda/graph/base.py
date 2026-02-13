@@ -80,3 +80,8 @@ class BaseGraph(Generic[NodeT], ABC):
             return [list(cycle) for cycle in nx.simple_cycles(self._graph)]
 
         return []
+
+    def relabel(self, graph: Optional[nx.Graph] = None) -> nx.Graph:
+        graph = graph or self._graph
+        mapping = {node: self.label(node) for node in graph.nodes}
+        return nx.relabel_nodes(graph, mapping)

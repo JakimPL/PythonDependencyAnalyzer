@@ -29,7 +29,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, nx.DiGraph]):
 
     def __init__(
         self,
-        config: Optional[ModulesCollectorConfig] = None,
+        config: ModulesCollectorConfig,
         project_root: Optional[Pathlike] = None,
         package: Optional[str] = None,
     ) -> None:
@@ -39,6 +39,8 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, nx.DiGraph]):
         self._pkg_modules: Dict[str, pkgutil.ModuleInfo] = self._collect_pkg_modules()
         self._graph: ImportGraph = ImportGraph()
         self._path_forest: PathForest = self._initialize_forest()
+
+        self._module_validation_options = ValidationOptions.permissive()
 
     def __call__(self, refresh: bool = False) -> nx.DiGraph:
         self._collect_modules_if_needed(refresh=refresh)
@@ -152,7 +154,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, nx.DiGraph]):
 
             is_package = pkg_module.ispkg
             package = name if is_package else None
-            base_path = Path(str(pkg_module.module_finder))
+            base_path = Path(pkg_module.module_finder.path)  # type: ignore[union-attr]
             self._add_module(name, base_path, package=package)
 
     def _collect_internal_modules(self) -> None:
@@ -198,7 +200,11 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, nx.DiGraph]):
     def _get_import_path(self, path: Path, base_path: Path) -> Optional[ImportPath]:
         import_path = ImportPath.from_path(path, base_path)
         if import_path is None:
-            logger.warning("Could not determine import path for %s", path)
+            logger.warning(
+                "Could not determine import path for '%s' relative to '%s'",
+                path,
+                base_path,
+            )
 
         return import_path
 
@@ -210,7 +216,17 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, nx.DiGraph]):
         parent: Optional[CategorizedModule] = None,
     ) -> None:
         name = str(name)
-        module = self._get_module(name, package=package)
+        try:
+            module = self._get_module(name, package=package)
+        except (AttributeError, KeyError, IndexError) as error:
+            logger.warning(
+                "Module '%s' error:\n%s: [%s]",
+                name,
+                error.__class__.__name__,
+                error,
+            )
+            return
+
         if not module:
             return
 
@@ -244,7 +260,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, nx.DiGraph]):
             name,
             project_root=self._project_root,
             package=package,
-            validation_options=ValidationOptions.root(),
+            validation_options=self._module_validation_options,
         )
 
         if module is None:

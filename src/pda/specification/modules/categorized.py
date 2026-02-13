@@ -97,7 +97,7 @@ class CategorizedModule(NamedTuple):
         options: ValidationOptions = validation_options or ValidationOptions.root()
         spec = find_module_spec(name, package=package, **options.model_dump())
         if not spec:
-            logger.warning("Module '%s' not found", name)
+            logger.debug("Module '%s' not found", name)
             return None
 
         origin_type = OriginType.from_spec(spec)
@@ -105,7 +105,7 @@ class CategorizedModule(NamedTuple):
             OriginType.NONE,
             OriginType.PYTHON,
         ):
-            logger.warning("Skipping non-Python module: %s of origin %s", name, origin_type)
+            logger.debug("Skipping non-Python module: %s of origin %s", name, origin_type)
             return None
 
         return CategorizedModule.from_spec(
@@ -122,9 +122,6 @@ class CategorizedModule(NamedTuple):
         project_root: Optional[Pathlike] = None,
     ) -> ModuleCategory:
         if category is None:
-            if project_root is None:
-                raise ValueError("Project root must be provided to determine module category")
-
             base_path = resolve_path(project_root)
             return module.get_category(base_path)
 

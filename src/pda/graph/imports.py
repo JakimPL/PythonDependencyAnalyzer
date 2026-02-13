@@ -15,11 +15,13 @@ class ImportGraph(BaseGraph[CategorizedModule], graph_type=nx.DiGraph):
     def _create_output_graph(self, output_format: ImportGraphNodeFormatEnum) -> nx.DiGraph:
         match output_format:
             case ImportGraphNodeFormatEnum.FULL:
-                return nx.DiGraph(self._graph)
+                graph = nx.DiGraph(self._graph)
             case ImportGraphNodeFormatEnum.TOP_LEVEL:
-                return self._create_top_level_graph()
+                graph = self._create_top_level_graph()
+            case _:
+                raise ValueError(f"Unsupported output format: {output_format}")
 
-        raise ValueError(f"Unsupported output format: {output_format}")
+        return graph
 
     def _create_top_level_graph(self) -> nx.DiGraph:
         """

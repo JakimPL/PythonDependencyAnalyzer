@@ -106,6 +106,8 @@ def find_module_spec(
     try:
         spec = find_spec(name, package=package)
     except (ImportError, ModuleNotFoundError, ValueError) as error:
+        logger.debug("Error finding spec for module '%s': %s", name, error)
+    except (PermissionError, OSError) as error:
         error_message = f"{error.__class__.__name__}: {error}"
         message = f"An error occurred while finding spec for module '{name}' of package '{package}'"
         if raise_error:
@@ -116,7 +118,7 @@ def find_module_spec(
     if spec is None:
         if allow_missing_spec:
             if name != "__main__":
-                logger.warning("Module spec for module '%s' not found", name)
+                logger.debug("Module spec for module '%s' not found", name)
 
             return None
 

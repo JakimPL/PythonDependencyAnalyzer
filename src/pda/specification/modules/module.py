@@ -77,7 +77,12 @@ class Module(Specification):
 
     @property
     def base_path(self) -> Path:
-        spec = find_module_spec(self.top_level_module)
+        spec = find_module_spec(
+            self.top_level_module,
+            validate_origin=False,
+            expect_python=False,
+        )
+
         path: Optional[Path] = None
         if spec and spec.origin:
             if spec.submodule_search_locations:
