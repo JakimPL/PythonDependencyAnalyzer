@@ -2,22 +2,21 @@ from __future__ import annotations
 
 import ast
 from functools import cached_property
-from typing import Any, Generic, Iterable, Optional, Tuple, Type, Union
-
-from anytree import NodeMixin
+from typing import Any, Generic, Optional, Type
 
 from pda.graph.types import NodeT
+from pda.nodes.base import BaseNode
 
 
-class ASTNode(NodeMixin, Generic[NodeT]):  # type: ignore[misc]
+class ASTNode(BaseNode[NodeT], Generic[NodeT]):
     def __init__(
         self,
         node: NodeT,
         parent: Optional[ASTNode[Any]] = None,
     ) -> None:
+        super().__init__(item=node, parent=parent)
         self.ast: NodeT = node
         self.type: Type[NodeT] = type(node)
-        self.parent: Optional[ASTNode[Any]] = parent
 
     @cached_property
     def name(self) -> str:
@@ -35,27 +34,3 @@ class ASTNode(NodeMixin, Generic[NodeT]):  # type: ignore[misc]
 
         name = self.type.__name__
         return getattr(self.ast, "name", name)
-
-    def has_ancestor(self, ancestor: Union[ASTNode[Any], Iterable[ASTNode[Any]]]) -> bool:
-        current = self.parent
-        ancestors = {ancestor} if isinstance(ancestor, ASTNode) else set(ancestor)
-        while current:
-            if current in ancestors:
-                return True
-
-            current = current.parent
-
-        return False
-
-    def has_ancestor_of_type(
-        self,
-        ancestor_type: Union[Type[ASTNode[Any]], Tuple[Type[ASTNode[Any]], ...]],
-    ) -> bool:
-        current = self.parent
-        while current:
-            if isinstance(current, ancestor_type):
-                return True
-
-            current = current.parent
-
-        return False

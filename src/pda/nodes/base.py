@@ -1,13 +1,51 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator
-from typing import Dict, Generic, List, Optional, Self, Set
+from typing import Callable, Dict, Generic, List, Optional, Self, Set, Tuple, Type, TypeVar, Union
 
 import networkx as nx
-from anytree import LevelOrderIter
+from anytree import LevelOrderIter, NodeMixin
 
 from pda.nodes.types import AnyNodeT
 from pda.tools.ordered_set import OrderedSet
 from pda.types import AnyT, HashableT
+
+ItemT = TypeVar("ItemT")
+
+
+class BaseNode(NodeMixin, Generic[ItemT]):  # type: ignore[misc]
+    def __init__(self, item: ItemT, *, parent: Optional[BaseNode[ItemT]] = None) -> None:
+        super().__init__()
+        self.item: ItemT = item
+        self.parent: Optional[BaseNode[ItemT]] = parent
+
+    def has_ancestor_matching(self, predicate: Callable[[BaseNode[ItemT]], bool]) -> bool:
+        current = self.parent
+        while current:
+            if predicate(current):
+                return True
+
+            current = current.parent
+
+        return False
+
+    def has_ancestor(self, ancestor: Union[BaseNode[ItemT], Iterable[BaseNode[ItemT]]]) -> bool:
+        ancestors = {ancestor} if isinstance(ancestor, BaseNode) else set(ancestor)
+        return self.has_ancestor_matching(lambda node: node in ancestors)
+
+    def has_ancestor_of_type(
+        self,
+        ancestor_type: Union[Type[BaseNode[ItemT]], Tuple[Type[BaseNode[ItemT]], ...]],
+    ) -> bool:
+        return self.has_ancestor_matching(lambda node: isinstance(node, ancestor_type))
+
+    def has_ancestor_of_id(self, items: Iterable[ItemT]) -> bool:
+        if not isinstance(items, Iterable):
+            raise ValueError(f"Expected an iterable of items, got {type(items)}")
+
+        item_ids = {id(item) for item in items}
+        return self.has_ancestor_matching(lambda node: id(node.item) in item_ids)
 
 
 class BaseForest(ABC, Generic[HashableT, AnyT, AnyNodeT]):

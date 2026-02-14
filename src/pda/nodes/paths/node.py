@@ -3,19 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from anytree import NodeMixin
-
+from pda.nodes.base import BaseNode
 from pda.tools.paths import exists, is_dir, is_file, is_python_file
 
 
-class PathNode(NodeMixin):  # type: ignore[misc]
+class PathNode(BaseNode[Path]):
     def __init__(
         self,
         filepath: Path,
         parent: Optional[PathNode] = None,
     ) -> None:
+        super().__init__(item=filepath, parent=parent)
         self.filepath: Path = filepath
-        self.parent: Optional[PathNode] = parent
 
         self._has_init: bool = exists(filepath / "__init__.py") if is_dir(filepath) else False
         self._is_package: bool = False
