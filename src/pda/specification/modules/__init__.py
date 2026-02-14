@@ -1,8 +1,8 @@
+from pda.specification.imports.origin import OriginType
 from pda.specification.modules.categorized import CategorizedModule
 from pda.specification.modules.category import ModuleCategory
 from pda.specification.modules.collection import ModulesCollection
 from pda.specification.modules.module import Module
-from pda.specification.modules.origin import OriginType
 from pda.specification.modules.source import ModuleSource
 from pda.specification.modules.spec import (
     find_module_spec,

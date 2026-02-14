@@ -10,10 +10,11 @@ from pydantic import Field, model_validator
 from pda.constants import DELIMITER
 from pda.exceptions import PDAInvalidOriginTypeError, PDAMissingModuleNameError, PDAPathResolutionError
 from pda.specification.base import Specification
+from pda.specification.imports.origin import OriginType
 from pda.specification.imports.path import ImportPath
 from pda.specification.modules.category import ModuleCategory
-from pda.specification.modules.origin import OriginType
 from pda.specification.modules.spec import find_module_spec, validate_spec
+from pda.specification.modules.type import ModuleType
 from pda.tools.paths import resolve_path
 
 
@@ -53,10 +54,8 @@ class Module(Specification):
         elif self.origin_type == OriginType.PYTHON:
             raise PDAInvalidOriginTypeError(f"Module '{self.name}' has file origin type but no origin path")
 
-        self.top_level_module
-        self.is_package
-        self.base_path
-        self.spec
+        _ = self.base_path
+        _ = self.spec
         return self
 
     @property
@@ -87,6 +86,18 @@ class Module(Specification):
     @property
     def is_namespace_package(self) -> bool:
         return self.is_package and self.origin is None
+
+    @property
+    def type(self) -> ModuleType:
+        match (self.is_package, self.is_namespace_package):
+            case (True, False):
+                return ModuleType.PACKAGE
+            case (True, True):
+                return ModuleType.NAMESPACE_PACKAGE
+            case (False, _):
+                return ModuleType.MODULE
+            case _:
+                raise ValueError(f"Invalid module type for module '{self.name}'")
 
     @property
     def import_path(self) -> ImportPath:

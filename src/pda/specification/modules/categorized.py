@@ -5,10 +5,11 @@ from pathlib import Path
 from typing import Any, NamedTuple, Optional, Tuple
 
 from pda.config import ValidationOptions
+from pda.specification.imports.origin import OriginType
 from pda.specification.modules.category import ModuleCategory
 from pda.specification.modules.module import Module
-from pda.specification.modules.origin import OriginType
 from pda.specification.modules.spec import find_module_spec
+from pda.specification.modules.type import ModuleType
 from pda.tools.logger import logger
 from pda.tools.paths import resolve_path
 from pda.types import Pathlike
@@ -68,6 +69,10 @@ class CategorizedModule(NamedTuple):
     @property
     def is_namespace_package(self) -> bool:
         return self.module.is_namespace_package
+
+    @property
+    def type(self) -> ModuleType:
+        return self.module.type
 
     @staticmethod
     def from_spec(
