@@ -60,6 +60,10 @@ class Module(Specification):
         return self
 
     @property
+    def parts(self) -> Tuple[str, ...]:
+        return tuple(self.name.split(DELIMITER))
+
+    @property
     def top_level_module(self) -> str:
         top_level = self.package or self.name
         return top_level.split(DELIMITER)[0]
@@ -67,6 +71,10 @@ class Module(Specification):
     @property
     def is_top_level(self) -> bool:
         return self.name == self.top_level_module
+
+    @property
+    def is_private(self) -> bool:
+        return self.parts[0].startswith("_")
 
     @property
     def is_module(self) -> bool:
@@ -83,6 +91,16 @@ class Module(Specification):
     @property
     def import_path(self) -> ImportPath:
         return ImportPath.from_string(self.name)
+
+    @property
+    def path(self) -> Optional[Path]:
+        if self.origin is not None:
+            return self.origin
+
+        if self.submodule_search_locations:
+            return self.submodule_search_locations[0]
+
+        return None
 
     @property
     def base_path(self) -> Path:
@@ -150,13 +168,14 @@ class Module(Specification):
         """
         Determine module category based on its origin path and top-level module name.
         If base_path is provided, modules with origins under that path
-        are categorized as INTERNAL.
+        are categorized as LOCAL.
 
         Standard library modules are categorized as STDLIB, and all others
         are categorized as EXTERNAL.
         """
-        if base_path and self.origin is not None and base_path in self.origin.parents:
-            return ModuleCategory.INTERNAL
+        parents = self.path.parents if self.path else []
+        if base_path is not None and base_path in parents:
+            return ModuleCategory.LOCAL
 
         if self.top_level_module in sys.stdlib_module_names:
             return ModuleCategory.STDLIB

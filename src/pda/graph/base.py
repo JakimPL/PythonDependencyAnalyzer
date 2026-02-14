@@ -44,9 +44,9 @@ class Graph(Generic[NodeT]):
     def has_edge(self, from_module: NodeT, to_module: NodeT) -> bool:
         return bool(self._graph.has_edge(from_module, to_module))
 
-    def add_node(self, module: NodeT) -> None:
+    def add_node(self, module: NodeT, level: int = 0) -> None:
         if not self.has_node(module):
-            self._graph.add_node(module)
+            self._graph.add_node(module, level=level)
 
     def add_edge(self, from_module: NodeT, to_module: NodeT) -> None:
         if from_module != to_module and not self.has_edge(from_module, to_module):
@@ -103,7 +103,6 @@ class Graph(Generic[NodeT]):
         **kwargs: Any,
     ) -> Network:
         self.sort_if_possible()
-        print(kwargs)
         pyvis_graph = Network(directed=True, **kwargs)
         node_map: Dict[NodeT, int] = {}
         for i, node in enumerate(self):

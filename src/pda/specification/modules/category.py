@@ -7,7 +7,7 @@ class ModuleCategory(Enum):
     """Categorizes modules by their origin and relationship to the project."""
 
     """Project modules under project_root."""
-    INTERNAL = "internal"
+    LOCAL = "local"
 
     """Python standard library modules."""
     STDLIB = "stdlib"

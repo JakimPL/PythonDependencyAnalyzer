@@ -30,9 +30,9 @@ class ModuleGraph(Graph[CategorizedModule]):
     def _relabel_quotient_graph(quotient: nx.DiGraph) -> nx.DiGraph:
         representatives: Dict[FrozenSet[CategorizedModule], CategorizedModule] = {}
         for equivalence_class in quotient.nodes():
-            first_module = next(iter(equivalence_class))
+            first_module: CategorizedModule = next(iter(equivalence_class))
             category = first_module.category
-            spec = find_module_spec(first_module.top_level_module)
+            spec = find_module_spec(first_module.top_level_module, expect_python=False)
             representative = CategorizedModule.from_spec(spec, category=category)
             representatives[equivalence_class] = representative
 

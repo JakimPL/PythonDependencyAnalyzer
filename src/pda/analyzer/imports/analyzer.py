@@ -45,7 +45,7 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self._collection: ModulesCollection = ModulesCollection(allow_unavailable=True)
         self._graph: ModuleGraph = ModuleGraph()
 
-        self._root_validation_options = ValidationOptions.root()
+        self._root_validation_options = ValidationOptions.strict()
         self._module_validation_options = ValidationOptions(
             allow_missing_spec=True,
             validate_origin=True,
@@ -189,6 +189,9 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             return False
 
         if not self.config.scan_external and category == ModuleCategory.EXTERNAL:
+            return False
+
+        if self.config.hide_private and module.is_private:
             return False
 
         assert module.origin is not None

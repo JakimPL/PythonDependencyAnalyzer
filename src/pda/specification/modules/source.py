@@ -37,7 +37,7 @@ class ModuleSource(Specification):
     base_path: Path = Field(description="Absolute path to the top-level project directory")
     package: str = Field(description="Package name corresponding to the base path")
     validation_options: ValidationOptions = Field(
-        default_factory=ValidationOptions.root,
+        default_factory=ValidationOptions.strict,
         description="Options for validating the module source",
     )
 

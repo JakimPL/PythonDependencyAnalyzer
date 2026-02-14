@@ -54,6 +54,10 @@ class CategorizedModule(NamedTuple):
         return self.module.is_top_level
 
     @property
+    def is_private(self) -> bool:
+        return self.module.is_private
+
+    @property
     def is_module(self) -> bool:
         return self.module.is_module
 
@@ -98,7 +102,7 @@ class CategorizedModule(NamedTuple):
         package: Optional[str] = None,
         validation_options: Optional[ValidationOptions] = None,
     ) -> Optional[CategorizedModule]:
-        options: ValidationOptions = validation_options or ValidationOptions.root()
+        options: ValidationOptions = validation_options or ValidationOptions.strict()
         spec = find_module_spec(name, package=package, **options.model_dump())
         if not spec:
             logger.debug("Module '%s' not found", name)

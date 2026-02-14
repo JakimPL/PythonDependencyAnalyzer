@@ -38,7 +38,7 @@ class ValidationOptions(BaseConfig):
         return self
 
     @classmethod
-    def root(cls) -> Self:
+    def strict(cls) -> Self:
         return cls(
             allow_missing_spec=True,
             validate_origin=True,

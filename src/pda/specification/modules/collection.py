@@ -12,7 +12,7 @@ class ModulesCollection:
     A collection of modules categorized by their type:
     * stdlib (standard library)
     * external (third-party packages)
-    * internal (project-specific modules)
+    * local (project-specific modules)
     * unavailable (modules that could not be categorized)
     """
 
@@ -90,8 +90,8 @@ class ModulesCollection:
         return self._categorized_modules[ModuleCategory.EXTERNAL].copy()
 
     @property
-    def internal(self) -> CategorizedModuleDict:
-        return self._categorized_modules[ModuleCategory.INTERNAL].copy()
+    def local(self) -> CategorizedModuleDict:
+        return self._categorized_modules[ModuleCategory.LOCAL].copy()
 
     @property
     def unavailable(self) -> CategorizedModuleDict:

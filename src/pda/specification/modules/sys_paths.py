@@ -43,7 +43,7 @@ class SysPaths(metaclass=Singleton):
         validation_options: Optional[ValidationOptions] = None,
     ) -> Optional[ImportPath]:
         origin: Optional[Path] = None
-        options: ValidationOptions = validation_options or ValidationOptions.root()
+        options: ValidationOptions = validation_options or ValidationOptions.strict()
         if isinstance(spec_or_origin, ModuleSpec):
             if options.validate_origin:
                 origin = validate_spec_origin(
