@@ -16,6 +16,10 @@ class ModuleGraph(Graph[CategorizedModule]):
     def group(self, node: CategorizedModule) -> str:
         return node.category.value
 
+    @override
+    def order(self, node: CategorizedModule) -> int:
+        return node.category.order
+
     def _quotient_graph(self) -> nx.DiGraph:
         def partition(module1: CategorizedModule, module2: CategorizedModule) -> bool:
             return module1.top_level_module == module2.top_level_module

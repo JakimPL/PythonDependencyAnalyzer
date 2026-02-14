@@ -54,9 +54,9 @@ class BaseForest(ABC, Generic[HashableT, AnyT, AnyNodeT]):
     def graph(self) -> nx.DiGraph:
         graph = nx.DiGraph()
         for node in self:
-            item = self.item(node)
-            label = self.label(node)
-            level = node.depth
+            item: AnyT = self.item(node)
+            label: str = self.label(node)
+            level: int = node.depth
             graph.add_node(item, label=label, rank=level, level=level)
             if node.parent is not None:
                 parent_item = self.item(node.parent)

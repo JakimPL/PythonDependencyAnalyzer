@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import ast
+from collections import deque
 from copy import copy
 from pathlib import Path
-from typing import List, Optional, Set, override
+from typing import Deque, List, Optional, Set, Tuple, override
 
 from anytree import PreOrderIter
 
@@ -104,23 +105,25 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
 
         self._filepath = filepath
         root = self._create_root(filepath)
-        self._graph.add_node(root)
+        self._graph.add_node(root, level=0)
 
         processed: Set[Optional[Path]] = {None}
-        new_modules: OrderedSet[CategorizedModule] = OrderedSet([root])
+        new_modules: Deque[Tuple[CategorizedModule, int]] = deque([(root, 0)])
 
         while new_modules:
-            module = new_modules.pop()
-            if module.origin in processed:
-                continue
-
-            if module.is_namespace_package:
+            module, depth = new_modules.pop()
+            if not self._check_if_should_process_module(
+                module,
+                processed=processed,
+                depth=depth,
+            ):
                 continue
 
             self._collect_new_modules(
                 module,
                 new_modules,
                 processed,
+                depth,
             )
 
     def _check_graph(self) -> None:
@@ -175,6 +178,21 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             module.top_level_module,
             processed=processed,
         )
+
+    def _check_if_should_process_module(
+        self,
+        module: CategorizedModule,
+        processed: Set[Optional[Path]],
+        depth: int,
+    ) -> bool:
+        if module.origin in processed:
+            return False
+
+        max_depth = self.config.max_depth
+        if max_depth is not None and depth > max_depth:
+            return False
+
+        return True
 
     def _check_if_should_scan(
         self,
@@ -267,9 +285,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             )
             return None
 
-        if is_namespace_package(spec):
-            return None
-
         package = package_spec.name if package_spec is not None else None
         try:
             return CategorizedModule.from_spec(
@@ -319,8 +334,9 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
     def _collect_new_modules(
         self,
         module: CategorizedModule,
-        new_modules: OrderedSet[CategorizedModule],
+        new_modules: Deque[tuple[CategorizedModule, int]],
         processed: Set[Optional[Path]],
+        depth: int = 0,
     ) -> None:
         processed.add(module.origin)
         imported_modules = self.analyze_module(module)
@@ -330,7 +346,8 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
 
             target_module = self._collection[imported_module_name]
             self._graph.add_edge(module, target_module)
-            new_modules.add(target_module)
+            self._graph.update_node(target_module, level=depth + 1)
+            new_modules.append((target_module, depth + 1))
 
     def _resolve(
         self,

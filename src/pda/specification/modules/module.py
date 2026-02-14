@@ -173,9 +173,10 @@ class Module(Specification):
         Standard library modules are categorized as STDLIB, and all others
         are categorized as EXTERNAL.
         """
-        parents = self.path.parents if self.path else []
-        if base_path is not None and base_path in parents:
-            return ModuleCategory.LOCAL
+        if base_path is not None:
+            parents = self.path.parents if self.path else []
+            if base_path in parents:
+                return ModuleCategory.LOCAL
 
         if self.top_level_module in sys.stdlib_module_names:
             return ModuleCategory.STDLIB

@@ -17,3 +17,7 @@ class ModuleCategory(Enum):
 
     """Uninstalled or unresolvable modules."""
     UNAVAILABLE = "unavailable"
+
+    @property
+    def order(self) -> int:
+        return list(ModuleCategory).index(self)
