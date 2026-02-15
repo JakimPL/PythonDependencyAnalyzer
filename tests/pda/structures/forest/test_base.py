@@ -6,7 +6,7 @@ from typing import Dict, Set
 import pytest
 from anytree import Node
 
-from pda.structures.forest.base import BaseForest
+from pda.structures.forest.base import Forest
 
 
 class TreeStructures:
@@ -227,5 +227,5 @@ class TestFindTopLevelNodes:
         ids=lambda tc: tc.label,
     )
     def test_find_top_level_nodes(self, test_case: TestCase) -> None:
-        result = BaseForest._find_top_level_nodes(test_case.nodes)
+        result = Forest._find_top_level_nodes(test_case.nodes)
         assert result == test_case.expected

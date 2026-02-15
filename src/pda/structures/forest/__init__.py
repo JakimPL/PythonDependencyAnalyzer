@@ -1,5 +1,5 @@
-from pda.structures.forest.base import BaseForest
+from pda.structures.forest.base import Forest
 
 __all__ = [
-    "BaseForest",
+    "Forest",
 ]

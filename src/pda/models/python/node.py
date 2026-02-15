@@ -8,6 +8,8 @@ from pda.types import ASTT
 
 
 class ASTNode(AnyNode[ASTT]):
+    _ordinal_counter: int = 0
+
     def __init__(
         self,
         node: ASTT,
@@ -15,10 +17,14 @@ class ASTNode(AnyNode[ASTT]):
         parent: Optional[ASTNode[ASTT]] = None,
         label: Optional[str] = None,
     ) -> None:
+        label = label or ast_label(node)
+        group = type(node).__name__
         super().__init__(
             item=node,
             parent=parent,
+            ordinal=self._ordinal(),
             label=label,
+            group=group,
         )
 
     @property
@@ -34,3 +40,8 @@ class ASTNode(AnyNode[ASTT]):
 
     def __repr__(self) -> str:
         return ast_dump(self.ast, short=True)
+
+    @classmethod
+    def _ordinal(cls) -> int:
+        cls._ordinal_counter += 1
+        return cls._ordinal_counter

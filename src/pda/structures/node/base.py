@@ -7,6 +7,7 @@ from pda.types import HashableT
 @dataclass
 class Node(Generic[HashableT]):
     item: HashableT
+    ordinal: int
     label: str
     level: int = 0
     order: int = 0
@@ -16,10 +17,10 @@ class Node(Generic[HashableT]):
         if not isinstance(other, Node):
             return NotImplemented
 
-        return bool(self.item == other.item)
+        return bool(self.item == other.item and self.ordinal == other.ordinal)
 
     def __hash__(self) -> int:
-        return hash(self.item)
+        return hash((self.item, self.ordinal))
 
     def __lt__(self, other: Self) -> bool:
         if not isinstance(other, Node):
@@ -28,5 +29,5 @@ class Node(Generic[HashableT]):
         return self.key < other.key
 
     @property
-    def key(self) -> Tuple[int, int, str]:
-        return (self.level, self.order, self.label)
+    def key(self) -> Tuple[int, int, str, int]:
+        return (self.level, self.order, self.label, self.ordinal)

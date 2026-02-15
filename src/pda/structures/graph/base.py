@@ -136,12 +136,11 @@ class Graph(Generic[NodeT]):
     @staticmethod
     def _sort(graph: nx.DiGraph) -> nx.DiGraph:
         roots = [node for node in graph.nodes() if graph.in_degree(node) == 0]
+        node: NodeT
         for node in nx.topological_sort(graph):
             if node in roots:
-                graph.nodes[node]["level"] = 0
+                node.level = 0
             else:
-                graph.nodes[node]["level"] = (
-                    max(graph.nodes[predecessor]["level"] for predecessor in graph.predecessors(node)) + 1
-                )
+                node.level = max(predecessor.level for predecessor in graph.predecessors(node)) + 1
 
         return graph

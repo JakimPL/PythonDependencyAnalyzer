@@ -7,7 +7,7 @@ from anytree import PostOrderIter
 from pda.models.paths.builder import build_path_tree
 from pda.models.paths.graph import PathGraph
 from pda.models.paths.node import PathNode
-from pda.structures import BaseForest
+from pda.structures import Forest
 from pda.tools.paths import filter_subdirectories
 from pda.types import Pathlike
 
@@ -17,7 +17,7 @@ Paths: TypeAlias = Union[
 ]
 
 
-class PathForest(BaseForest[PathNode]):
+class PathForest(Forest[PathNode]):
     """
     Wraps a filesystem structure as a tree of PathNodes
     for Python package file structure analysis.

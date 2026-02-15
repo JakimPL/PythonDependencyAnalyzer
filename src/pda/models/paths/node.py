@@ -19,10 +19,14 @@ class PathNode(AnyNode[Path]):
     ) -> None:
         filepath = Path(filepath).resolve()
         group = "." if is_dir(filepath) else filepath.suffix
+
+        ordinal = filepath.stat().st_ino
+        label = label or filepath.name
         level = len(filepath.parts)
         super().__init__(
             item=filepath,
             parent=parent,
+            ordinal=ordinal,
             label=label,
             level=level,
             group=group,

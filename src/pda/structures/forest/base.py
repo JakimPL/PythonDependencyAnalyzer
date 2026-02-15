@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from pda.structures.graph.base import Graph
 
 
-class BaseForest(ABC, Generic[AnyNodeT]):
+class Forest(ABC, Generic[AnyNodeT]):
     def __init__(
         self,
         nodes: Iterable[AnyNodeT],

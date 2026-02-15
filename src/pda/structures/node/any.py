@@ -15,6 +15,7 @@ class AnyNode(Node[HashableT], NodeMixin, Generic[HashableT]):  # type: ignore[m
         item: HashableT,
         *,
         parent: Optional[AnyNode[HashableT]] = None,
+        ordinal: int = 0,
         label: Optional[str] = None,
         level: int = 0,
         order: int = 0,
@@ -22,10 +23,12 @@ class AnyNode(Node[HashableT], NodeMixin, Generic[HashableT]):  # type: ignore[m
     ) -> None:
         self.parent: Optional[AnyNode[HashableT]] = parent
 
+        ordinal = ordinal or id(item)
         label = label or str(item)
-        level = level if parent is None else parent.depth + 1
+        level = level if parent is None else parent.level + 1
         super().__init__(
             item,
+            ordinal=ordinal,
             label=label,
             level=level,
             order=order,

@@ -10,7 +10,7 @@ from pda.models.python.builder import build_ast_tree
 from pda.models.python.graph import ASTGraph
 from pda.models.python.node import ASTNode
 from pda.parser import parse_python_file
-from pda.structures import BaseForest
+from pda.structures import Forest
 from pda.types import Pathlike
 
 PathNodes: TypeAlias = Union[
@@ -20,7 +20,7 @@ PathNodes: TypeAlias = Union[
 ]
 
 
-class ASTForest(BaseForest[ASTNode[Any]]):
+class ASTForest(Forest[ASTNode[Any]]):
     def __init__(
         self,
         nodes: PathNodes,
