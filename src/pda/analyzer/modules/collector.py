@@ -9,7 +9,7 @@ from pda.analyzer.base import BaseAnalyzer
 from pda.analyzer.lazy import lazy_execution
 from pda.config import ModulesCollectorConfig, ValidationOptions
 from pda.exceptions import PDACategoryDisabledWarning
-from pda.models import ModuleGraph, PathForest, PathNode
+from pda.models import ModuleGraph, ModuleNode, PathForest, PathNode
 from pda.specification import (
     CategorizedModule,
     CategorizedModuleDict,
@@ -20,7 +20,7 @@ from pda.specification import (
     SysPaths,
 )
 from pda.tools.logger import logger
-from pda.tools.paths import filter_subdirectories, resolve_path
+from pda.tools.paths import resolve_path
 from pda.types import Pathlike
 
 
@@ -51,15 +51,13 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         return bool(self._collection)
 
     @overload
-    def __getitem__(self, name_or_category: ModuleCategory) -> CategorizedModuleDict: ...
+    def __getitem__(self, key: ModuleCategory) -> CategorizedModuleDict: ...
 
     @overload
-    def __getitem__(self, name_or_category: str) -> CategorizedModule: ...
+    def __getitem__(self, key: str) -> CategorizedModule: ...
 
-    def __getitem__(
-        self, name_or_category: Union[str, ModuleCategory]
-    ) -> Union[CategorizedModule, CategorizedModuleDict]:
-        return self._collection[name_or_category]
+    def __getitem__(self, key: Union[str, ModuleCategory]) -> Union[CategorizedModule, CategorizedModuleDict]:
+        return self._collection[key]
 
     def _analyze_if_needed(self, *, refresh: bool = False) -> ModuleGraph:
         if refresh or not self:
@@ -142,22 +140,10 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
 
     def _initialize_forest(self) -> PathForest:
         paths: List[Path] = SysPaths.get_candidates(base_path=self._project_root)
-        root_paths = filter_subdirectories(paths)
-        return PathForest(root_paths)
+        return PathForest(paths)
 
     def _collect_pkg_modules(self) -> Dict[str, pkgutil.ModuleInfo]:
         return {module.name: module for module in pkgutil.iter_modules()}
-
-    def _update_graph(
-        self,
-        module: CategorizedModule,
-        parent: Optional[CategorizedModule] = None,
-        *,
-        level: int = 0,
-    ) -> None:
-        self._graph.add_node(module, level=level)
-        if parent:
-            self._graph.add_edge(parent, module)
 
     def _collect_modules(self) -> None:
         self.clear()
@@ -194,7 +180,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         self,
         location: Pathlike,
         base_path: Path,
-        parent: Optional[CategorizedModule] = None,
+        parent: Optional[ModuleNode] = None,
         package: Optional[str] = None,
         level: int = 0,
     ) -> None:
@@ -242,7 +228,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         name: Union[str, ImportPath],
         base_path: Path,
         package: Optional[str] = None,
-        parent: Optional[CategorizedModule] = None,
+        parent: Optional[ModuleNode] = None,
         level: int = 0,
     ) -> None:
         name = str(name)
@@ -263,25 +249,32 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         if module.is_private and self.config.hide_private:
             return
 
-        self._collection.add(module)
-        self._update_graph(module, parent, level=level)
-        self._add_submodules(module, base_path, package=name, level=level + 1)
+        node = ModuleNode(module, level=level)
+        self._add(node, parent)
+        self._add_submodules(node, base_path, package=name, level=level + 1)
+
+    def _add(self, node: ModuleNode, parent: Optional[ModuleNode] = None) -> None:
+        self._graph.add_node(node)
+        self._collection.add(node.module)
+        if parent is not None:
+            self._graph.add_edge(parent, node)
 
     def _add_submodules(
         self,
-        module: CategorizedModule,
+        node: ModuleNode,
         base_path: Path,
         package: Optional[str] = None,
         level: int = 0,
     ) -> None:
-        if not module.spec.submodule_search_locations:
+        spec = node.module.spec
+        if not spec.submodule_search_locations:
             return
 
-        for location in module.spec.submodule_search_locations:
+        for location in spec.submodule_search_locations:
             self._add_submodules_from_files(
                 location,
                 base_path=base_path,
-                parent=module,
+                parent=node,
                 package=package,
                 level=level,
             )
@@ -307,7 +300,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
 
         return module
 
-    def _get_submodule_paths(self, origin: Optional[Path]) -> List[Path]:
+    def _get_submodule_paths(self, origin: Optional[Path] = None) -> List[Path]:
         if origin is None:
             return []
 

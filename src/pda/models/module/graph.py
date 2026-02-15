@@ -1,27 +1,16 @@
-from typing import Dict, FrozenSet, Self, override
+from typing import Dict, FrozenSet, Self
 
 import networkx as nx
 
+from pda.models.module.node import ModuleNode
 from pda.specification import CategorizedModule, find_module_spec
 from pda.structures.graph.base import Graph
 
 
-class ModuleGraph(Graph[CategorizedModule]):
-    @override
-    def label(self, node: CategorizedModule) -> str:
-        return node.name
-
-    @override
-    def group(self, node: CategorizedModule) -> str:
-        return node.category.value
-
-    @override
-    def order(self, node: CategorizedModule) -> int:
-        return node.category.order
-
+class ModuleGraph(Graph[ModuleNode]):
     def _quotient_graph(self) -> nx.DiGraph:
-        def partition(module1: CategorizedModule, module2: CategorizedModule) -> bool:
-            return module1.top_level_module == module2.top_level_module
+        def partition(node1: ModuleNode, node2: ModuleNode) -> bool:
+            return node1.module.top_level_module == node2.module.top_level_module
 
         return nx.quotient_graph(
             self._graph,
@@ -31,13 +20,13 @@ class ModuleGraph(Graph[CategorizedModule]):
 
     @staticmethod
     def _relabel_quotient_graph(quotient: nx.DiGraph) -> nx.DiGraph:
-        representatives: Dict[FrozenSet[CategorizedModule], CategorizedModule] = {}
+        representatives: Dict[FrozenSet[ModuleNode], ModuleNode] = {}
         for equivalence_class in quotient.nodes():
-            first_module: CategorizedModule = next(iter(equivalence_class))
+            first_module: CategorizedModule = next(iter(equivalence_class)).module
             category = first_module.category
             spec = find_module_spec(first_module.top_level_module, expect_python=False)
             representative = CategorizedModule.from_spec(spec, category=category)
-            representatives[equivalence_class] = representative
+            representatives[equivalence_class] = ModuleNode(representative)
 
         return nx.relabel_nodes(quotient, representatives)
 

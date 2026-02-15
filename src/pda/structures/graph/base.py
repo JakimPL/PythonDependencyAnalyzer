@@ -1,12 +1,11 @@
 import json
-from typing import Any, Dict, Generic, Iterator, List, Optional, Self, Tuple, Union
+from typing import Any, Dict, Generic, Iterator, List, Optional, Self, Union
 
 import networkx as nx
 from networkx.classes.reportviews import NodeView, OutEdgeView
 from pyvis.network import Network
 
-from pda.structures.forest.base import BaseForest
-from pda.structures.graph.types import Edge, NodeT
+from pda.structures.node.types import Edge, NodeT
 from pda.tools import logger
 
 
@@ -45,9 +44,9 @@ class Graph(Generic[NodeT]):
     def has_edge(self, from_module: NodeT, to_module: NodeT) -> bool:
         return bool(self._graph.has_edge(from_module, to_module))
 
-    def add_node(self, module: NodeT, level: int = 0) -> None:
+    def add_node(self, module: NodeT) -> None:
         if not self.has_node(module):
-            self._graph.add_node(module, level=level)
+            self._graph.add_node(module)
 
     def add_edge(self, from_module: NodeT, to_module: NodeT) -> None:
         if from_module != to_module and not self.has_edge(from_module, to_module):
@@ -59,21 +58,9 @@ class Graph(Generic[NodeT]):
         if self.has_node(module):
             self._graph.nodes[module].update(attributes)
 
-    def label(self, node: NodeT) -> str:
-        return str(node)
-
-    def level(self, node: NodeT) -> int:
-        return int(self._graph.nodes[node].get("level", 0))
-
-    def order(self, node: NodeT) -> int:
-        return 0
-
-    def group(self, node: NodeT) -> Optional[str]:
-        return None
-
     def edge_label(self, from_node: NodeT, to_node: NodeT) -> str:
-        from_label = self.label(from_node)
-        to_label = self.label(to_node)
+        from_label = from_node.label
+        to_label = to_node.label
         return f"{from_label} → {to_label}"
 
     @property
@@ -100,20 +87,6 @@ class Graph(Generic[NodeT]):
     def sort_if_possible(self) -> None:
         self._graph = self._sort_if_possible(self._graph)
 
-    def order_nodes(self) -> List[NodeT]:
-        node_orders: Dict[NodeT, Tuple[int, int, str]] = {}
-        for node in self:
-            label: str = self.label(node)
-            level: int = self.level(node)
-            order: int = self.order(node)
-            node_orders[node] = (level, order, label)
-
-        return sorted(self, key=lambda node: node_orders[node])
-
-    @classmethod
-    def from_forest(cls, forest: BaseForest[Any, NodeT, Any]) -> Self:
-        return cls(graph=forest.graph)
-
     def to_pyvis(
         self,
         *,
@@ -121,14 +94,14 @@ class Graph(Generic[NodeT]):
         **kwargs: Any,
     ) -> Network:
         self.sort_if_possible()
-        nodes = self.order_nodes()
+        nodes = sorted(self.nodes)
         pyvis_graph = Network(directed=True, **kwargs)
         node_map: Dict[NodeT, int] = {}
         for i, node in enumerate(nodes):
             node_map[node] = i
-            label: str = self.label(node)
-            group: Optional[str] = self.group(node)
-            level: int = self.level(node)
+            label: str = node.label
+            group: Optional[str] = node.group
+            level: int = node.level
             pyvis_graph.add_node(
                 i,
                 label=label,

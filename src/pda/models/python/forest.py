@@ -1,47 +1,64 @@
 from __future__ import annotations
 
 import ast
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Dict, Optional, Set, TypeAlias, Union
 
+from pda.models.paths.node import PathNode
+from pda.models.python.builder import build_ast_tree
+from pda.models.python.graph import ASTGraph
 from pda.models.python.node import ASTNode
 from pda.parser import parse_python_file
-from pda.structures.forest.base import BaseForest
+from pda.structures import BaseForest
+from pda.types import Pathlike
+
+PathNodes: TypeAlias = Union[
+    Iterable[ASTNode[Any]],
+    Iterable[Pathlike],
+    Iterable[PathNode],
+]
 
 
-class ASTForest(BaseForest[Path, ast.AST, ASTNode[Any]]):
-    """
-    Wraps an AST as a anytree tree structure for convenient traversal and analysis.
-    """
-
-    def _build_tree(
+class ASTForest(BaseForest[ASTNode[Any]]):
+    def __init__(
         self,
-        item: ast.AST,
-        parent: Optional[ASTNode[Any]] = None,
+        nodes: PathNodes,
     ) -> None:
-        node = self._add_node(item, parent=parent)
-        if node is None:
-            return
+        super().__init__(self._to_nodes(nodes))
+        self._mapping: Dict[ast.AST, ASTNode[Any]] = self._get_node_mapping()
 
-        if parent is None:
-            self._roots.add(node)
+    def __getitem__(self, node: ast.AST) -> ASTNode[Any]:
+        return self._mapping[node]
 
-        for child in ast.iter_child_nodes(node.ast):
-            self._build_tree(child, parent=node)
+    def _to_nodes(self, items: PathNodes) -> Set[ASTNode[Any]]:
+        node: ASTNode[Any]
+        nodes: Set[ASTNode[Any]] = set()
+        for item in items:
+            if isinstance(item, ASTNode):
+                nodes.add(item)
+                continue
 
-    def _create_node(
-        self,
-        item: ast.AST,
-        parent: Optional[ASTNode[Any]] = None,
-    ) -> ASTNode[Any]:
-        return ASTNode[Any](item, parent=parent)
+            if isinstance(item, PathNode):
+                item = item.filepath
 
-    def label(self, node: ASTNode[Any]) -> str:
-        return node.name
+            if isinstance(item, (str, Path)):
+                path = Path(item).resolve()
+                tree = parse_python_file(path)
+                node = build_ast_tree(tree)
+                nodes.add(node)
+                continue
 
-    def item(self, node: ASTNode[Any]) -> ast.AST:
-        ast_node: ast.AST = node.ast
-        return ast_node
+            raise TypeError(f"Unsupported node type: {type(item)}, expected str, Path, PathNode or ASTNode")
 
-    def _input_to_item(self, inp: Path) -> ast.Module:
-        return parse_python_file(inp)
+        return nodes
+
+    def _get_node_mapping(self) -> Dict[ast.AST, ASTNode[Any]]:
+        return {node.ast: node for node in self}
+
+    def get(self, node: ast.AST) -> Optional[ASTNode[Any]]:
+        return self._mapping.get(node)
+
+    @property
+    def graph(self) -> ASTGraph:
+        return ASTGraph(self.nx)

@@ -1,24 +1,36 @@
 from __future__ import annotations
 
-import ast
-from functools import cached_property
-from typing import Any, Generic, Optional, Type, TypeVar
+from typing import Optional, Type
 
-from pda.structures.node.base import BaseNode
-
-NodeT = TypeVar("NodeT", bound=ast.AST)
+from pda.models.python.dump import ast_dump, ast_label
+from pda.structures import AnyNode
+from pda.types import ASTT
 
 
-class ASTNode(BaseNode[NodeT], Generic[NodeT]):
+class ASTNode(AnyNode[ASTT]):
     def __init__(
         self,
-        node: NodeT,
-        parent: Optional[ASTNode[Any]] = None,
+        node: ASTT,
+        *,
+        parent: Optional[ASTNode[ASTT]] = None,
+        label: Optional[str] = None,
     ) -> None:
-        super().__init__(item=node, parent=parent)
-        self.ast: NodeT = node
-        self.type: Type[NodeT] = type(node)
+        super().__init__(
+            item=node,
+            parent=parent,
+            label=label,
+        )
 
-    @cached_property
-    def name(self) -> str:
-        return str(ast.dump(self.ast))
+    @property
+    def ast(self) -> ASTT:
+        return self.item
+
+    @property
+    def type(self) -> Type[ASTT]:
+        return type(self.ast)
+
+    def __str__(self) -> str:
+        return ast_label(self.ast)
+
+    def __repr__(self) -> str:
+        return ast_dump(self.ast, short=True)

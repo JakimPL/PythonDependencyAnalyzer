@@ -1,118 +1,71 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections.abc import Iterable, Iterator
-from typing import Dict, Generic, List, Optional, Self, Set
+from typing import TYPE_CHECKING, Generic, Set
 
 import networkx as nx
 from anytree import LevelOrderIter
 
-from pda.structures.ordered_set import OrderedSet
-from pda.types import AnyNodeT, AnyT, HashableT
+from pda.structures.node.types import AnyNodeT
+
+if TYPE_CHECKING:
+    from pda.structures.graph.base import Graph
 
 
-class BaseForest(ABC, Generic[HashableT, AnyT, AnyNodeT]):
-    def __init__(self, items: Iterable[HashableT]) -> None:
-        self._mapping: Dict[AnyT, AnyNodeT] = {}
-        self._items: List[AnyT] = self._prepare_inputs(items)
-        self._roots: Set[AnyNodeT] = set()
-        self()
+class BaseForest(ABC, Generic[AnyNodeT]):
+    def __init__(
+        self,
+        nodes: Iterable[AnyNodeT],
+        *,
+        detach_from_parents: bool = True,
+    ) -> None:
+        self._roots: Set[AnyNodeT] = self._find_top_level_nodes(nodes)
+        if detach_from_parents:
+            self._detach_roots_from_parents()
 
-    @classmethod
-    def from_item(cls, item: HashableT) -> Self:
-        return cls([item])
+    @staticmethod
+    def _find_top_level_nodes(nodes: Iterable[AnyNodeT]) -> Set[AnyNodeT]:
+        return {node for node in set(nodes) if not any(ancestor in nodes for ancestor in node.ancestors)}
+
+    def _detach_roots_from_parents(self) -> None:
+        for root in self._roots:
+            root.parent = None
 
     def __bool__(self) -> bool:
-        return bool(self._mapping)
-
-    def __call__(self) -> Set[AnyNodeT]:
-        for item in self._items:
-            self._build_tree(item)
-
-        return self._roots
+        return bool(self._roots)
 
     def __iter__(self) -> Iterator[AnyNodeT]:
         for root in self._roots:
             yield from LevelOrderIter(root)
 
-    def __getitem__(self, item: AnyT) -> AnyNodeT:
-        item = self._prepare_item(item)
-        return self._mapping[item]
-
-    def _prepare_inputs(self, inputs: Iterable[HashableT]) -> List[AnyT]:
-        items: OrderedSet[HashableT] = OrderedSet[HashableT](inputs)
-        return list(map(self._prepare_input, items))
+    def __len__(self) -> int:
+        return sum(root.size for root in self._roots)
 
     @property
     def roots(self) -> Set[AnyNodeT]:
         return self._roots.copy()
 
     @property
-    def mapping(self) -> Dict[AnyT, AnyNodeT]:
-        return self._mapping.copy()
-
-    @property
-    def graph(self) -> nx.DiGraph:
+    def nx(self) -> nx.DiGraph:
         graph = nx.DiGraph()
         for node in self:
-            item: AnyT = self.item(node)
-            label: str = self.label(node)
+            label: str = node.label
             level: int = node.depth
-            graph.add_node(item, label=label, rank=level, level=level)
+            graph.add_node(node, label=label, rank=level, level=level)
             if node.parent is not None:
-                parent_item = self.item(node.parent)
                 edge_label = self.edge_label(node.parent, node)
-                graph.add_edge(parent_item, item, label=edge_label)
+                graph.add_edge(node.parent, node, label=edge_label)
 
         return graph
 
-    @abstractmethod
-    def label(self, node: AnyNodeT) -> str: ...
+    @property
+    def graph(self) -> Graph[AnyNodeT]:
+        from pda.structures.graph.base import Graph
 
-    @abstractmethod
-    def item(self, node: AnyNodeT) -> AnyT: ...
+        return Graph(graph=self.nx)
 
     def edge_label(self, from_node: AnyNodeT, to_node: AnyNodeT) -> str:
-        from_label = self.label(from_node)
-        to_label = self.label(to_node)
+        from_label = from_node.label
+        to_label = to_node.label
         return f"{from_label} → {to_label}"
-
-    @abstractmethod
-    def _input_to_item(self, inp: HashableT) -> AnyT: ...
-
-    def _prepare_input(self, inp: HashableT) -> AnyT:
-        item = self._input_to_item(inp)
-        return self._prepare_item(item)
-
-    def _prepare_item(self, item: AnyT) -> AnyT:
-        return item
-
-    @abstractmethod
-    def _build_tree(
-        self,
-        item: AnyT,
-        parent: Optional[AnyNodeT] = None,
-    ) -> None: ...
-
-    def _add_node(
-        self,
-        item: AnyT,
-        parent: Optional[AnyNodeT] = None,
-    ) -> Optional[AnyNodeT]:
-        if item in self._mapping:
-            return self[item]
-
-        node = self._create_node(item, parent=parent)
-        self._mapping[item] = node
-        return node
-
-    @abstractmethod
-    def _create_node(
-        self,
-        item: AnyT,
-        parent: Optional[AnyNodeT] = None,
-    ) -> AnyNodeT: ...
-
-    def get(self, item: AnyT) -> Optional[AnyNodeT]:
-        item = self._prepare_item(item)
-        return self._mapping.get(item)

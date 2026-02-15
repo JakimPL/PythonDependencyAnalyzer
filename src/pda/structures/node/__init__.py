@@ -1,5 +1,11 @@
-from pda.structures.node.base import BaseNode
+from pda.structures.node.any import AnyNode
+from pda.structures.node.base import Node
+from pda.structures.node.types import AnyNodeT, Edge, NodeT
 
 __all__ = [
-    "BaseNode",
+    "Node",
+    "NodeT",
+    "Edge",
+    "AnyNode",
+    "AnyNodeT",
 ]

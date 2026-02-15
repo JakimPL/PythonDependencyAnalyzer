@@ -4,7 +4,7 @@ import ast
 from collections import deque
 from copy import copy
 from pathlib import Path
-from typing import Deque, List, Optional, Set, Tuple, override
+from typing import Deque, List, Optional, Set, Tuple, Union, overload, override
 
 from anytree import PreOrderIter
 
@@ -12,7 +12,7 @@ from pda.analyzer.base import BaseAnalyzer
 from pda.analyzer.lazy import lazy_execution
 from pda.config import ModuleImportsAnalyzerConfig, ValidationOptions
 from pda.exceptions import PDAImportPathError, PDAMissingModuleSpecError
-from pda.models import ASTForest, ModuleGraph
+from pda.models import ASTForest, ModuleGraph, ModuleNode
 from pda.specification import (
     CategorizedModule,
     CategorizedModuleDict,
@@ -65,6 +65,15 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
     ) -> ModuleGraph:
         return self._analyze_if_needed(filepath=filepath, refresh=refresh)
 
+    @overload
+    def __getitem__(self, key: ModuleCategory) -> CategorizedModuleDict: ...
+
+    @overload
+    def __getitem__(self, key: str) -> CategorizedModule: ...
+
+    def __getitem__(self, key: Union[str, ModuleCategory]) -> Union[CategorizedModule, CategorizedModuleDict]:
+        return self._collection[key]
+
     def clear(self) -> None:
         self._filepath = None
         self._collection.clear()
@@ -104,26 +113,25 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
 
         self._filepath = filepath
         root = self._create_root(filepath)
-        self._graph.add_node(root, level=0)
+        self._add(root)
 
         processed: Set[Optional[Path]] = {None}
-        new_modules: Deque[Tuple[CategorizedModule, int]] = deque([(root, 0)])
+        new_nodes: Deque[Tuple[ModuleNode, int]] = deque([(root, 0)])
 
-        while new_modules:
-            module, depth = new_modules.pop()
-            if not self._check_if_should_process_module(
+        while new_nodes:
+            node, depth = new_nodes.pop()
+            module = node.module
+            if self._check_if_should_process_module(
                 module,
                 processed=processed,
                 depth=depth,
             ):
-                continue
-
-            self._collect_new_modules(
-                module,
-                new_modules,
-                processed,
-                depth,
-            )
+                self._collect_new_modules(
+                    node,
+                    new_nodes,
+                    processed,
+                    depth,
+                )
 
     def _check_graph(self) -> None:
         if self._graph.empty:
@@ -133,8 +141,14 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         if cycle is not None:
             logger.warning(
                 "The dependency graph has a cycle. Example cycle:\n : %s",
-                "\n-> ".join(module.name for module in cycle),
+                "\n-> ".join(node.module.name for node in cycle),
             )
+
+    def _add(self, node: ModuleNode, parent: Optional[ModuleNode] = None) -> None:
+        self._graph.add_node(node)
+        self._collection.add(node.module)
+        if parent is not None:
+            self._graph.add_edge(parent, node)
 
     def analyze_file(
         self,
@@ -308,7 +322,7 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             )
             return None
 
-    def _create_root(self, filepath: Path) -> CategorizedModule:
+    def _create_root(self, filepath: Path) -> ModuleNode:
         if self._project_root is None or self._package is None:
             raise ValueError("Project root and package must be set to create the root module")
 
@@ -328,25 +342,25 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         if module is None:
             raise PDAMissingModuleSpecError(f"Could not create root module for {filepath}")
 
-        return module
+        return ModuleNode(module)
 
     def _collect_new_modules(
         self,
-        module: CategorizedModule,
-        new_modules: Deque[tuple[CategorizedModule, int]],
+        node: ModuleNode,
+        new_nodes: Deque[Tuple[ModuleNode, int]],
         processed: Set[Optional[Path]],
         depth: int = 0,
     ) -> None:
-        processed.add(module.origin)
-        imported_modules = self.analyze_module(module)
-        for imported_module_name, imported_module in imported_modules.items():
-            if imported_module_name not in self._collection:
-                self._collection.add(imported_module)
+        processed.add(node.module.origin)
+        imported_modules = self.analyze_module(node.module)
+        for imported_module in imported_modules.values():
+            if imported_module.origin in processed:
+                continue
 
-            target_module = self._collection[imported_module_name]
-            self._graph.add_edge(module, target_module)
-            self._graph.update_node(target_module, level=depth + 1)
-            new_modules.append((target_module, depth + 1))
+            level = depth + 1
+            child = ModuleNode(imported_module, level=level)
+            self._add(child, parent=node)
+            new_nodes.append((child, level))
 
     def _resolve(
         self,

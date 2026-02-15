@@ -1,25 +1,24 @@
 import ast
-from typing import Any, Dict, TypeAlias, TypeVar, Union, cast, overload
+from typing import Any, Dict, TypeAlias, Union, cast, overload
 
 from pda.models.python.node import ASTNode
+from pda.types import ASTT
 
 NodeMapping: TypeAlias = Dict[ast.AST, ASTNode[Any]]
-NodeT = TypeVar("NodeT", bound=ast.AST)
-Node: TypeAlias = Union[NodeT, ASTNode[NodeT]]
 
 
 @overload
-def get_ast(node: NodeT) -> NodeT: ...
+def get_ast(node: ASTT) -> ASTT: ...
 
 
 @overload
-def get_ast(node: ASTNode[NodeT]) -> NodeT: ...
+def get_ast(node: ASTNode[ASTT]) -> ASTT: ...
 
 
-def get_ast(node: Node[NodeT]) -> NodeT:
-    ast_node: NodeT
+def get_ast(node: Union[ASTT, ASTNode[ASTT]]) -> ASTT:
+    ast_node: ASTT
     if isinstance(node, ast.AST):
-        return cast(NodeT, node)
+        return cast(ASTT, node)
 
     if not isinstance(node, ASTNode):
         raise TypeError(f"Expected node to be either ast.AST or ASTNode, got {type(node)}")

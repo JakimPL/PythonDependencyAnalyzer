@@ -3,28 +3,43 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from pda.structures.node.base import BaseNode
+from pda.structures import AnyNode
 from pda.tools.paths import exists, is_dir, is_file, is_python_file
+from pda.types import Pathlike
 
 
-class PathNode(BaseNode[Path]):
+class PathNode(AnyNode[Path]):
     def __init__(
         self,
-        filepath: Path,
+        filepath: Pathlike,
+        *,
         parent: Optional[PathNode] = None,
+        label: Optional[str] = None,
+        group: Optional[str] = None,
     ) -> None:
-        super().__init__(item=filepath, parent=parent)
-        self.filepath: Path = filepath
+        filepath = Path(filepath).resolve()
+        group = "." if is_dir(filepath) else filepath.suffix
+        level = len(filepath.parts)
+        super().__init__(
+            item=filepath,
+            parent=parent,
+            label=label,
+            level=level,
+            group=group,
+        )
 
         self._has_init: bool = exists(filepath / "__init__.py") if is_dir(filepath) else False
         self._is_package: bool = False
+
+    def __str__(self) -> str:
+        return self.filepath.name
 
     def __repr__(self) -> str:
         return f"PathNode(filepath={self.filepath})"
 
     @property
-    def name(self) -> str:
-        return self.filepath.name
+    def filepath(self) -> Path:
+        return self.item
 
     @property
     def is_file(self) -> bool:

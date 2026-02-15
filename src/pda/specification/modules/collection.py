@@ -31,35 +31,29 @@ class ModulesCollection:
         return any(name in modules for modules in self._categorized_modules.values())
 
     @overload
-    def __getitem__(self, name_or_category: ModuleCategory) -> CategorizedModuleDict: ...
+    def __getitem__(self, key: ModuleCategory) -> CategorizedModuleDict: ...
 
     @overload
-    def __getitem__(self, name_or_category: str) -> CategorizedModule: ...
+    def __getitem__(self, key: str) -> CategorizedModule: ...
 
-    def __getitem__(
-        self, name_or_category: Union[str, ModuleCategory]
-    ) -> Union[CategorizedModule, CategorizedModuleDict]:
-        if isinstance(name_or_category, ModuleCategory):
-            if name_or_category == ModuleCategory.UNAVAILABLE:
+    def __getitem__(self, key: Union[str, ModuleCategory]) -> Union[CategorizedModule, CategorizedModuleDict]:
+        if isinstance(key, ModuleCategory):
+            if key == ModuleCategory.UNAVAILABLE:
                 raise ValueError("Unavailable modules are not stored in this registry")
 
-            return self._categorized_modules[name_or_category]
+            return self._categorized_modules[key]
 
-        if name_or_category in ModuleCategory:
-            raise TypeError(
-                f"Module category '{name_or_category}' should be accessed using its enum value, not as a string"
-            )
+        if key in ModuleCategory:
+            raise TypeError(f"Module category '{key}' should be accessed using its enum value, not as a string")
 
-        if not isinstance(name_or_category, str):
-            raise TypeError(
-                f"Module name must be either a category enum or a string, got {type(name_or_category).__name__}"
-            )
+        if not isinstance(key, str):
+            raise TypeError(f"Module name must be either a category enum or a string, got {type(key).__name__}")
 
         for category in self.categories:
-            if name_or_category in self._categorized_modules[category]:
-                return self._categorized_modules[category][name_or_category]
+            if key in self._categorized_modules[category]:
+                return self._categorized_modules[category][key]
 
-        raise KeyError(f"Module '{name_or_category}' not found")
+        raise KeyError(f"Module '{key}' not found")
 
     def __len__(self) -> int:
         return sum(len(modules) for modules in self._categorized_modules.values())

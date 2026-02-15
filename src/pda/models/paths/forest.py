@@ -1,81 +1,65 @@
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Optional, Set
+from typing import Dict, Optional, Set, TypeAlias, Union
 
 from anytree import PostOrderIter
 
+from pda.models.paths.builder import build_path_tree
+from pda.models.paths.graph import PathGraph
 from pda.models.paths.node import PathNode
-from pda.structures.forest.base import BaseForest
-from pda.tools.paths import is_dir, iterdir
+from pda.structures import BaseForest
+from pda.tools.paths import filter_subdirectories
 from pda.types import Pathlike
 
+Paths: TypeAlias = Union[
+    Iterable[Pathlike],
+    Iterable[PathNode],
+]
 
-class PathForest(BaseForest[Path, Path, PathNode]):
+
+class PathForest(BaseForest[PathNode]):
     """
     Wraps a filesystem structure as a tree of PathNodes
     for Python package file structure analysis.
     """
 
-    def _build_tree(
-        self,
-        item: Path,
-        parent: Optional[PathNode] = None,
-    ) -> None:
-        node = self._add_node(item, parent=parent)
-        if node is None:
-            return
-
-        if parent is None:
-            self._roots.add(node)
-
-        if not is_dir(item):
-            return
-
-        paths = iterdir(item)
-        for path in paths:
-            self._build_tree(path, parent=node)
-
-    def __call__(self) -> Set[PathNode]:
-        roots = super().__call__()
+    def __init__(self, nodes: Paths) -> None:
+        super().__init__(self._to_nodes(nodes))
         self._populate_package_info()
-        return roots
+        self._mapping: Dict[Path, PathNode] = self._get_node_mapping()
 
-    def _create_node(
-        self,
-        item: Path,
-        parent: Optional[PathNode] = None,
-    ) -> PathNode:
-        return PathNode(item, parent=parent)
+    def __getitem__(self, path: Pathlike) -> PathNode:
+        path = Path(path).resolve()
+        return self._mapping[path]
 
-    def label(self, node: PathNode) -> str:
-        return node.filepath.name
+    def _to_nodes(self, items: Paths) -> Set[PathNode]:
+        if all(isinstance(item, PathNode) for item in items):
+            return {item for item in items if item.is_dir}  # type: ignore[misc,union-attr]
 
-    def item(self, node: PathNode) -> Path:
-        return node.filepath
+        if not all(isinstance(item, (str, Path)) for item in items):
+            raise TypeError("All items must be either str or Path instances, or all must be PathNode instances")
 
-    def _prepare_input(self, inp: Pathlike) -> Path:
-        return Path(inp).resolve()
+        nodes: Set[PathNode] = set()
+        paths = filter_subdirectories(items)
+        for path in paths:
+            root = build_path_tree(path)
+            if root is not None:
+                nodes.add(root)
 
-    def _input_to_item(self, inp: Path) -> Path:
-        return inp
+        return nodes
 
-    def _populate_package_info(self) -> None:
-        node: PathNode
-        for root in self._roots:
-            for node in PostOrderIter(root):
-                if node.is_dir:
-                    node.mark_as_package_if_applicable()
+    def _get_node_mapping(self) -> Dict[Path, PathNode]:
+        return {node.filepath: node for node in self}
 
-    def is_package(self, path: Path) -> bool:
-        node = self.get(path)
-        return node.is_package if node else False
+    def get(self, path: Pathlike) -> Optional[PathNode]:
+        path = Path(path).resolve()
+        return self._mapping.get(path)
 
-    def get_python_files(self, root: Path) -> Set[Path]:
-        node = self.get(root)
-        if not node:
-            return set()
-
+    def get_python_files(self) -> Set[Path]:
         files: Set[Path] = set()
-        self._collect_python_files(node, files)
+        for root in self._roots:
+            self._collect_python_files(root, files)
+
         return files
 
     def _collect_python_files(self, node: PathNode, files: Set[Path]) -> None:
@@ -85,3 +69,14 @@ class PathForest(BaseForest[Path, Path, PathNode]):
         child: PathNode
         for child in node.children:
             self._collect_python_files(child, files)
+
+    def _populate_package_info(self) -> None:
+        node: PathNode
+        for root in self._roots:
+            for node in PostOrderIter(root):
+                if node.is_dir:
+                    node.mark_as_package_if_applicable()
+
+    @property
+    def graph(self) -> PathGraph:
+        return PathGraph(self.nx)

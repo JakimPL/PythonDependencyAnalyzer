@@ -1,36 +1,20 @@
-from pathlib import Path
-from typing import Self, override
+from typing import Self
 
 import networkx as nx
 
-from pda.structures.graph.base import Graph
+from pda.models.paths.node import PathNode
+from pda.structures import Graph
 from pda.tools.paths import is_dir
 
 
-class PathGraph(Graph[Path]):
-    @override
-    def label(self, node: Path) -> str:
-        return node.name
-
-    @override
-    def group(self, node: Path) -> str:
-        if is_dir(node):
-            return "."
-
-        return node.suffix
-
-    @override
-    def order(self, node: Path) -> int:
-        if is_dir(node):
-            return 0
-
-        return 1
-
+class PathGraph(Graph[PathNode]):
     @staticmethod
     def _remove_files_from_graph(graph: nx.DiGraph) -> nx.DiGraph:
         simplified_graph = graph.copy()
+
+        node: PathNode
         for node in graph.nodes:
-            if not is_dir(node):
+            if not is_dir(node.filepath):
                 simplified_graph.remove_node(node)
 
         return simplified_graph
