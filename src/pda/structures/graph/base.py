@@ -1,12 +1,9 @@
-import json
-from typing import Any, Dict, Generic, Iterator, List, Optional, Self, Union
+from typing import Any, Generic, Iterator, List, Optional, Self
 
 import networkx as nx
 from networkx.classes.reportviews import NodeView, OutEdgeView
-from pyvis.network import Network
 
 from pda.structures.node.types import Edge, NodeT
-from pda.tools import logger
 
 
 class Graph(Generic[NodeT]):
@@ -15,7 +12,7 @@ class Graph(Generic[NodeT]):
     """
 
     def __init__(self, graph: Optional[nx.DiGraph] = None) -> None:
-        self._graph = self._sort_if_possible(graph or nx.DiGraph())
+        self._graph = self._sort(graph or nx.DiGraph())
 
     def __iter__(self) -> Iterator[NodeT]:
         return iter(self._graph.nodes)
@@ -84,57 +81,34 @@ class Graph(Generic[NodeT]):
 
         return []
 
-    def sort_if_possible(self) -> None:
-        self._graph = self._sort_if_possible(self._graph)
-
-    def to_pyvis(
-        self,
-        *,
-        options: Optional[Union[str, Dict[str, Any]]] = None,
-        **kwargs: Any,
-    ) -> Network:
-        self.sort_if_possible()
-        nodes = sorted(self.nodes)
-        pyvis_graph = Network(directed=True, **kwargs)
-        node_map: Dict[NodeT, int] = {}
-        for i, node in enumerate(nodes):
-            node_map[node] = i
-            label: str = node.label
-            group: Optional[str] = node.group
-            level: int = node.level
-            pyvis_graph.add_node(
-                i,
-                label=label,
-                title=label,
-                level=level,
-                group=group,
-            )
-
-        for from_node, to_node in self.edges:
-            pyvis_graph.add_edge(
-                node_map[from_node],
-                node_map[to_node],
-                title=self.edge_label(from_node, to_node),
-            )
-
-        if options:
-            if isinstance(options, dict):
-                options = json.dumps(options)
-
-            pyvis_graph.set_options(options)
-
-        return pyvis_graph
-
-    @staticmethod
-    def _sort_if_possible(graph: nx.DiGraph) -> nx.DiGraph:
-        if not nx.is_directed_acyclic_graph(graph):
-            logger.debug("Graph has cycles, skipping topological sort")
-            return graph
-
-        return Graph._sort(graph)
+    def sort(self) -> None:
+        self._graph = self._sort(self._graph)
 
     @staticmethod
     def _sort(graph: nx.DiGraph) -> nx.DiGraph:
+        if nx.is_directed_acyclic_graph(graph):
+            return Graph._sort_topologically(graph)
+
+        return Graph._sort_by_levels(graph)
+
+    @staticmethod
+    def _sort_by_levels(graph: nx.DiGraph) -> nx.DiGraph:
+        sorted_nodes = sorted(graph.nodes())
+        graph = graph.copy()
+        for node in sorted_nodes:
+            if graph.in_degree(node) == 0:
+                node.level = 0
+            else:
+                predecessor_levels = [pred.level for pred in graph.predecessors(node) if hasattr(pred, "level")]
+                node.level = max(predecessor_levels) + 1 if predecessor_levels else 0
+
+        return graph
+
+    @staticmethod
+    def _sort_topologically(graph: nx.DiGraph) -> nx.DiGraph:
+        if not nx.is_directed_acyclic_graph(graph):
+            raise ValueError("Graph contains cycles, cannot perform topological sort.")
+
         roots = [node for node in graph.nodes() if graph.in_degree(node) == 0]
         node: NodeT
         for node in nx.topological_sort(graph):

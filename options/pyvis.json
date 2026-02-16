@@ -1,0 +1,88 @@
+{
+    "pda": {
+        "auto_adjust_spacing": true
+    },
+    "network": {
+        "notebook": true,
+        "height": "750px",
+        "width": "100%",
+        "cdn_resources": "remote"
+    },
+    "vis": {
+        "edges": {
+            "smooth": {
+                "enabled": true,
+                "type": "cubicBezier",
+                "roundness": 0.5
+            },
+            "arrows": {
+                "to": {
+                    "enabled": true,
+                    "scaleFactor": 0.5
+                }
+            }
+        },
+        "nodes": {
+            "shape": "box",
+            "font": {
+                "size": 14,
+                "face": "monospace"
+            }
+        },
+        "groups": {
+            "internal": {
+                "color": {
+                    "background": "#42A5F5",
+                    "border": "#1976D2"
+                }
+            },
+            "stdlib": {
+                "color": {
+                    "background": "#66BB6A",
+                    "border": "#388E3C"
+                }
+            },
+            "external": {
+                "color": {
+                    "background": "#FFA726",
+                    "border": "#F57C00"
+                }
+            },
+            "unavailable": {
+                "color": {
+                    "background": "#EF5350",
+                    "border": "#C62828"
+                }
+            },
+            ".": {
+                "color": {
+                    "background": "#EEDC82",
+                    "border": "#D4AF37"
+                }
+            }
+        },
+        "layout": {
+            "hierarchical": {
+                "enabled": true,
+                "direction": "UD",
+                "sortMethod": "directed",
+                "nodeSpacing": 300,
+                "levelSeparation": 200,
+                "treeSpacing": 250,
+                "blockShifting": true,
+                "edgeMinimization": true,
+                "parentCentralization": true
+            }
+        },
+        "interaction": {
+            "hover": true,
+            "navigationButtons": true,
+            "keyboard": true,
+            "zoomView": true,
+            "dragView": true
+        },
+        "physics": {
+            "enabled": false
+        }
+    }
+}

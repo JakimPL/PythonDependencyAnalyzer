@@ -24,5 +24,5 @@ class PathGraph(Graph[PathNode]):
         Hides files from the graph, only showing directories.
         """
         simplified_graph = self._remove_files_from_graph(self._graph)
-        sorted_graph = self._sort_if_possible(simplified_graph)
+        sorted_graph = self._sort(simplified_graph)
         return self.__class__(graph=sorted_graph)
