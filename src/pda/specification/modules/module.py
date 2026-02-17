@@ -63,6 +63,10 @@ class Module(Specification):
         return tuple(self.name.split(DELIMITER))
 
     @property
+    def module_name(self) -> str:
+        return self.name.removesuffix(".__init__").split(DELIMITER)[-1]
+
+    @property
     def top_level_module(self) -> str:
         top_level = self.package or self.name
         return top_level.split(DELIMITER)[0]

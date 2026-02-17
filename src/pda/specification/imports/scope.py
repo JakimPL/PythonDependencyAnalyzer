@@ -34,6 +34,7 @@ class ImportScope(IntFlag):
     DEFAULT_CASE = CASE | DEFAULT
     BRANCH = IF_ELSE | DEFAULT_CASE | ERROR_HANDLING
     DEFINITION = CLASS | FUNCTION
+    MAIN_GUARD = IF | MAIN
 
     def validate(self) -> None:
         if self & ImportScope.TYPE_CHECKING and not self & ImportScope.IF_ELSE:

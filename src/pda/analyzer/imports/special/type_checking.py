@@ -1,7 +1,13 @@
 import ast
 from typing import Any, Optional
 
-from pda.analyzer.imports.special.common import get_next_elif, is_and_clause, is_or_clause
+from pda.analyzer.imports.special.common import (
+    any_branch_excludes,
+    contains_in_chain,
+    contains_negation,
+    is_and_clause,
+    is_or_clause,
+)
 
 
 def is_type_checking_only(if_node: ast.If, in_else_branch: bool = False) -> bool:
@@ -26,25 +32,11 @@ def is_type_checking_only(if_node: ast.If, in_else_branch: bool = False) -> bool
 
 
 def any_branch_excludes_type_checking(if_node: ast.If) -> bool:
-    current: Optional[ast.If] = if_node
-
-    while current:
-        if contains_type_checking_negation(current.test):
-            return True
-
-        current = get_next_elif(current)
-
-    return False
+    return any_branch_excludes(if_node, contains_type_checking_negation)
 
 
 def contains_type_checking_negation(node: ast.expr) -> bool:
-    if _is_negated_type_checking(node):
-        return True
-
-    if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.Or):
-        return _contains_negated_type_checking_in_or_chain(node)
-
-    return False
+    return contains_negation(node, _is_negated_type_checking, _contains_negated_type_checking_in_or_chain)
 
 
 def simplify_comparison(node: ast.expr) -> Optional[bool]:
@@ -136,14 +128,11 @@ def _is_simplified_type_checking_comparison(node: ast.Compare) -> bool:
 
 
 def _contains_type_checking_in_and_chain(node: ast.BoolOp) -> bool:
-    for value in node.values:
-        if is_type_checking_name(value):
-            return True
-
-        if isinstance(value, ast.Compare) and _is_simplified_type_checking_comparison(value):
-            return True
-
-    return False
+    return contains_in_chain(
+        node,
+        lambda v: is_type_checking_name(v)
+        or (isinstance(v, ast.Compare) and _is_simplified_type_checking_comparison(v)),
+    )
 
 
 def _contains_type_checking_in_and(node: ast.expr) -> bool:
@@ -164,11 +153,7 @@ def _is_negated_type_checking(node: ast.expr) -> bool:
 
 
 def _contains_negated_type_checking_in_or_chain(node: ast.BoolOp) -> bool:
-    for value in node.values:
-        if _is_negated_type_checking(value):
-            return True
-
-    return False
+    return contains_in_chain(node, _is_negated_type_checking)
 
 
 def _is_simplified_to_true_with_type_checking(node: ast.expr) -> bool:

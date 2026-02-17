@@ -1,7 +1,12 @@
 import ast
-from typing import Optional
 
-from pda.analyzer.imports.special.common import get_next_elif, is_and_clause, is_or_clause
+from pda.analyzer.imports.special.common import (
+    any_branch_excludes,
+    contains_in_chain,
+    contains_negation,
+    is_and_clause,
+    is_or_clause,
+)
 
 
 def is_main_guard_only(if_node: ast.If, in_else_branch: bool = False) -> bool:
@@ -23,15 +28,19 @@ def is_main_guard_only(if_node: ast.If, in_else_branch: bool = False) -> bool:
 
 
 def any_branch_excludes_main_guard(if_node: ast.If) -> bool:
-    current: Optional[ast.If] = if_node
+    return any_branch_excludes(if_node, contains_main_guard_negation)
 
-    while current:
-        if contains_main_guard_negation(current.test):
-            return True
 
-        current = get_next_elif(current)
+def contains_main_guard_negation(node: ast.expr) -> bool:
+    return contains_negation(node, _is_negated_main_guard, _contains_negated_main_guard_in_or_chain)
 
-    return False
+
+def is_main_guard_comparison(node: ast.Compare) -> bool:
+    return _is_main_guard_comparison_with_op(node, ast.Eq)
+
+
+def is_negated_main_guard_comparison(node: ast.Compare) -> bool:
+    return _is_main_guard_comparison_with_op(node, ast.NotEq)
 
 
 def _is_name_dunder_name(node: ast.expr) -> bool:
@@ -59,20 +68,8 @@ def _is_main_guard_comparison_with_op(node: ast.Compare, op_type: type[ast.cmpop
     return (left_is_name and right_is_main) or (left_is_main and right_is_name)
 
 
-def is_main_guard_comparison(node: ast.Compare) -> bool:
-    return _is_main_guard_comparison_with_op(node, ast.Eq)
-
-
-def is_negated_main_guard_comparison(node: ast.Compare) -> bool:
-    return _is_main_guard_comparison_with_op(node, ast.NotEq)
-
-
 def _contains_main_guard_in_and_chain(node: ast.BoolOp) -> bool:
-    for value in node.values:
-        if isinstance(value, ast.Compare) and is_main_guard_comparison(value):
-            return True
-
-    return False
+    return contains_in_chain(node, lambda v: isinstance(v, ast.Compare) and is_main_guard_comparison(v))
 
 
 def _contains_main_guard_in_and(node: ast.expr) -> bool:
@@ -97,18 +94,4 @@ def _is_negated_main_guard(node: ast.expr) -> bool:
 
 
 def _contains_negated_main_guard_in_or_chain(node: ast.BoolOp) -> bool:
-    for value in node.values:
-        if _is_negated_main_guard(value):
-            return True
-
-    return False
-
-
-def contains_main_guard_negation(node: ast.expr) -> bool:
-    if _is_negated_main_guard(node):
-        return True
-
-    if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.Or):
-        return _contains_negated_main_guard_in_or_chain(node)
-
-    return False
+    return contains_in_chain(node, _is_negated_main_guard)
