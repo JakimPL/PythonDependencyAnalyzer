@@ -31,8 +31,8 @@ class ImportScope(IntFlag):
     # Combinations
     IF_ELSE = IF | ELSE
     ERROR_HANDLING = TRY | EXCEPT | TRY_ELSE | FINALLY
-    MATCH_CASE = CASE | DEFAULT
-    BRANCH = IF_ELSE | MATCH_CASE | ERROR_HANDLING
+    DEFAULT_CASE = CASE | DEFAULT
+    BRANCH = IF_ELSE | DEFAULT_CASE | ERROR_HANDLING
     DEFINITION = CLASS | FUNCTION
 
     def validate(self) -> None:

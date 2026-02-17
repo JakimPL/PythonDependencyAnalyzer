@@ -28,6 +28,49 @@ elif some_condition or another_condition:
 else:
     from package.module import SomeFallbackRuntimeClass as SomeRuntimeClass
 
+# Positive examples of TYPE_CHECKING
+if True and TYPE_CHECKING == True:
+    from package.module import SomeTypeOnlyUsedInTypeChecking1
+
+if 1 > 0 and TYPE_CHECKING is True and some_condition:
+    from package.module import SomeTypeOnlyUsedInTypeChecking2
+elif TYPE_CHECKING:
+    from package.module import SomeTypeOnlyUsedInTypeChecking3
+
+if bool(TYPE_CHECKING) > 0:
+    from package.module import SomeTypeOnlyUsedInTypeChecking4
+
+if some_condition:
+    pass
+elif not TYPE_CHECKING or another_condition:
+    pass
+else:
+    from package.module import SomeTypeOnlyUsedInTypeChecking6
+
+# Negative examples of TYPE_CHECKING
+if some_condition or TYPE_CHECKING:
+    from package.module import SomeTypeUsedInRuntime1
+
+if False or TYPE_CHECKING:  # We won't evaluate conditions, so we a priori consider the import as used in runtime
+    from package.module import SomeTypeUsedInRuntime2
+
+if some_condition or (TYPE_CHECKING and another_condition):
+    from package.module import SomeTypeUsedInRuntime3
+
+if not TYPE_CHECKING and some_condition:
+    from package.module import SomeTypeUsedInRuntime4
+else:
+    from package.module import SomeTypeUsedInRuntime5
+
+if TYPE_CHECKING or some_condition:
+    pass
+elif another_condition:
+    from package.module import SomeTypeUsedInRuntime6
+else:
+    from package.module import SomeTypeUsedInRuntime7
+
+
+# Try-except-else-finally example
 try:
     import some_optional_dependency
     from some_optional_dependency.module import OptionalClass
@@ -135,3 +178,26 @@ class MyClass:
         with context_manager():
             instance = InsideDecoratedMethodClass()
             return inside_decorated_method.some_decorated_method(instance)
+
+
+# Positive examples of main guard
+if __name__ == "__main__":
+    from main_guard_package import main_guard_function
+
+    main_guard_function()
+
+if some_condition and __name__ == "__main__":
+    from main_guard_package import some_function
+
+    some_function()
+
+# Negative examples of main guard
+if __name__ != "__main__":
+    from main_guard_package import not_main_guard_function
+
+    not_main_guard_function()
+
+if __name__ == "main" or another_condition:
+    from main_guard_package import also_not_main_guard_function
+
+    also_not_main_guard_function()

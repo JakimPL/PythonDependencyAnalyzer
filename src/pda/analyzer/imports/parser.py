@@ -65,6 +65,7 @@ class ImportStatementParser:
             match current.ast:
                 case ast.If():
                     scope = self._handle_if_scope(node, current)
+                    scope |= self._handle_type_checking_scope(current)
                 case ast.Try():
                     scope = self._handle_try_scope(node, current)
                 case ast.Match():
@@ -111,6 +112,9 @@ class ImportStatementParser:
             )
 
         return ImportScope.IF if node_in_body else ImportScope.ELSE
+
+    def _handle_type_checking_scope(self, if_node: ASTNode[ast.If]) -> ImportScope:
+        return ImportScope.NONE
 
     def _handle_try_scope(self, node: ASTNode[Any], try_node: ASTNode[ast.Try]) -> ImportScope:
         except_handlers = try_node.ast.handlers
