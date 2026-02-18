@@ -20,3 +20,18 @@ class ImportStatement(Specification):
         default_factory=list,
         description="Scope in which this import is executed, from innermost to outermost",
     )
+
+    def in_scope(self, scope: ImportScope) -> bool:
+        """Check if this import statement is within the given scope.
+
+        Args:
+            scope: The scope flag(s) to check for
+
+        Returns:
+            True if any of the statement's scopes contain the given scope flag(s)
+
+        Examples:
+            If checking for IF and scope is (IF | MAIN), returns True
+            If checking for (IF | TYPE_CHECKING) and scope contains both flags, returns True
+        """
+        return any((s & scope) == scope for s in self.scopes)

@@ -1,3 +1,4 @@
+from pda.exceptions.analyzer import PDAAnalysisWarning, PDADependencyCycleWarning
 from pda.exceptions.base import PDAException, PDAWarning
 from pda.exceptions.imports import (
     PDAImportPathError,
@@ -6,7 +7,12 @@ from pda.exceptions.imports import (
     PDASourceFileOutsideProjectError,
 )
 from pda.exceptions.modules import PDAMissingModuleNameError, PDAMissingTopLevelModuleError, PDAModuleError
-from pda.exceptions.options import PDACategoryDisabledWarning, PDAOptionsWarning, PDAValidationOptionsWarning
+from pda.exceptions.options import (
+    PDACategoryDisabledWarning,
+    PDAGraphLayoutWarning,
+    PDAOptionsWarning,
+    PDAValidationOptionsWarning,
+)
 from pda.exceptions.spec import (
     PDAFindSpecError,
     PDAInvalidOriginTypeError,
@@ -21,6 +27,9 @@ __all__ = [
     # Base classes
     "PDAException",
     "PDAWarning",
+    # Analysis-related warnings
+    "PDAAnalysisWarning",
+    "PDADependencyCycleWarning",
     # Module-related exceptions
     "PDAModuleError",
     "PDAMissingModuleNameError",
@@ -42,4 +51,5 @@ __all__ = [
     "PDAOptionsWarning",
     "PDAValidationOptionsWarning",
     "PDACategoryDisabledWarning",
+    "PDAGraphLayoutWarning",
 ]

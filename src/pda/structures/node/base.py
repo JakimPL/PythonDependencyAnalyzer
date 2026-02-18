@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Generic, Optional, Self, Tuple
+from typing import Any, Generic, Optional, Self, Tuple
 
 from pda.types import HashableT
 
@@ -30,5 +30,5 @@ class Node(Generic[HashableT]):
         return self.key < other.key
 
     @property
-    def key(self) -> Tuple[int, int, str, int]:
+    def key(self) -> Tuple[Any, ...]:
         return (self.level, self.order, self.label, self.ordinal)

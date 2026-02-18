@@ -1,9 +1,13 @@
-from typing import Any, Generic, Iterator, List, Optional, Self
+import warnings
+from typing import Any, Dict, Generic, Iterator, List, Optional, Self
 
 import networkx as nx
 from networkx.classes.reportviews import NodeView, OutEdgeView
 
+from pda.config import GraphSortMethod
+from pda.exceptions import PDAGraphLayoutWarning
 from pda.structures.node.types import Edge, NodeT
+from pda.tools import logger
 
 
 class Graph(Generic[NodeT]):
@@ -81,40 +85,72 @@ class Graph(Generic[NodeT]):
 
         return []
 
-    def sort(self) -> None:
-        self._graph = self._sort(self._graph)
+    def sort(self, method: GraphSortMethod = "auto") -> None:
+        self._graph = self._sort(self._graph, method=method)
 
     @staticmethod
-    def _sort(graph: nx.DiGraph) -> nx.DiGraph:
-        if nx.is_directed_acyclic_graph(graph):
+    def _sort(graph: nx.DiGraph, method: GraphSortMethod = "auto") -> nx.DiGraph:
+        if not graph:
+            return graph
+
+        is_acyclic: bool = nx.is_directed_acyclic_graph(graph)
+        auto: bool = method == "auto" and is_acyclic
+
+        if method == "topological" and not is_acyclic:
+            warnings.warn(
+                "Graph contains cycles, cannot perform topological sort. Falling back to 'levels' sorting.",
+                PDAGraphLayoutWarning,
+            )
+            method = "levels"
+
+        if method == "topological" or auto:
             return Graph._sort_topologically(graph)
+
+        if method != "levels":
+            warnings.warn(f"Unknown sorting method '{method}', defaulting to 'levels'", PDAGraphLayoutWarning)
 
         return Graph._sort_by_levels(graph)
 
     @staticmethod
     def _sort_by_levels(graph: nx.DiGraph) -> nx.DiGraph:
+        logger.info("Sorting graph by levels")
         sorted_nodes = sorted(graph.nodes())
-        graph = graph.copy()
+        node_map: Dict[NodeT, NodeT] = {}
         for node in sorted_nodes:
-            if graph.in_degree(node) == 0:
-                node.level = 0
-            else:
-                predecessor_levels = [pred.level for pred in graph.predecessors(node) if hasattr(pred, "level")]
-                node.level = max(predecessor_levels) + 1 if predecessor_levels else 0
+            node.level = 0
+            node_map[node] = node
+
+        graph = graph.copy()
+        for sorted_node in sorted_nodes:
+            node = node_map[sorted_node]
+
+            if graph.in_degree(sorted_node) > 0:
+                predecessors = [node_map[pred] for pred in graph.predecessors(sorted_node)]
+                node.level = max(pred.level for pred in predecessors) + 1
 
         return graph
 
     @staticmethod
     def _sort_topologically(graph: nx.DiGraph) -> nx.DiGraph:
+        logger.info("Sorting graph topologically")
         if not nx.is_directed_acyclic_graph(graph):
             raise ValueError("Graph contains cycles, cannot perform topological sort.")
 
-        roots = [node for node in graph.nodes() if graph.in_degree(node) == 0]
-        node: NodeT
-        for node in nx.topological_sort(graph):
+        graph = graph.copy()
+        roots: List[NodeT] = []
+        node_map: Dict[NodeT, NodeT] = {}
+        for node in graph.nodes():
+            node.level = 0
+            node_map[node] = node
+            if graph.in_degree(node) == 0:
+                roots.append(node)
+
+        for sorted_node in nx.topological_sort(graph):
+            node = node_map[sorted_node]
             if node in roots:
-                node.level = 0
-            else:
-                node.level = max(predecessor.level for predecessor in graph.predecessors(node)) + 1
+                continue
+
+            predecessors = list(graph.predecessors(sorted_node))
+            node.level = max(pred.level for pred in predecessors) + 1
 
         return graph

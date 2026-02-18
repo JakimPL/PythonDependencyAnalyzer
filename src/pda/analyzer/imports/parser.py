@@ -78,7 +78,7 @@ class ImportStatementParser:
                 case ast.With():
                     scope = ImportScope.WITH
                 case ast.FunctionDef() | ast.AsyncFunctionDef():
-                    scope = ImportScope.FUNCTION
+                    scope = self._handle_function_scope(current)
                 case ast.ClassDef():
                     scope = ImportScope.CLASS
 
@@ -193,3 +193,11 @@ class ImportStatementParser:
                 return scope
 
         raise ValueError("Import node is child of Match but not in any of its cases")
+
+    def _handle_function_scope(self, func_node: ASTNode[Union[ast.FunctionDef, ast.AsyncFunctionDef]]) -> ImportScope:
+        scope = ImportScope.FUNCTION
+
+        if func_node.ast.decorator_list:
+            scope |= ImportScope.DECORATED_FUNCTION
+
+        return scope

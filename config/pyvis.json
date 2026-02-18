@@ -116,8 +116,8 @@
                 "direction": "LR",
                 "sortMethod": "directed",
                 "nodeSpacing": 50,
-                "levelSeparation": 450,
-                "treeSpacing": 150,
+                "levelSeparation": 250,
+                "treeSpacing": 100,
                 "blockShifting": false,
                 "edgeMinimization": true,
                 "parentCentralization": false

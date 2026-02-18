@@ -23,6 +23,7 @@ class ImportScope(IntFlag):
     CLASS = auto()  # inside class def
     FUNCTION = auto()  # inside function def body
     DECORATOR = auto()  # inside a function
+    DECORATED_FUNCTION = auto()  # function with decorators
 
     # Special scopes
     TYPE_CHECKING = auto()  # `if TYPE_CHECKING` and variants
@@ -48,3 +49,6 @@ class ImportScope(IntFlag):
 
         if self & ImportScope.DECORATOR and not self & ImportScope.FUNCTION:
             raise ValueError("DECORATOR flag must be combined with FUNCTION")
+
+        if self & ImportScope.DECORATED_FUNCTION and not self & ImportScope.FUNCTION:
+            raise ValueError("DECORATED_FUNCTION flag must be combined with FUNCTION")

@@ -32,7 +32,6 @@ class PyVisConverter(Generic[NodeT]):
         )
 
     def __call__(self, graph: Graph[NodeT]) -> Network:
-        # graph.sort()
         nodes = sorted(graph.nodes)
         options = self._prepare_vis_options(nodes)
 

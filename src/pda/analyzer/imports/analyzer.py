@@ -1,22 +1,24 @@
 from __future__ import annotations
 
-import ast
+import warnings
 from collections import deque
 from copy import copy
 from pathlib import Path
 from typing import Deque, List, Optional, Set, Tuple, Union, overload, override
 
-from anytree import PreOrderIter
-
 from pda.analyzer.base import BaseAnalyzer
+from pda.analyzer.imports.parser import ImportStatementParser
 from pda.analyzer.lazy import lazy_execution
 from pda.config import ModuleImportsAnalyzerConfig, ValidationOptions
 from pda.exceptions import PDAImportPathError, PDAMissingModuleSpecError
-from pda.models import ASTForest, ModuleGraph, ModuleNode
+from pda.exceptions.analyzer import PDADependencyCycleWarning
+from pda.models import ModuleGraph, ModuleNode
 from pda.specification import (
     CategorizedModule,
     CategorizedModuleDict,
     ImportPath,
+    ImportScope,
+    ImportStatement,
     ModuleCategory,
     ModulesCollection,
     ModuleSource,
@@ -44,6 +46,7 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self._filepath: Optional[Path] = None
         self._collection: ModulesCollection = ModulesCollection(allow_unavailable=True)
         self._graph: ModuleGraph = ModuleGraph()
+        self._parser: ImportStatementParser = ImportStatementParser()
 
         self._root_validation_options = ValidationOptions.strict()
         self._module_validation_options = ValidationOptions(
@@ -52,6 +55,8 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             expect_python=False,
             raise_error=False,
         )
+
+        self._counter = 0
 
     def __bool__(self) -> bool:
         return not self._graph.empty
@@ -63,7 +68,9 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         *,
         refresh: bool = False,
     ) -> ModuleGraph:
-        return self._analyze_if_needed(filepath=filepath, refresh=refresh)
+        result = self._analyze_if_needed(filepath=filepath, refresh=refresh)
+        self._check_graph()
+        return result
 
     @overload
     def __getitem__(self, key: ModuleCategory) -> CategorizedModuleDict: ...
@@ -78,6 +85,7 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self._filepath = None
         self._collection.clear()
         self._graph.clear()
+        self._counter = 0
 
     @property
     def filepath(self) -> Optional[Path]:
@@ -133,16 +141,18 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
                     depth,
                 )
 
+        self._graph.sort(method=self.config.sort_method)
+
     def _check_graph(self) -> None:
         if self._graph.empty:
             logger.warning("The dependency graph is empty")
 
         cycle = self._graph.find_cycle()
         if cycle is not None:
-            logger.warning(
-                "The dependency graph has a cycle. Example cycle:\n : %s",
+            message = "The dependency graph has a cycle. Example cycle:\n : {}".format(
                 "\n-> ".join(node.module.name for node in cycle),
             )
+            warnings.warn(message, PDADependencyCycleWarning)
 
     def _add(self, node: ModuleNode, parent: Optional[ModuleNode] = None) -> None:
         self._graph.add_node(node)
@@ -161,7 +171,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         Analyze a Python file to extract all imported module paths,
         and return their corresponding file paths.
         """
-        tree = ASTForest([filepath])
         module_source = ModuleSource(
             origin=filepath,
             base_path=base_path,
@@ -169,7 +178,7 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             validation_options=self._module_validation_options,
         )
 
-        import_paths = self._collect_imports(module_source, tree, processed=processed)
+        import_paths = self._collect_imports(module_source, processed=processed)
         return self._collect_modules(module_source, import_paths)
 
     def analyze_module(
@@ -235,11 +244,11 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
     def _collect_imports(
         self,
         module_source: ModuleSource,
-        tree: ASTForest,
         processed: Optional[Set[Optional[Path]]] = None,
     ) -> List[ImportPath]:
         module_paths: OrderedSet[ImportPath] = OrderedSet()
-        import_paths = self._collect_import_paths(tree)
+        import_statements = self._collect_import_statements(module_source.origin)
+        import_paths = self._filter_runtime_import_paths(import_statements)
         for import_path in import_paths:
             module_path = self._resolve(module_source, import_path, processed)
             if module_path is not None:
@@ -247,26 +256,29 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
 
         return list(module_paths)
 
-    def _collect_import_paths(
+    def _collect_import_statements(
         self,
-        tree: ASTForest,
+        origin: Path,
+    ) -> List[ImportStatement]:
+        return self._parser(origin)
+
+    def _filter_runtime_import_paths(
+        self,
+        import_statements: List[ImportStatement],
     ) -> List[ImportPath]:
         import_paths: OrderedSet[ImportPath] = OrderedSet()
-        nodes = [
-            node
-            for root in tree.roots
-            for node in PreOrderIter(root)
-            if node.type
-            in (
-                ast.Import,
-                ast.ImportFrom,
-            )
-        ]
 
-        for node in nodes:
-            import_node = node.ast
-            new_paths = [import_path.get_module_path() for import_path in ImportPath.from_ast(import_node)]
-            import_paths.update(new_paths)
+        for statement in import_statements:
+            if statement.in_scope(ImportScope.TYPE_CHECKING):
+                continue
+
+            if statement.in_scope(ImportScope.MAIN):
+                continue
+
+            if statement.in_scope(ImportScope.FUNCTION) and not statement.in_scope(ImportScope.DECORATED_FUNCTION):
+                continue
+
+            import_paths.add(statement.path.get_module_path())
 
         return list(import_paths)
 
@@ -354,13 +366,24 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         processed.add(node.module.origin)
         imported_modules = self.analyze_module(node.module)
         for imported_module in imported_modules.values():
-            if imported_module.origin in processed:
+            if (
+                (self.config.unify_nodes and imported_module.origin in processed)
+                or (self.config.hide_private and imported_module.is_private)
+                or (node.module.name == imported_module.name)
+            ):
                 continue
 
             level = depth + 1
-            child = ModuleNode(imported_module, level=level)
+            child = ModuleNode(imported_module, level=level, ordinal=self._ordinal())
             self._add(child, parent=node)
             new_nodes.append((child, level))
+
+    def _ordinal(self) -> int:
+        if self.config.unify_nodes:
+            return 0
+
+        self._counter += 1
+        return self._counter
 
     def _resolve(
         self,

@@ -2,8 +2,8 @@ from typing import Optional
 
 from pydantic import Field
 
+from pda.config.analyzer.scan import ModuleScanConfig
 from pda.config.base import BaseConfig
-from pda.config.scan import ModuleScanConfig
 
 
 class ModulesCollectorConfig(BaseConfig):

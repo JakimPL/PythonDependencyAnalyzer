@@ -77,7 +77,7 @@ class Module(Specification):
 
     @property
     def is_private(self) -> bool:
-        return self.parts[0].startswith("_")
+        return self.module_name.startswith("_")
 
     @property
     def is_module(self) -> bool:

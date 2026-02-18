@@ -11,3 +11,7 @@ class PDAValidationOptionsWarning(PDAOptionsWarning):
 
 class PDACategoryDisabledWarning(PDAOptionsWarning):
     """Warning raised when a disabled category is tried to be accessed."""
+
+
+class PDAGraphLayoutWarning(PDAOptionsWarning):
+    """Warning raised when an invalid graph layout is specified."""
