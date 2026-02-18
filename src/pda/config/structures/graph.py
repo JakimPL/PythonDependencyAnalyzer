@@ -1,3 +1,3 @@
 from typing import Literal, TypeAlias
 
-GraphSortMethod: TypeAlias = Literal["levels", "topological", "auto"]
+GraphSortMethod: TypeAlias = Literal["levels", "topological", "condensation", "auto"]

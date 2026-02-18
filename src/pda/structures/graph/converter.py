@@ -111,11 +111,9 @@ class PyVisConverter(Generic[NodeT]):
             "label": node.label,
             "title": node.details or node.label,
             "level": node.level,
+            "group": node.group if node.group else "",
             **node_properties,
         }
-
-        if hasattr(node, "group") and node.group:
-            props["group"] = node.group
 
         return props
 

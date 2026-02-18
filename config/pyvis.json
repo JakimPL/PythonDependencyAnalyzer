@@ -108,6 +108,56 @@
                     "background": "#BDBDBD",
                     "border": "#757575"
                 }
+            },
+            "local": {
+                "color": {
+                    "background": "#90CAF9",
+                    "border": "#42A5F5",
+                    "highlight": {
+                        "background": "#BBDEFB",
+                        "border": "#2196F3"
+                    }
+                }
+            },
+            "stdlib": {
+                "color": {
+                    "background": "#FFF59D",
+                    "border": "#FBC02D",
+                    "highlight": {
+                        "background": "#FFFF8D",
+                        "border": "#F9A825"
+                    }
+                }
+            },
+            "external": {
+                "color": {
+                    "background": "#FFAB91",
+                    "border": "#FF7043",
+                    "highlight": {
+                        "background": "#FFCCBC",
+                        "border": "#FF5722"
+                    }
+                }
+            },
+            "unavailable": {
+                "color": {
+                    "background": "#EF9A9A",
+                    "border": "#E53935",
+                    "highlight": {
+                        "background": "#FFCDD2",
+                        "border": "#D32F2F"
+                    }
+                }
+            },
+            ".": {
+                "color": {
+                    "background": "#BCAAA4",
+                    "border": "#8D6E63",
+                    "highlight": {
+                        "background": "#D7CCC8",
+                        "border": "#6D4C41"
+                    }
+                }
             }
         },
         "layout": {

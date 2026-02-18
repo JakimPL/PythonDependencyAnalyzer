@@ -1,4 +1,5 @@
 import warnings
+from collections import defaultdict
 from typing import Any, Dict, Generic, Iterator, List, Optional, Self
 
 import networkx as nx
@@ -106,6 +107,9 @@ class Graph(Generic[NodeT]):
         if method == "topological" or auto:
             return Graph._sort_topologically(graph)
 
+        if method in ("auto", "condensation"):
+            return Graph._sort_by_condensation(graph)
+
         if method != "levels":
             warnings.warn(f"Unknown sorting method '{method}', defaulting to 'levels'", PDAGraphLayoutWarning)
 
@@ -129,6 +133,45 @@ class Graph(Generic[NodeT]):
                 node.level = max(pred.level for pred in predecessors) + 1
 
         return graph
+
+    @staticmethod
+    def _sort_by_condensation(graph: nx.DiGraph) -> nx.DiGraph:
+        logger.info("Sorting graph by condensation")
+
+        graph = graph.copy()
+        condensed = nx.condensation(graph)
+        mapping = condensed.graph["mapping"]
+
+        components = defaultdict(list)
+        for node, component_id in mapping.items():
+            components[component_id].append(node)
+
+        sorted_component_ids = list(nx.topological_sort(condensed))
+        final_order: List[NodeT] = []
+
+        for component_id in sorted_component_ids:
+            component_nodes: List[NodeT] = sorted(components[component_id])
+            external_preds = [
+                predecessor
+                for node in component_nodes
+                for predecessor in graph.predecessors(node)
+                if mapping[predecessor] != component_id
+            ]
+
+            if external_preds:
+                base_level = max(predecessor.level for predecessor in external_preds) + 1
+            else:
+                base_level = 0
+
+            for node in component_nodes:
+                node.level = base_level
+                final_order.append(node)
+
+        sorted_graph = nx.DiGraph()
+        sorted_graph.add_nodes_from(final_order)
+        sorted_graph.add_edges_from(graph.edges())
+
+        return sorted_graph
 
     @staticmethod
     def _sort_topologically(graph: nx.DiGraph) -> nx.DiGraph:

@@ -87,7 +87,7 @@ if some_condition or TYPE_CHECKING:
             label="or_with_type_checking_in_and",
             expected=(False,),
             code="""
-if False or TYPE_CHECKING:  # We won't evaluate conditions, so we a priori consider the import as used in runtime
+if False or TYPE_CHECKING:
     pass
 """,
         ),
