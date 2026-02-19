@@ -275,11 +275,15 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         import_paths: OrderedSet[ImportPath] = OrderedSet()
 
         for statement in import_statements:
-            if statement.in_scope(ImportScope.TYPE_CHECKING):
-                continue
+            if not self.config.follow_conditional:
+                if statement.in_scope(ImportScope.TYPE_CHECKING):
+                    continue
 
-            if statement.in_scope(ImportScope.MAIN):
-                continue
+                if statement.in_scope(ImportScope.MAIN):
+                    continue
+
+                if statement.in_scope(ImportScope.ERROR_HANDLING):
+                    continue
 
             if statement.in_scope(ImportScope.FUNCTION) and not statement.in_scope(ImportScope.DECORATED_FUNCTION):
                 continue
