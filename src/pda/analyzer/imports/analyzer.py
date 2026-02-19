@@ -3,14 +3,16 @@ from __future__ import annotations
 import warnings
 from collections import deque
 from copy import copy
+from enum import Enum, auto
 from pathlib import Path
-from typing import Deque, List, Optional, Set, Tuple, Union, overload, override
+from typing import Deque, Dict, List, Optional, Set, Tuple, Union, overload, override
 
 from pda.analyzer.base import BaseAnalyzer
 from pda.analyzer.imports.parser import ImportStatementParser
 from pda.analyzer.lazy import lazy_execution
 from pda.config import ModuleImportsAnalyzerConfig, ValidationOptions
 from pda.exceptions import PDADependencyCycleWarning, PDAImportPathError, PDAMissingModuleSpecError
+from pda.exceptions.analyzer import PDADependencyCycleError
 from pda.models import ModuleGraph, ModuleNode
 from pda.specification import (
     CategorizedModule,
@@ -30,6 +32,12 @@ from pda.specification import (
 from pda.structures import OrderedSet
 from pda.tools.logger import logger
 from pda.types import Pathlike
+
+
+class NodeState(Enum):
+    UNVISITED = auto()
+    VISITING = auto()
+    VISITED = auto()
 
 
 class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGraph]):
@@ -57,6 +65,10 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         )
 
         self._counter = 0
+
+        self._node_states: Dict[Optional[Path], NodeState] = {}
+        self._cycle_detected: bool = False
+        self._cycle_path: List[Path] = []
 
     def __bool__(self) -> bool:
         return not self._graph.empty
@@ -86,6 +98,9 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self._collection.clear()
         self._graph.clear()
         self._counter = 0
+        self._node_states.clear()
+        self._cycle_detected = False
+        self._cycle_path.clear()
 
     @property
     def filepath(self) -> Optional[Path]:
@@ -124,33 +139,52 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self._add(root)
 
         processed: Set[Optional[Path]] = {None}
-        new_nodes: Deque[Tuple[ModuleNode, int]] = deque([(root, 0)])
+        new_nodes: Deque[Tuple[ModuleNode, int, List[Path]]] = deque([(root, 0, [])])
+        self._node_states[root.module.origin] = NodeState.VISITING
 
         while new_nodes:
-            node, depth = new_nodes.pop()
+            node, depth, path = new_nodes.pop()
+            is_root = node.module.origin == self._filepath
             module = node.module
             if self._check_if_should_process_module(
                 module,
                 processed=processed,
                 depth=depth,
             ):
+                current_path = path + [module.origin] if module.origin else path
                 self._collect_new_modules(
                     node,
                     new_nodes,
-                    processed,
-                    depth,
+                    processed=processed,
+                    is_root=is_root,
+                    depth=depth,
+                    path=current_path,
                 )
 
+            self._node_states[module.origin] = NodeState.VISITED
+
         self._graph.sort(method=self.config.sort_method)
+
+    def _detect_cycle_in_path(self, path: List[Path]) -> bool:
+        if len(path) != len(set(path)):
+            return True
+
+        return False
+
+    def _show_detected_cycle(self) -> None:
+        paths = "\n-> ".join(str(path) for path in self._cycle_path)
+        if not self.config.ignore_cycles:
+            raise PDADependencyCycleError(f"Dependency cycle detected in path:\n{paths}")
+
+        logger.warning("Cycle detected: %s", paths)
 
     def _check_graph(self) -> None:
         if self._graph.empty:
             logger.warning("The dependency graph is empty")
 
-        cycle = self._graph.find_cycle()
-        if cycle is not None:
-            message = "The dependency graph has a cycle. Example cycle:\n : {}".format(
-                "\n-> ".join(node.module.name for node in cycle),
+        if self._cycle_detected:
+            message = "Import cycle detected during analysis:\n-> {}".format(
+                "\n-> ".join(str(path) for path in self._cycle_path),
             )
             warnings.warn(message, PDADependencyCycleWarning)
 
@@ -165,7 +199,9 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         filepath: Path,
         base_path: Path,
         package: str,
+        *,
         processed: Optional[Set[Optional[Path]]] = None,
+        is_root: bool = False,
     ) -> CategorizedModuleDict:
         """
         Analyze a Python file to extract all imported module paths,
@@ -178,13 +214,15 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             validation_options=self._module_validation_options,
         )
 
-        import_paths = self._collect_imports(module_source, processed=processed)
+        import_paths = self._collect_imports(module_source, processed=processed, is_root=is_root)
         return self._collect_modules(module_source, import_paths)
 
     def analyze_module(
         self,
         module: CategorizedModule,
+        *,
         processed: Optional[Set[Optional[Path]]] = None,
+        is_root: bool = False,
     ) -> CategorizedModuleDict:
         """
         Analyze a module to extract all imported module paths,
@@ -202,6 +240,7 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             module.base_path,
             module.top_level_module,
             processed=processed,
+            is_root=is_root,
         )
 
     def _check_if_should_process_module(
@@ -251,10 +290,11 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self,
         module_source: ModuleSource,
         processed: Optional[Set[Optional[Path]]] = None,
+        is_root: bool = False,
     ) -> List[ImportPath]:
         module_paths: OrderedSet[ImportPath] = OrderedSet()
         import_statements = self._collect_import_statements(module_source.origin)
-        import_paths = self._filter_runtime_import_paths(import_statements)
+        import_paths = self._filter_runtime_import_paths(import_statements, is_root=is_root)
         for import_path in import_paths:
             module_path = self._resolve(module_source, import_path, processed)
             if module_path is not None:
@@ -271,17 +311,19 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
     def _filter_runtime_import_paths(
         self,
         import_statements: List[ImportStatement],
+        *,
+        is_root: bool = False,
     ) -> List[ImportPath]:
         import_paths: OrderedSet[ImportPath] = OrderedSet()
 
         for statement in import_statements:
+            if statement.in_scope(ImportScope.MAIN) and not is_root:
+                continue
+
+            if statement.in_scope(ImportScope.TYPE_CHECKING):
+                continue
+
             if not self.config.follow_conditional:
-                if statement.in_scope(ImportScope.TYPE_CHECKING):
-                    continue
-
-                if statement.in_scope(ImportScope.MAIN):
-                    continue
-
                 if statement.in_scope(ImportScope.ERROR_HANDLING):
                     continue
 
@@ -376,12 +418,21 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
     def _collect_new_modules(
         self,
         node: ModuleNode,
-        new_nodes: Deque[Tuple[ModuleNode, int]],
+        new_nodes: Deque[Tuple[ModuleNode, int, List[Path]]],
+        *,
         processed: Set[Optional[Path]],
+        is_root: bool = False,
         depth: int = 0,
+        path: Optional[List[Path]] = None,
     ) -> None:
+        path = path or []
+        imported_modules = self.analyze_module(
+            node.module,
+            processed=processed,
+            is_root=is_root,
+        )
+
         processed.add(node.module.origin)
-        imported_modules = self.analyze_module(node.module)
         for imported_module in imported_modules.values():
             if (
                 (self.config.unify_nodes and imported_module.origin in processed)
@@ -389,6 +440,12 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
                 or (self.config.hide_unavailable and imported_module.category == ModuleCategory.UNAVAILABLE)
                 or (node.module.name == imported_module.name)
             ):
+                continue
+
+            if imported_module.origin in path:
+                self._cycle_detected = True
+                self._cycle_path = path + [imported_module.origin]
+                self._show_detected_cycle()
                 continue
 
             level = depth + 1
@@ -399,8 +456,10 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
                 qualified_name=self.config.qualified_names,
             )
 
+            current_path = path + [imported_module.origin] if imported_module.origin else path
             self._add(child, parent=node)
-            new_nodes.append((child, level))
+            self._node_states[imported_module.origin] = NodeState.VISITING
+            new_nodes.append((child, level, current_path))
 
     def _ordinal(self) -> int:
         if self.config.unify_nodes:

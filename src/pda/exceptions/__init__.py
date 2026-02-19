@@ -1,4 +1,9 @@
-from pda.exceptions.analyzer import PDAAnalysisWarning, PDADependencyCycleWarning
+from pda.exceptions.analyzer import (
+    PDAAnalysisError,
+    PDAAnalysisWarning,
+    PDADependencyCycleError,
+    PDADependencyCycleWarning,
+)
 from pda.exceptions.base import PDAException, PDAWarning
 from pda.exceptions.imports import (
     PDAImportPathError,
@@ -30,6 +35,8 @@ __all__ = [
     # Analysis-related warnings
     "PDAAnalysisWarning",
     "PDADependencyCycleWarning",
+    "PDAAnalysisError",
+    "PDADependencyCycleError",
     # Module-related exceptions
     "PDAModuleError",
     "PDAMissingModuleNameError",

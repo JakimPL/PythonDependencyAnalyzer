@@ -34,7 +34,7 @@ class ModuleImportsAnalyzerConfig(BaseConfig):
         as labels in the graph.""",
     )
     ignore_cycles: bool = Field(default=False, description="Ignore cycles in the dependency graph.")
-    follow_conditional: bool = Field(default=False, description="Analyze if/try/except branches.")
+    follow_conditional: bool = Field(default=False, description="Analyze imports from try/except branches.")
     max_depth: Optional[int] = Field(
         default=None,
         description="Maximum depth for recursion. None means no limit.",
