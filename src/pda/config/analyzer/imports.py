@@ -12,9 +12,9 @@ class ModuleImportsAnalyzerConfig(BaseConfig):
         default=ModuleScanConfig(
             scan_stdlib=False,
             scan_external=False,
-            scan_uninstalled=False,
             collect_metadata=False,
             hide_private=True,
+            hide_unavailable=False,
         ),
         description="Configuration for scanning modules during import analysis.",
     )
@@ -22,7 +22,7 @@ class ModuleImportsAnalyzerConfig(BaseConfig):
     sort_method: GraphSortMethod = Field(
         default="auto",
         description="""Method for sorting the dependency graph. 'auto' will choose
-        topological sorting if the graph is acyclic, otherwise it will sort by levels.""",
+        topological sorting if the graph is acyclic, otherwise it will sort by condensation.""",
     )
     unify_nodes: bool = Field(
         default=False,
@@ -49,13 +49,13 @@ class ModuleImportsAnalyzerConfig(BaseConfig):
         return self.module_scan.scan_external
 
     @property
-    def scan_uninstalled(self) -> bool:
-        return self.module_scan.scan_uninstalled
-
-    @property
     def collect_metadata(self) -> bool:
         return self.module_scan.collect_metadata
 
     @property
     def hide_private(self) -> bool:
         return self.module_scan.hide_private
+
+    @property
+    def hide_unavailable(self) -> bool:
+        return self.module_scan.hide_unavailable

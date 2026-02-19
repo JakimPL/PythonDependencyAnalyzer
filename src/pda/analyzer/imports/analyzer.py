@@ -234,6 +234,9 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         if not self.config.scan_external and category == ModuleCategory.EXTERNAL:
             return False
 
+        if self.config.hide_unavailable and category == ModuleCategory.UNAVAILABLE:
+            return False
+
         if self.config.hide_private and module.is_private:
             return False
 
@@ -379,6 +382,7 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             if (
                 (self.config.unify_nodes and imported_module.origin in processed)
                 or (self.config.hide_private and imported_module.is_private)
+                or (self.config.hide_unavailable and imported_module.category == ModuleCategory.UNAVAILABLE)
                 or (node.module.name == imported_module.name)
             ):
                 continue
@@ -390,6 +394,7 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
                 ordinal=self._ordinal(),
                 qualified_name=self.config.qualified_names,
             )
+
             self._add(child, parent=node)
             new_nodes.append((child, level))
 

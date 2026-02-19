@@ -13,6 +13,7 @@ class ModulesCollectorConfig(BaseConfig):
             scan_external=True,
             collect_metadata=True,
             hide_private=False,
+            hide_unavailable=False,
         ),
         description="Configuration for scanning modules during collection.",
     )
@@ -41,3 +42,7 @@ class ModulesCollectorConfig(BaseConfig):
     @property
     def hide_private(self) -> bool:
         return self.module_scan.hide_private
+
+    @property
+    def hide_unavailable(self) -> bool:
+        return self.module_scan.hide_unavailable

@@ -1,6 +1,6 @@
 import warnings
 from collections import defaultdict
-from typing import Any, Dict, Generic, Iterator, List, Optional, Self
+from typing import Any, Dict, Generic, Iterator, List, Optional, Self, get_args
 
 import networkx as nx
 from networkx.classes.reportviews import NodeView, OutEdgeView
@@ -94,24 +94,24 @@ class Graph(Generic[NodeT]):
         if not graph:
             return graph
 
+        if method not in get_args(GraphSortMethod):
+            warnings.warn(f"Unknown sorting method '{method}', defaulting to 'auto'", PDAGraphLayoutWarning)
+
         is_acyclic: bool = nx.is_directed_acyclic_graph(graph)
         auto: bool = method == "auto" and is_acyclic
 
         if method == "topological" and not is_acyclic:
             warnings.warn(
-                "Graph contains cycles, cannot perform topological sort. Falling back to 'levels' sorting.",
+                "Graph contains cycles, cannot perform topological sort. Falling back to 'condensation' sorting.",
                 PDAGraphLayoutWarning,
             )
-            method = "levels"
+            method = "condensation"
 
         if method == "topological" or auto:
             return Graph._sort_topologically(graph)
 
         if method in ("auto", "condensation"):
             return Graph._sort_by_condensation(graph)
-
-        if method != "levels":
-            warnings.warn(f"Unknown sorting method '{method}', defaulting to 'levels'", PDAGraphLayoutWarning)
 
         return Graph._sort_by_levels(graph)
 

@@ -246,7 +246,10 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         if not module:
             return
 
-        if module.is_private and self.config.hide_private:
+        if self.config.hide_unavailable and module.category == ModuleCategory.UNAVAILABLE:
+            return
+
+        if self.config.hide_private and module.is_private:
             return
 
         node = ModuleNode(module, level=level, qualified_name=self.config.qualified_names)
@@ -290,9 +293,6 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
             package=package,
             validation_options=self._module_validation_options,
         )
-
-        if module is None:
-            return None
 
         category = module.category
         if name in self._collection[category]:
