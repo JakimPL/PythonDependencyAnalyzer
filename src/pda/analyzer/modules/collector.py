@@ -1,13 +1,13 @@
-import pkgutil
-import sys
 import warnings
 from importlib.machinery import ModuleSpec
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union, overload
+from typing import List, Optional, Tuple, Union, overload
 
 from pda.analyzer.base import BaseAnalyzer
 from pda.analyzer.lazy import lazy_execution
-from pda.config import ModulesCollectorConfig, ValidationOptions
+from pda.analyzer.modules.creator import ModuleCreator
+from pda.analyzer.modules.pkg import PkgModuleScanner
+from pda.config import ModulesCollectorConfig
 from pda.exceptions import PDACategoryDisabledWarning
 from pda.models import ModuleGraph, ModuleNode, PathForest, PathNode
 from pda.specification import (
@@ -36,16 +36,11 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         super().__init__(config=config, project_root=project_root, package=package)
 
         self._collection: ModulesCollection = ModulesCollection(allow_unavailable=False)
-        self._pkg_modules: Dict[str, pkgutil.ModuleInfo] = self._collect_pkg_modules()
         self._graph: ModuleGraph = ModuleGraph()
         self._path_forest: PathForest = self._initialize_forest()
 
-        self._module_validation_options = ValidationOptions(
-            allow_missing_spec=True,
-            validate_origin=True,
-            expect_python=False,
-            raise_error=False,
-        )
+        self._creator: ModuleCreator = ModuleCreator(project_root=self._project_root)
+        self._pkg_scanner: PkgModuleScanner = PkgModuleScanner(config=self.config.module_scan)
 
     def __bool__(self) -> bool:
         return bool(self._collection)
@@ -142,9 +137,6 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         paths: List[Path] = SysPaths.get_candidates(base_path=self._project_root)
         return PathForest(paths)
 
-    def _collect_pkg_modules(self) -> Dict[str, pkgutil.ModuleInfo]:
-        return {module.name: module for module in pkgutil.iter_modules()}
-
     def _collect_modules(self) -> None:
         self.clear()
         self._collect_external_modules()
@@ -153,18 +145,13 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
             logger.warning("No modules collected. Check your configuration and project structure")
 
     def _collect_external_modules(self) -> None:
-        for pkg_module in self._pkg_modules.values():
-            name = pkg_module.name
-            if name in sys.stdlib_module_names:
-                if not self.config.scan_stdlib:
-                    continue
-            elif not self.config.scan_external:
-                continue
-
-            is_package = pkg_module.ispkg
-            package = name if is_package else None
-            base_path = Path(pkg_module.module_finder.path)  # type: ignore[union-attr]
-            self._add_module(name, base_path, package=package)
+        discovered_modules = self._pkg_scanner.discover()
+        for module_info in discovered_modules:
+            self._add_module(
+                name=module_info.name,
+                base_path=module_info.base_path,
+                package=module_info.package,
+            )
 
     def _collect_local_modules(self) -> None:
         if not self._project_root:
@@ -232,16 +219,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         level: int = 0,
     ) -> None:
         name = str(name)
-        try:
-            module = self._get_module(name, package=package)
-        except (AttributeError, KeyError, IndexError) as error:
-            logger.warning(
-                "Module '%s' error:\n%s: [%s]",
-                name,
-                error.__class__.__name__,
-                error,
-            )
-            return
+        module = self._get_module(name, package=package)
 
         if not module:
             return
@@ -287,13 +265,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         name: str,
         package: Optional[str] = None,
     ) -> Optional[CategorizedModule]:
-        module = CategorizedModule.create(
-            name,
-            project_root=self._project_root,
-            package=package,
-            validation_options=self._module_validation_options,
-        )
-
+        module = self._creator.create_module(name, package=package)
         category = module.category
         if name in self._collection[category]:
             return None

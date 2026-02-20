@@ -5,6 +5,7 @@ from typing import List, Optional, Set
 
 from pda.config import ModuleImportsAnalyzerConfig, ValidationOptions
 from pda.exceptions import PDAImportPathError
+from pda.exceptions.spec import PDAFindSpecError
 from pda.models import ModuleNode
 from pda.specification import (
     CategorizedModule,
@@ -92,13 +93,15 @@ class ModuleResolver:
         package_spec = module_source.get_package_spec(import_path)
         package = package_spec.name if package_spec is not None else None
 
-        unavailable_module = CategorizedModule(
-            module=UnavailableModule(
-                name=import_path.module if import_path.module else "<unknown>",
-                package=package,
-            ),
-            category=ModuleCategory.UNAVAILABLE,
-        )
+        def create_unavailable_module(error: Exception) -> CategorizedModule:
+            return CategorizedModule(
+                module=UnavailableModule(
+                    name=import_path.module if import_path.module else "<unknown>",
+                    package=package,
+                    error=error,
+                ),
+                category=ModuleCategory.UNAVAILABLE,
+            )
 
         if spec is None:
             logger.debug(
@@ -106,7 +109,8 @@ class ModuleResolver:
                 import_path,
                 package_spec.name if package_spec is not None else None,
             )
-            return unavailable_module
+
+            return create_unavailable_module(PDAFindSpecError(import_path))
 
         try:
             return CategorizedModule.from_spec(
@@ -121,6 +125,7 @@ class ModuleResolver:
                 error.__class__.__name__,
                 error,
             )
+            unavailable_module = create_unavailable_module(error)
         except PDAImportPathError as import_error:
             logger.debug(
                 "Module '%s' import path error:\n%s: [%s]",
@@ -128,6 +133,7 @@ class ModuleResolver:
                 import_error.__class__.__name__,
                 import_error,
             )
+            unavailable_module = create_unavailable_module(import_error)
 
         return unavailable_module
 
