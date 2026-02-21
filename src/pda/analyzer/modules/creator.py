@@ -4,9 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from pda.config import ValidationOptions
-from pda.specification import CategorizedModule
-from pda.specification.modules.module.category import ModuleCategory
-from pda.specification.modules.module.unavailable import UnavailableModule
+from pda.specification import CategorizedModule, ModuleCategory, UnavailableModule
 from pda.tools.logger import logger
 
 

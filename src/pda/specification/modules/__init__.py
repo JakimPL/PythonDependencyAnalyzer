@@ -6,7 +6,7 @@ from pda.specification.modules.module.category import ModuleCategory
 from pda.specification.modules.module.module import Module
 from pda.specification.modules.module.type import ModuleType
 from pda.specification.modules.module.unavailable import UnavailableModule
-from pda.specification.modules.spec import (
+from pda.specification.modules.spec.spec import (
     find_module_spec,
     is_module,
     is_namespace_package,

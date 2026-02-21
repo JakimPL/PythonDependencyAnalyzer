@@ -3,17 +3,10 @@ from __future__ import annotations
 import pkgutil
 import sys
 from pathlib import Path
-from typing import List, NamedTuple, Optional
+from typing import List
 
-from pda.config.analyzer.scan import ModuleScanConfig
-
-
-class PkgModuleInfo(NamedTuple):
-    """Information about a module discovered via pkgutil."""
-
-    name: str
-    base_path: Path
-    package: Optional[str]
+from pda.config import ModuleScanConfig
+from pda.specification import PKGModuleInfo
 
 
 class PkgModuleScanner:
@@ -31,14 +24,14 @@ class PkgModuleScanner:
     def scan_external(self) -> bool:
         return self._config.scan_external
 
-    def discover(self) -> List[PkgModuleInfo]:
+    def discover(self) -> List[PKGModuleInfo]:
         """
         Discover external modules based on configuration.
 
         Returns:
-            List of PkgModuleInfo containing module metadata.
+            List of PKGModuleInfo containing module metadata.
         """
-        discovered: List[PkgModuleInfo] = []
+        discovered: List[PKGModuleInfo] = []
 
         for pkg_module in self._pkg_modules.values():
             name = pkg_module.name
@@ -48,7 +41,7 @@ class PkgModuleScanner:
             is_package = pkg_module.ispkg
             package = name if is_package else None
             base_path = Path(pkg_module.module_finder.path)  # type: ignore[union-attr]
-            discovered.append(PkgModuleInfo(name=name, base_path=base_path, package=package))
+            discovered.append(PKGModuleInfo(name=name, base_path=base_path, package=package))
 
         return discovered
 

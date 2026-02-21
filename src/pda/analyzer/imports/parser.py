@@ -6,8 +6,7 @@ from anytree import PreOrderIter
 
 from pda.analyzer.imports.special.main import is_main_guard_only
 from pda.analyzer.imports.special.type_checking import is_type_checking_only
-from pda.models import ASTForest, ASTNode
-from pda.models.python.dump import ast_dump
+from pda.models import ASTForest, ASTNode, ast_dump
 from pda.specification import ImportPath, ImportScope, ImportStatement, SourceSpan
 
 

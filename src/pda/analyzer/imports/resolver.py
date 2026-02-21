@@ -4,8 +4,7 @@ from pathlib import Path
 from typing import List, Optional, Set
 
 from pda.config import ModuleImportsAnalyzerConfig, ValidationOptions
-from pda.exceptions import PDAImportPathError
-from pda.exceptions.spec import PDAFindSpecError
+from pda.exceptions import PDAFindSpecError, PDAImportPathError
 from pda.models import ModuleNode
 from pda.specification import (
     CategorizedModule,

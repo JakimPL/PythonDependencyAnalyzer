@@ -17,7 +17,7 @@ from pda.parser import validate_python_file
 from pda.specification.base import Specification
 from pda.specification.imports.path import ImportPath
 from pda.specification.modules.module import Module
-from pda.specification.modules.spec import find_module_spec
+from pda.specification.modules.spec.spec import find_module_spec
 from pda.tools.paths import is_dir
 
 

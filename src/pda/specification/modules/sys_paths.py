@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple, Union
 from pda.config import ValidationOptions
 from pda.exceptions import PDAPathResolutionError, PDARelativeBasePathError
 from pda.specification.imports import ImportPath
-from pda.specification.modules.spec import validate_spec_origin
+from pda.specification.modules.spec.spec import validate_spec_origin
 from pda.tools.singleton import Singleton
 from pda.types import Pathlike
 

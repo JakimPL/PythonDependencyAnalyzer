@@ -6,8 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from pda.config import ModuleImportsAnalyzerConfig
-from pda.exceptions import PDADependencyCycleWarning
-from pda.exceptions.analyzer import PDADependencyCycleError
+from pda.exceptions import PDADependencyCycleError, PDADependencyCycleWarning
 from pda.tools.logger import logger
 
 

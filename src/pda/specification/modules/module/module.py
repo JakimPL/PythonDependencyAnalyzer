@@ -12,7 +12,7 @@ from pda.specification.imports.origin import OriginType
 from pda.specification.modules.module.base import BaseModule
 from pda.specification.modules.module.category import ModuleCategory
 from pda.specification.modules.module.type import ModuleType
-from pda.specification.modules.spec import find_module_spec, validate_spec
+from pda.specification.modules.spec.spec import find_module_spec, validate_spec
 from pda.tools.paths import resolve_path
 
 
