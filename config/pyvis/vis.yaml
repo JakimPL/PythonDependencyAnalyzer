@@ -40,105 +40,105 @@ physics:
 groups:
   import:
     color:
-      background: "#BA68C8"
-      border: "#8E24AA"
+      background: ${ast_groups.import.background}
+      border: ${ast_groups.import.border}
 
   definition:
     color:
-      background: "#42A5F5"
-      border: "#1E88E5"
+      background: ${ast_groups.definition.background}
+      border: ${ast_groups.definition.border}
 
   control_flow:
     color:
-      background: "#FFA726"
-      border: "#F57C00"
+      background: ${ast_groups.control_flow.background}
+      border: ${ast_groups.control_flow.border}
 
   operator:
     color:
-      background: "#66BB6A"
-      border: "#43A047"
+      background: ${ast_groups.operator.background}
+      border: ${ast_groups.operator.border}
 
   name:
     color:
-      background: "#26C6DA"
-      border: "#00ACC1"
+      background: ${ast_groups.name.background}
+      border: ${ast_groups.name.border}
 
   assignment:
     color:
-      background: "#FFCA28"
-      border: "#FFA000"
+      background: ${ast_groups.assignment.background}
+      border: ${ast_groups.assignment.border}
 
   call:
     color:
-      background: "#9575CD"
-      border: "#7E57C2"
+      background: ${ast_groups.call.background}
+      border: ${ast_groups.call.border}
 
   data_structure:
     color:
-      background: "#29B6F6"
-      border: "#039BE5"
+      background: ${ast_groups.data_structure.background}
+      border: ${ast_groups.data_structure.border}
 
   control_transfer:
     color:
-      background: "#EC407A"
-      border: "#D81B60"
+      background: ${ast_groups.control_transfer.background}
+      border: ${ast_groups.control_transfer.border}
 
   expression:
     color:
-      background: "#BDBDBD"
-      border: "#757575"
+      background: ${ast_groups.expression.background}
+      border: ${ast_groups.expression.border}
 
   metadata:
     color:
-      background: "#78909C"
-      border: "#546E7A"
+      background: ${ast_groups.metadata.background}
+      border: ${ast_groups.metadata.border}
 
   declaration:
     color:
-      background: "#A1887F"
-      border: "#6D4C41"
+      background: ${ast_groups.declaration.background}
+      border: ${ast_groups.declaration.border}
 
   statement:
     color:
-      background: "#BDBDBD"
-      border: "#757575"
+      background: ${ast_groups.statement.background}
+      border: ${ast_groups.statement.border}
 
   local:
     color:
-      background: "#90CAF9"
-      border: "#42A5F5"
+      background: ${module_groups.local.background}
+      border: ${module_groups.local.border}
       highlight:
-        background: "#BBDEFB"
-        border: "#2196F3"
+        background: ${module_groups.local.highlight.background}
+        border: ${module_groups.local.highlight.border}
 
   stdlib:
     color:
-      background: "#FFF59D"
-      border: "#FBC02D"
+      background: ${module_groups.stdlib.background}
+      border: ${module_groups.stdlib.border}
       highlight:
-        background: "#FFFF8D"
-        border: "#F9A825"
+        background: ${module_groups.stdlib.highlight.background}
+        border: ${module_groups.stdlib.highlight.border}
 
   external:
     color:
-      background: "#FFCC80"
-      border: "#FB8C00"
+      background: ${module_groups.external.background}
+      border: ${module_groups.external.border}
       highlight:
-        background: "#FFE0B2"
-        border: "#F57C00"
+        background: ${module_groups.external.highlight.background}
+        border: ${module_groups.external.highlight.border}
 
   unavailable:
     color:
-      background: "#EF9A9A"
-      border: "#E53935"
+      background: ${module_groups.unavailable.background}
+      border: ${module_groups.unavailable.border}
       highlight:
-        background: "#FFCDD2"
-        border: "#D32F2F"
+        background: ${module_groups.unavailable.highlight.background}
+        border: ${module_groups.unavailable.highlight.border}
 
   ".":
     color:
-      background: "#BCAAA4"
-      border: "#8D6E63"
+      background: ${path_groups.directory.background}
+      border: ${path_groups.directory.border}
       highlight:
-        background: "#D7CCC8"
-        border: "#6D4C41"
+        background: ${path_groups.directory.highlight.background}
+        border: ${path_groups.directory.highlight.border}

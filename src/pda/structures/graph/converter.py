@@ -5,8 +5,7 @@ from typing import Any, Dict, Generic, List, Optional
 
 from pyvis.network import Network
 
-from pda.config.pyvis.config import PyVisConfig
-from pda.config.pyvis.options import PDAOptions
+from pda.config import PDAOptions, PyVisConfig, Theme
 from pda.structures.graph.base import Graph
 from pda.structures.node.types import NodeT
 from pda.types.nested_defaultdict import NestedDefaultDict, nested_defaultdict
@@ -19,12 +18,14 @@ class PyVisConverter(Generic[NodeT]):
         self,
         *,
         config_path: Path = PyVisConfig.default_path(),
+        theme: Theme = "light",
         network_kwargs: Optional[Dict[str, Any]] = None,
         vis_options: Optional[Dict[str, Dict[str, Any]]] = None,
         auto_adjust_spacing: Optional[bool] = None,
     ) -> None:
         self.load_config(
             config_path,
+            theme=theme,
             network_kwargs=network_kwargs,
             vis_options=vis_options,
             auto_adjust_spacing=auto_adjust_spacing,
@@ -48,16 +49,17 @@ class PyVisConverter(Generic[NodeT]):
         self,
         config_path: Path,
         *,
+        theme: Theme = "light",
         network_kwargs: Optional[Dict[str, Any]] = None,
         vis_options: Optional[Dict[str, Dict[str, Any]]] = None,
         auto_adjust_spacing: Optional[bool] = None,
     ) -> None:
-        default = PyVisConfig.default()
+        default = PyVisConfig.default(theme=theme)
         if not config_path.exists():
             self.config = default
             return
 
-        config: PyVisConfig = PyVisConfig.load(config_path)
+        config: PyVisConfig = PyVisConfig.load(config_path, theme=theme)
         config_dict: Dict[str, Dict[str, Any]] = {**default.model_dump(), **config.model_dump()}
         vis: Dict[str, Dict[str, Any]] = vis_options if vis_options is not None else config_dict.get("vis", {})
         network: Dict[str, Any] = network_kwargs if network_kwargs is not None else config_dict.get("network", {})

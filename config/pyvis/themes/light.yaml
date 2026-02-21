@@ -1,17 +1,11 @@
-# Light Theme Configuration for PyVis Graphs
-# This file defines all colors and styles that can be templated into vis.yaml
-
-# General appearance
 background_color: "#FFFFFF"
 font_color: "#000000"
 
-# Node defaults
 node:
   font:
     color: "#000000"
     size: 14
 
-# Edge defaults
 edge:
   color: "#848484"
   highlight_color: "#424242"
@@ -103,7 +97,7 @@ module_groups:
       border: "#D32F2F"
 
 path_groups:
-  ".":
+  directory:
     background: "#BCAAA4"
     border: "#8D6E63"
     highlight:
