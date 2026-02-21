@@ -1,105 +1,105 @@
 background_color: "#202020"
-font_color: "#FFFFFF"
+font_color: "#000000"
 
 node:
   font:
-    color: "#FFFFFF"
+    color: "#000000"
     size: 14
 
 edge:
-  color: "#757575"
-  highlight_color: "#BDBDBD"
-  hover_color: "#9E9E9E"
+  color: "#848484"
+  highlight_color: "#AAAAAA"
+  hover_color: "#999999"
   font:
-    color: "#FFFFFF"
+    color: "#000000"
     size: 12
 
 ast_groups:
   import:
-    background: "#BA68C8"
-    border: "#8E24AA"
+    background: "#A98CB5"
+    border: "#8B6FA2"
 
   definition:
-    background: "#42A5F5"
-    border: "#1E88E5"
+    background: "#8FA9C8"
+    border: "#728CAB"
 
   control_flow:
-    background: "#FFA726"
-    border: "#F57C00"
+    background: "#C9A87A"
+    border: "#AC8B5D"
 
   operator:
-    background: "#66BB6A"
-    border: "#43A047"
+    background: "#94B894"
+    border: "#779B77"
 
   name:
-    background: "#26C6DA"
-    border: "#00ACC1"
+    background: "#7AB8C8"
+    border: "#5D9BAB"
 
   assignment:
-    background: "#FFCA28"
-    border: "#FFA000"
+    background: "#C9B87A"
+    border: "#AC9B5D"
 
   call:
-    background: "#9575CD"
-    border: "#7E57C2"
+    background: "#A895C8"
+    border: "#8B78AB"
 
   data_structure:
-    background: "#29B6F6"
-    border: "#039BE5"
+    background: "#7AA8C8"
+    border: "#5D8BAB"
 
   control_transfer:
-    background: "#EC407A"
-    border: "#D81B60"
+    background: "#C87A94"
+    border: "#AB5D77"
 
   expression:
-    background: "#757575"
-    border: "#424242"
+    background: "#A8A8A8"
+    border: "#8B8B8B"
 
   metadata:
-    background: "#78909C"
-    border: "#546E7A"
+    background: "#8B9BA8"
+    border: "#6E7E8B"
 
   declaration:
-    background: "#A1887F"
-    border: "#6D4C41"
+    background: "#B89F94"
+    border: "#9B8277"
 
   statement:
-    background: "#757575"
-    border: "#424242"
+    background: "#A8A8A8"
+    border: "#8B8B8B"
 
 module_groups:
   local:
-    background: "#90CAF9"
-    border: "#42A5F5"
+    background: "#8FA9C8"
+    border: "#728CAB"
     highlight:
-      background: "#BBDEFB"
-      border: "#2196F3"
+      background: "#A4BED7"
+      border: "#87A1BA"
 
   stdlib:
-    background: "#FFF59D"
-    border: "#FBC02D"
+    background: "#C9B87A"
+    border: "#AC9B5D"
     highlight:
-      background: "#FFFF8D"
-      border: "#F9A825"
+      background: "#D8C78F"
+      border: "#BBB072"
 
   external:
-    background: "#FFCC80"
-    border: "#FB8C00"
+    background: "#C9A87A"
+    border: "#AC8B5D"
     highlight:
-      background: "#FFE0B2"
-      border: "#F57C00"
+      background: "#D8BD8F"
+      border: "#BBA072"
 
   unavailable:
-    background: "#EF9A9A"
-    border: "#E53935"
+    background: "#C87A7A"
+    border: "#AB5D5D"
     highlight:
-      background: "#FFCDD2"
-      border: "#D32F2F"
+      background: "#D78F8F"
+      border: "#BA7272"
 
 path_groups:
   directory:
-    background: "#BCAAA4"
-    border: "#8D6E63"
+    background: "#B89F94"
+    border: "#9B8277"
     highlight:
-      background: "#D7CCC8"
-      border: "#6D4C41"
+      background: "#C7B4A9"
+      border: "#AA978C"
