@@ -11,8 +11,6 @@ from pda.tools.logger import logger
 
 
 class ModuleCreator:
-    """Handles creation of CategorizedModule instances from module names."""
-
     _VALIDATION_OPTIONS = ValidationOptions(
         allow_missing_spec=True,
         validate_origin=True,
@@ -36,11 +34,11 @@ class ModuleCreator:
         Create a CategorizedModule from a module name.
 
         Args:
-            name: Module name to create
-            package: Optional package name
+            name: Module name to create.
+            package: Optional package name.
 
         Returns:
-            CategorizedModule if successful, None if error during creation
+            CategorizedModule instance, or unavailable module if error during creation.
         """
         try:
             return CategorizedModule.create(

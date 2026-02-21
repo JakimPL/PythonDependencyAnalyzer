@@ -36,7 +36,7 @@ class PkgModuleScanner:
         Discover external modules based on configuration.
 
         Returns:
-            List of PkgModuleInfo containing module metadata
+            List of PkgModuleInfo containing module metadata.
         """
         discovered: List[PkgModuleInfo] = []
 

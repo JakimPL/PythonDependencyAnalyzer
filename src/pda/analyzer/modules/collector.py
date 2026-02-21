@@ -1,15 +1,16 @@
 import warnings
 from importlib.machinery import ModuleSpec
 from pathlib import Path
-from typing import List, Optional, Tuple, Union, overload
+from typing import Optional, Tuple, Union, overload
 
 from pda.analyzer.base import BaseAnalyzer
 from pda.analyzer.lazy import lazy_execution
 from pda.analyzer.modules.creator import ModuleCreator
 from pda.analyzer.modules.pkg import PkgModuleScanner
+from pda.analyzer.modules.scanner import FileSystemScanner
 from pda.config import ModulesCollectorConfig
 from pda.exceptions import PDACategoryDisabledWarning
-from pda.models import ModuleGraph, ModuleNode, PathForest, PathNode
+from pda.models import ModuleGraph, ModuleNode
 from pda.specification import (
     CategorizedModule,
     CategorizedModuleDict,
@@ -17,7 +18,6 @@ from pda.specification import (
     Module,
     ModuleCategory,
     ModulesCollection,
-    SysPaths,
 )
 from pda.tools.logger import logger
 from pda.tools.paths import resolve_path
@@ -37,10 +37,10 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
 
         self._collection: ModulesCollection = ModulesCollection(allow_unavailable=False)
         self._graph: ModuleGraph = ModuleGraph()
-        self._path_forest: PathForest = self._initialize_forest()
 
         self._creator: ModuleCreator = ModuleCreator(project_root=self._project_root)
         self._pkg_scanner: PkgModuleScanner = PkgModuleScanner(config=self.config.module_scan)
+        self._fs_scanner: FileSystemScanner = FileSystemScanner(project_root=self._project_root)
 
     def __bool__(self) -> bool:
         return bool(self._collection)
@@ -133,10 +133,6 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
 
         return module.get_category(self._project_root)
 
-    def _initialize_forest(self) -> PathForest:
-        paths: List[Path] = SysPaths.get_candidates(base_path=self._project_root)
-        return PathForest(paths)
-
     def _collect_modules(self) -> None:
         self.clear()
         self._collect_external_modules()
@@ -179,8 +175,8 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         if not origin:
             return
 
-        files = self._get_submodule_paths(origin)
-        import_paths = self._get_import_paths(files, base_path)
+        files = self._fs_scanner.get_submodule_paths(origin)
+        import_paths = self._fs_scanner.paths_to_import_paths(files, base_path)
         for import_path in import_paths:
             self._add_module(
                 import_path,
@@ -189,26 +185,6 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
                 parent=parent,
                 level=level,
             )
-
-    def _get_import_paths(self, files: List[Path], base_path: Path) -> List[ImportPath]:
-        import_paths: List[ImportPath] = []
-        for path in files:
-            import_path = self._get_import_path(path, base_path)
-            if import_path is not None:
-                import_paths.append(import_path)
-
-        return import_paths
-
-    def _get_import_path(self, path: Path, base_path: Path) -> Optional[ImportPath]:
-        import_path = ImportPath.from_path(path, base_path)
-        if import_path is None:
-            logger.warning(
-                "Could not determine import path for '%s' relative to '%s'",
-                path,
-                base_path,
-            )
-
-        return import_path
 
     def _add_module(
         self,
@@ -271,22 +247,6 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
             return None
 
         return module
-
-    def _get_submodule_paths(self, origin: Optional[Path] = None) -> List[Path]:
-        if origin is None:
-            return []
-
-        origin_node = self._path_forest.get(origin)
-        if origin_node is None:
-            return []
-
-        child: PathNode
-        paths: List[Path] = []
-        for child in origin_node.children:
-            if (child.is_python_file and not child.is_init) or (child.is_dir and child.is_package):
-                paths.append(child.filepath)
-
-        return sorted(paths)
 
     @classmethod
     def default_config(cls) -> ModulesCollectorConfig:
