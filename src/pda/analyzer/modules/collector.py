@@ -163,6 +163,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         self,
         location: Pathlike,
         base_path: Path,
+        *,
         parent: Optional[ModuleNode] = None,
         package: Optional[str] = None,
         level: int = 0,
@@ -190,6 +191,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         self,
         name: Union[str, ImportPath],
         base_path: Path,
+        *,
         package: Optional[str] = None,
         parent: Optional[ModuleNode] = None,
         level: int = 0,
@@ -220,6 +222,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         self,
         node: ModuleNode,
         base_path: Path,
+        *,
         package: Optional[str] = None,
         level: int = 0,
     ) -> None:

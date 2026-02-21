@@ -9,7 +9,6 @@ from pda.config.pyvis.config import PyVisConfig
 from pda.config.pyvis.options import PDAOptions
 from pda.structures.graph.base import Graph
 from pda.structures.node.types import NodeT
-from pda.tools.serialization import load_json
 from pda.types.nested_defaultdict import NestedDefaultDict, nested_defaultdict
 
 
@@ -58,7 +57,8 @@ class PyVisConverter(Generic[NodeT]):
             self.config = default
             return
 
-        config_dict: Dict[str, Dict[str, Any]] = {**default.model_dump(), **load_json(config_path)}
+        config: PyVisConfig = PyVisConfig.load(config_path)
+        config_dict: Dict[str, Dict[str, Any]] = {**default.model_dump(), **config.model_dump()}
         vis: Dict[str, Dict[str, Any]] = vis_options if vis_options is not None else config_dict.get("vis", {})
         network: Dict[str, Any] = network_kwargs if network_kwargs is not None else config_dict.get("network", {})
         pda_options: PDAOptions = PDAOptions(**config_dict.get("pda", {}))

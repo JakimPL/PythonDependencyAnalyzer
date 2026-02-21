@@ -1,0 +1,111 @@
+# Light Theme Configuration for PyVis Graphs
+# This file defines all colors and styles that can be templated into vis.yaml
+
+# General appearance
+background_color: "#FFFFFF"
+font_color: "#000000"
+
+# Node defaults
+node:
+  font:
+    color: "#000000"
+    size: 14
+
+# Edge defaults
+edge:
+  color: "#848484"
+  highlight_color: "#424242"
+  hover_color: "#616161"
+  font:
+    color: "#000000"
+    size: 12
+
+ast_groups:
+  import:
+    background: "#BA68C8"
+    border: "#8E24AA"
+
+  definition:
+    background: "#42A5F5"
+    border: "#1E88E5"
+
+  control_flow:
+    background: "#FFA726"
+    border: "#F57C00"
+
+  operator:
+    background: "#66BB6A"
+    border: "#43A047"
+
+  name:
+    background: "#26C6DA"
+    border: "#00ACC1"
+
+  assignment:
+    background: "#FFCA28"
+    border: "#FFA000"
+
+  call:
+    background: "#9575CD"
+    border: "#7E57C2"
+
+  data_structure:
+    background: "#29B6F6"
+    border: "#039BE5"
+
+  control_transfer:
+    background: "#EC407A"
+    border: "#D81B60"
+
+  expression:
+    background: "#BDBDBD"
+    border: "#757575"
+
+  metadata:
+    background: "#78909C"
+    border: "#546E7A"
+
+  declaration:
+    background: "#A1887F"
+    border: "#6D4C41"
+
+  statement:
+    background: "#BDBDBD"
+    border: "#757575"
+
+module_groups:
+  local:
+    background: "#90CAF9"
+    border: "#42A5F5"
+    highlight:
+      background: "#BBDEFB"
+      border: "#2196F3"
+
+  stdlib:
+    background: "#FFF59D"
+    border: "#FBC02D"
+    highlight:
+      background: "#FFFF8D"
+      border: "#F9A825"
+
+  external:
+    background: "#FFCC80"
+    border: "#FB8C00"
+    highlight:
+      background: "#FFE0B2"
+      border: "#F57C00"
+
+  unavailable:
+    background: "#EF9A9A"
+    border: "#E53935"
+    highlight:
+      background: "#FFCDD2"
+      border: "#D32F2F"
+
+path_groups:
+  ".":
+    background: "#BCAAA4"
+    border: "#8D6E63"
+    highlight:
+      background: "#D7CCC8"
+      border: "#6D4C41"

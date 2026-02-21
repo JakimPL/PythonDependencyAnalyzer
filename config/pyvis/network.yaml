@@ -1,0 +1,6 @@
+notebook: false
+height: "750px"
+width: "100%"
+cdn_resources: "local"
+bgcolor: "#FFFFFF"
+font_color: "#000000"
