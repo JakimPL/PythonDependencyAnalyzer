@@ -54,7 +54,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self._graph: ModuleGraph = ModuleGraph()
         self._parser: ImportStatementParser = ImportStatementParser()
         self._cycle_detector: CycleDetector = CycleDetector(config)
-
         self._resolver: ModuleResolver = ModuleResolver(
             project_root=self._project_root,
             package=self._package,

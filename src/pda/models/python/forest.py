@@ -14,7 +14,6 @@ from pda.structures import Forest
 from pda.types import Pathlike
 
 PathNodes: TypeAlias = Union[
-    Iterable[ASTNode[Any]],
     Iterable[Pathlike],
     Iterable[PathNode],
 ]
@@ -25,6 +24,8 @@ class ASTForest(Forest[ASTNode[Any]]):
         self,
         nodes: PathNodes,
     ) -> None:
+        self._root_origins: Dict[ASTNode[Any], Path] = {}
+
         super().__init__(self._to_nodes(nodes))
         self._mapping: Dict[ast.AST, ASTNode[Any]] = self._get_node_mapping()
 
@@ -46,12 +47,35 @@ class ASTForest(Forest[ASTNode[Any]]):
                 path = Path(item).resolve()
                 tree = parse_python_file(path)
                 node = build_ast_tree(tree)
+                self._root_origins[node] = path
                 nodes.add(node)
                 continue
 
             raise TypeError(f"Unsupported node type: {type(item)}, expected str, Path, PathNode or ASTNode")
 
         return nodes
+
+    def get_origin(self, node: ASTNode[Any]) -> Optional[Path]:
+        """
+        Get the origin file path for any node in the forest.
+
+        Args:
+            node: Any ASTNode in the forest.
+
+        Returns:
+            The Path where the node's root was parsed from, or None if not found.
+        """
+        return self._root_origins.get(node.root)
+
+    @property
+    def root_origins(self) -> Dict[ASTNode[Any], Path]:
+        """
+        Get the mapping of root nodes to their origin file paths.
+
+        Returns:
+            Dictionary mapping root ASTNodes to their source file Paths.
+        """
+        return self._root_origins.copy()
 
     def _get_node_mapping(self) -> Dict[ast.AST, ASTNode[Any]]:
         return {node.ast: node for node in self}

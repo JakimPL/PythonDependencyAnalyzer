@@ -21,6 +21,7 @@ from pda.specification.modules.spec.spec import (
 from pda.specification.modules.sys_paths import SysPaths
 from pda.specification.modules.types import CategorizedModuleDict, ModuleDict
 from pda.specification.source.module import ModuleSource
+from pda.specification.source.scope import ScopeType
 from pda.specification.source.span import SourceSpan
 from pda.specification.symbols.kind import SymbolKind
 from pda.specification.symbols.symbol import Symbol
@@ -43,7 +44,6 @@ __all__ = [
     "ModuleType",
     "Module",
     "UnavailableModule",
-    "ModuleSource",
     "CategorizedModule",
     # Spec
     "PKGModuleInfo",
@@ -54,6 +54,8 @@ __all__ = [
     "validate_spec",
     "find_module_spec",
     # Source
+    "ModuleSource",
+    "ScopeType",
     "SourceSpan",
     # Symbols
     "SymbolKind",
