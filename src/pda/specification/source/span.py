@@ -22,7 +22,7 @@ class SourceSpan(Specification):
     end_col_offset: Optional[int] = Field(..., ge=0, description="Ending column offset (0-based)")
 
     @classmethod
-    def from_ast(cls, node: ast.stmt) -> SourceSpan:
+    def from_ast(cls, node: ast.AST) -> SourceSpan:
         """
         Create SourceSpan from an AST node.
 
@@ -33,8 +33,8 @@ class SourceSpan(Specification):
             SourceSpan instance.
         """
         return cls(
-            lineno=node.lineno,
-            col_offset=node.col_offset,
-            end_lineno=node.end_lineno,
-            end_col_offset=node.end_col_offset,
+            lineno=getattr(node, "lineno", 1),
+            col_offset=getattr(node, "col_offset", 0),
+            end_lineno=getattr(node, "end_lineno", None),
+            end_col_offset=getattr(node, "end_col_offset", None),
         )

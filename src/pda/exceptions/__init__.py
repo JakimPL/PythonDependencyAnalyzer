@@ -18,7 +18,7 @@ from pda.exceptions.options import (
     PDAOptionsWarning,
     PDAValidationOptionsWarning,
 )
-from pda.exceptions.scope import PDAMissingScopeOrigin, PDAScopeException
+from pda.exceptions.scope import PDAEmptyScopeError, PDAMissingScopeOriginError, PDAScopeException
 from pda.exceptions.spec import (
     PDAFindSpecError,
     PDAInvalidOriginTypeError,
@@ -49,7 +49,8 @@ __all__ = [
     "PDAPathResolutionError",
     # Scope-related exceptions
     "PDAScopeException",
-    "PDAMissingScopeOrigin",
+    "PDAMissingScopeOriginError",
+    "PDAEmptyScopeError",
     # Spec-related exceptions
     "PDAModuleSpecError",
     "PDAFindSpecError",

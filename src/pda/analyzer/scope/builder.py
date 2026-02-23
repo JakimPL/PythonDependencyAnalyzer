@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from pda.analyzer.scope.scope import Scope
-from pda.exceptions import PDAMissingScopeOrigin
+from pda.exceptions import PDAEmptyScopeError, PDAMissingScopeOriginError
 from pda.models import ASTForest, ASTNode
 from pda.specification import ScopeType
 
@@ -43,7 +43,7 @@ class ScopeBuilder:
             self._visit_node(root)
 
         if self.scope_tree is None:
-            raise ValueError("Failed to build scope tree - no module found")
+            raise PDAEmptyScopeError("Failed to build scope tree - no module found")
 
         return self.scope_tree
 
@@ -78,7 +78,7 @@ class ScopeBuilder:
         """
         origin = self.forest.get_origin(node)
         if origin is None:
-            raise PDAMissingScopeOrigin(f"Cannot find origin for module node {node}")
+            raise PDAMissingScopeOriginError(f"Cannot find origin for module node {node}")
 
         module_scope = Scope(
             scope_type=ScopeType.MODULE,
@@ -102,7 +102,7 @@ class ScopeBuilder:
             scope_type: The type of scope to create.
         """
         if self._current_origin is None:
-            raise PDAMissingScopeOrigin("Cannot create scope without current origin")
+            raise PDAMissingScopeOriginError("Cannot create scope without current origin")
 
         new_scope = Scope(
             scope_type=scope_type,
@@ -112,7 +112,6 @@ class ScopeBuilder:
         )
 
         self._map_node_to_current_scope(node)
-
         previous_scope = self._current_scope
         self._current_scope = new_scope
         self._visit_children(node)
@@ -126,8 +125,7 @@ class ScopeBuilder:
             node: The parent ASTNode.
         """
         for child in node.children:
-            if isinstance(child, ASTNode):
-                self._visit_node(child)
+            self._visit_node(child)
 
     def _map_node_to_current_scope(self, node: ASTNode[Any]) -> None:
         """
