@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Dict, Optional, Set, TypeAlias, Union
+from typing import Optional, Set, TypeAlias, Union, override
 
 from anytree import PostOrderIter
 
@@ -17,7 +17,7 @@ Paths: TypeAlias = Union[
 ]
 
 
-class PathForest(Forest[PathNode]):
+class PathForest(Forest[Pathlike, PathNode]):
     """
     Wraps a filesystem structure as a tree of PathNodes
     for Python package file structure analysis.
@@ -26,8 +26,8 @@ class PathForest(Forest[PathNode]):
     def __init__(self, nodes: Paths) -> None:
         super().__init__(self._to_nodes(nodes))
         self._populate_package_info()
-        self._mapping: Dict[Path, PathNode] = self._get_node_mapping()
 
+    @override
     def __getitem__(self, path: Pathlike) -> PathNode:
         path = Path(path).resolve()
         return self._mapping[path]
@@ -48,11 +48,9 @@ class PathForest(Forest[PathNode]):
 
         return nodes
 
-    def _get_node_mapping(self) -> Dict[Path, PathNode]:
-        return {node.filepath: node for node in self}
-
-    def get(self, path: Pathlike) -> Optional[PathNode]:
-        path = Path(path).resolve()
+    @override
+    def get(self, item: Pathlike) -> Optional[PathNode]:
+        path = Path(item).resolve()
         return self._mapping.get(path)
 
     def get_python_files(self) -> Set[Path]:

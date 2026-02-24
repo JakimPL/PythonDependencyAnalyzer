@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 import ast
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from pda.exceptions import PDAEmptyScopeError, PDAMissingScopeOriginError
 from pda.models import ASTForest, ASTNode
@@ -20,39 +18,32 @@ class ScopeBuilder:
     structure. Symbol collection happens in a separate phase.
     """
 
-    def __init__(self, forest: ASTForest) -> None:
+    def __init__(self) -> None:
         """
-        Initialize the scope builder.
+        Initialize the scope builder and build the scope hierarchy.
 
         Args:
             forest: The ASTForest containing wrapped AST nodes with their origins.
         """
-        self.forest = forest
+        self.forest: Optional[ASTForest] = None
         self.node_to_scope: Dict[ASTNode[Any], ScopeNode[Any]] = {}
-        self.scope_tree: Optional[Union[ScopeNode[Any], ScopeForest]] = None
-        self.module_scopes: List[ScopeNode[Any]] = []
+        self._module_scopes: List[ScopeNode[Any]] = []
         self._current_scope: Optional[ScopeNode[Any]] = None
         self._current_origin: Optional[Path] = None
 
-    def build(self) -> Union[ScopeNode[Any], ScopeForest]:
+    def __call__(self, forest: ASTForest) -> ScopeForest:
         """
         Build the scope hierarchy by walking the AST.
-
-        Returns:
-            A ScopeNode if single file, or ScopeForest if multiple files.
         """
+        self.forest = forest
+
         for root in self.forest.roots:
             self._visit_node(root)
 
-        if not self.module_scopes:
+        if not self._module_scopes:
             raise PDAEmptyScopeError("Failed to build scope tree - no module found")
 
-        if len(self.module_scopes) == 1:
-            self.scope_tree = self.module_scopes[0]
-            return self.scope_tree
-
-        self.scope_tree = ScopeForest(self.module_scopes)
-        return self.scope_tree
+        return ScopeForest(self._module_scopes)
 
     def _visit_node(self, node: ASTNode[Any]) -> None:
         """
@@ -83,6 +74,7 @@ class ScopeBuilder:
         Args:
             node: The Module ASTNode.
         """
+        assert self.forest is not None, "Forest must be set before visiting nodes"
         origin = self.forest.get_origin(node)
         if origin is None:
             raise PDAMissingScopeOriginError(f"Cannot find origin for module node {node}")
@@ -94,7 +86,7 @@ class ScopeBuilder:
             parent=None,
         )
 
-        self.module_scopes.append(module_scope)
+        self._module_scopes.append(module_scope)
         self._current_scope = module_scope
         self._current_origin = origin
         self._map_node_to_current_scope(node)
@@ -118,8 +110,8 @@ class ScopeBuilder:
             parent=self._current_scope,
         )
 
-        self.node_to_scope[node] = new_scope
         previous_scope = self._current_scope
+        self.node_to_scope[node] = new_scope
         self._current_scope = new_scope
         self._visit_children(node)
         self._current_scope = previous_scope
@@ -143,24 +135,3 @@ class ScopeBuilder:
         """
         if self._current_scope is not None:
             self.node_to_scope[node] = self._current_scope
-
-    def get_scope(self, node: ASTNode[Any]) -> Optional[ScopeNode[Any]]:
-        """
-        Get the scope for a given AST node.
-
-        Args:
-            node: The ASTNode to look up.
-
-        Returns:
-            The Scope containing this node, or None if not found.
-        """
-        return self.node_to_scope.get(node)
-
-    def get_all_scopes(self) -> List[ScopeNode[Any]]:
-        """
-        Get all unique scopes in the tree.
-
-        Returns:
-            List of all unique Scope objects.
-        """
-        return list(set(self.node_to_scope.values()))

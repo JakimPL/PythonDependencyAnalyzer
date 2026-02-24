@@ -1,19 +1,18 @@
-from __future__ import annotations
-
 from abc import ABC
 from collections.abc import Iterable, Iterator
-from typing import TYPE_CHECKING, Generic, Set
+from typing import TYPE_CHECKING, Dict, Generic, Optional, Set
 
 import networkx as nx
 from anytree import LevelOrderIter
 
 from pda.structures.node.types import AnyNodeT
+from pda.types import HashableT
 
 if TYPE_CHECKING:
     from pda.structures.graph.base import Graph
 
 
-class Forest(ABC, Generic[AnyNodeT]):
+class Forest(ABC, Generic[HashableT, AnyNodeT]):
     def __init__(
         self,
         nodes: Iterable[AnyNodeT],
@@ -24,9 +23,14 @@ class Forest(ABC, Generic[AnyNodeT]):
         if detach_from_parents:
             self._detach_roots_from_parents()
 
+        self._mapping: Dict[HashableT, AnyNodeT] = self._get_node_mapping()
+
     @staticmethod
     def _find_top_level_nodes(nodes: Iterable[AnyNodeT]) -> Set[AnyNodeT]:
         return {node for node in set(nodes) if not any(ancestor in nodes for ancestor in node.ancestors)}
+
+    def _get_node_mapping(self) -> Dict[HashableT, AnyNodeT]:
+        return {node.item: node for node in self}
 
     def _detach_roots_from_parents(self) -> None:
         for root in self._roots:
@@ -39,8 +43,17 @@ class Forest(ABC, Generic[AnyNodeT]):
         for root in self._roots:
             yield from LevelOrderIter(root)
 
+    def __contains__(self, item: HashableT) -> bool:
+        return item in self._mapping
+
+    def __getitem__(self, item: HashableT) -> AnyNodeT:
+        return self._mapping[item]
+
     def __len__(self) -> int:
         return sum(root.size for root in self._roots)
+
+    def get(self, item: HashableT) -> Optional[AnyNodeT]:
+        return self._mapping.get(item)
 
     @property
     def roots(self) -> Set[AnyNodeT]:

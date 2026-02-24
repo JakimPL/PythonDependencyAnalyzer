@@ -10,6 +10,8 @@ from pda.models.python.forest import ASTForest
 from pda.models.python.graph import ASTGraph
 from pda.models.python.node import ASTNode
 from pda.models.python.types import NodeMapping, get_ast
+from pda.models.scope.forest import ScopeForest
+from pda.models.scope.node import ScopeNode
 
 __all__ = [
     # Python-related nodes and forests
@@ -27,6 +29,9 @@ __all__ = [
     "PathForest",
     "PathGraph",
     "build_path_tree",
+    # Scope-related structures
+    "ScopeNode",
+    "ScopeForest",
     # Module-related graphs
     "ModuleNode",
     "ModuleGraph",

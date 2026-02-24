@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import ast
 from collections.abc import Iterable
 from pathlib import Path
@@ -19,18 +17,13 @@ PathNodes: TypeAlias = Union[
 ]
 
 
-class ASTForest(Forest[ASTNode[Any]]):
+class ASTForest(Forest[ast.AST, ASTNode[Any]]):
     def __init__(
         self,
         nodes: PathNodes,
     ) -> None:
         self._root_origins: Dict[ASTNode[Any], Path] = {}
-
         super().__init__(self._to_nodes(nodes))
-        self._mapping: Dict[ast.AST, ASTNode[Any]] = self._get_node_mapping()
-
-    def __getitem__(self, node: ast.AST) -> ASTNode[Any]:
-        return self._mapping[node]
 
     def _to_nodes(self, items: PathNodes) -> Set[ASTNode[Any]]:
         node: ASTNode[Any]
@@ -79,9 +72,6 @@ class ASTForest(Forest[ASTNode[Any]]):
 
     def _get_node_mapping(self) -> Dict[ast.AST, ASTNode[Any]]:
         return {node.ast: node for node in self}
-
-    def get(self, node: ast.AST) -> Optional[ASTNode[Any]]:
-        return self._mapping.get(node)
 
     @property
     def graph(self) -> ASTGraph:

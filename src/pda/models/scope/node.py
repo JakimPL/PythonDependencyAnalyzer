@@ -3,14 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from pda.models import ASTNode
 from pda.models.python.dump import ast_dump
+from pda.models.python.node import ASTNode
 from pda.specification import ScopeType, Symbol
 from pda.structures import AnyNode
-from pda.types.typehints import ASTT
+from pda.types import ASTT
 
 
-class ScopeNode(AnyNode[AnyNode[ASTT]]):
+class ScopeNode(AnyNode[ASTNode[ASTT]]):
     """
     Represents a Python scope with its symbol table.
 
@@ -25,7 +25,9 @@ class ScopeNode(AnyNode[AnyNode[ASTT]]):
         scope_type: ScopeType,
         node: ASTNode[ASTT],
         origin: Path,
+        *,
         parent: Optional[ScopeNode[ASTT]] = None,
+        label: Optional[str] = None,
     ) -> None:
         """
         Initialize a new scope.
@@ -35,15 +37,18 @@ class ScopeNode(AnyNode[AnyNode[ASTT]]):
             node: The AST node that created this scope.
             origin: The file path where this scope is defined.
             parent: The enclosing parent scope (None for module scope).
+            label: The label for this scope node (if None, defaults to node.label).
         """
-        label = getattr(node.ast, "name", scope_type.value)
+        label = label or node.label
+        details = node.details
+        group = node.group
         super().__init__(
             item=node,
             parent=parent,
             ordinal=id(node),
             label=label,
-            details=str(origin),
-            group=scope_type.value,
+            details=details,
+            group=group,
         )
         self.scope_type = scope_type
         self.origin = origin

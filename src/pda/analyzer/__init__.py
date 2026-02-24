@@ -7,6 +7,8 @@ from pda.analyzer.modules.collector import ModulesCollector
 from pda.analyzer.modules.creator import ModuleCreator
 from pda.analyzer.modules.pkg import PkgModuleScanner
 from pda.analyzer.modules.scanner import FileSystemScanner
+from pda.analyzer.scope.builder import ScopeBuilder
+from pda.analyzer.scope.collector import SymbolCollector
 
 __all__ = [
     "BaseAnalyzer",
@@ -20,4 +22,7 @@ __all__ = [
     "ModuleResolver",
     "ImportStatementParser",
     "ModuleImportsAnalyzer",
+    # Scope analyzer
+    "ScopeBuilder",
+    "SymbolCollector",
 ]
