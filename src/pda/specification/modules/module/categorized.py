@@ -56,6 +56,9 @@ class CategorizedModule(NamedTuple):
     def base_path(self) -> Optional[Path]:
         return self.module.base_path if isinstance(self.module, Module) else None
 
+    def prefix(self, level: int) -> str:
+        return self.module.prefix(level)
+
     @property
     def top_level_module(self) -> str:
         return self.module.top_level_module

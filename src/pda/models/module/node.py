@@ -1,4 +1,4 @@
-from typing import Any, Tuple, override
+from typing import Any, Optional, Tuple, override
 
 from pda.specification import CategorizedModule
 from pda.structures.node.base import Node
@@ -12,8 +12,10 @@ class ModuleNode(Node[CategorizedModule]):
         ordinal: int = 0,
         level: int = 0,
         qualified_name: bool = False,
+        label: Optional[str] = None,
     ) -> None:
-        label = module.qualified_name if qualified_name else module.module_name
+        if label is None:
+            label = module.qualified_name if qualified_name else module.module_name
         details = module.name
         group = module.category.value
         order = module.category.order

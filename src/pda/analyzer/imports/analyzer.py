@@ -3,9 +3,10 @@ from __future__ import annotations
 from collections import deque
 from copy import copy
 from pathlib import Path
-from typing import Deque, List, Optional, Set, Tuple, Union, overload, override
+from typing import Deque, List, NamedTuple, Optional, Set, Union, overload, override
 
 from pda.analyzer.base import BaseAnalyzer
+from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
 from pda.analyzer.imports.cycle import CycleDetector
 from pda.analyzer.imports.parser import ImportStatementParser
 from pda.analyzer.imports.resolver import ModuleResolver
@@ -26,6 +27,15 @@ from pda.specification import (
 from pda.structures import OrderedSet
 from pda.tools.logger import logger
 from pda.types import Pathlike
+
+
+class PendingNode(NamedTuple):
+    """A node awaiting traversal in the import graph BFS, with its accumulated state."""
+
+    node: ModuleNode
+    depth: int
+    path: List[Path]
+    context: CategoryContext
 
 
 class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGraph]):
@@ -58,6 +68,10 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             project_root=self._project_root,
             package=self._package,
             config=config,
+        )
+        self._depth_policy: CategoryDepthPolicy = CategoryDepthPolicy(
+            self.config.stdlib_depth,
+            self.config.external_depth,
         )
 
         self._counter = 0
@@ -129,11 +143,11 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self._add(root)
 
         processed: Set[Optional[Path]] = {None}
-        new_nodes: Deque[Tuple[ModuleNode, int, List[Path]]] = deque([(root, 0, [])])
+        new_nodes: Deque[PendingNode] = deque([PendingNode(root, 0, [], CategoryContext.root())])
         self._cycle_detector.mark_visiting(root.module.origin)
 
         while new_nodes:
-            node, depth, path = new_nodes.pop()
+            node, depth, path, context = new_nodes.pop()
             is_root = node.module.origin == self._filepath
             module = node.module
             if self._check_if_should_process_module(
@@ -149,11 +163,19 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
                     is_root=is_root,
                     depth=depth,
                     path=current_path,
+                    context=context,
                 )
 
             self._cycle_detector.mark_visited(module.origin)
 
-        self._graph.sort(method=self.config.sort_method)
+        if self.config.collapse_level is not None:
+            self._graph = self._graph.simplify(
+                self.config.collapse_level,
+                qualified_name=self.config.qualified_names,
+                sort_method=self.config.sort_method,
+            )
+        else:
+            self._graph.sort(method=self.config.sort_method)
 
     def _check_graph(self) -> None:
         if self._graph.empty:
@@ -196,12 +218,13 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         *,
         processed: Optional[Set[Optional[Path]]] = None,
         is_root: bool = False,
+        context: Optional[CategoryContext] = None,
     ) -> CategorizedModuleDict:
         """
         Analyze a module to extract all imported module paths,
         and return their corresponding file paths.
         """
-        if not self._check_if_should_scan(module, processed=processed):
+        if not self._check_if_should_scan(module, processed=processed, context=context):
             return {}
 
         if module.base_path is None:
@@ -235,24 +258,16 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self,
         module: CategorizedModule,
         processed: Optional[Set[Optional[Path]]] = None,
+        context: Optional[CategoryContext] = None,
     ) -> bool:
         if module.origin_type != OriginType.PYTHON:
             return False
 
-        category = module.category
-        if not self.config.scan_stdlib and category == ModuleCategory.STDLIB:
+        context = context or CategoryContext.root()
+        if not self._depth_policy.should_recurse(context):
             return False
 
-        if not self.config.scan_external and category == ModuleCategory.EXTERNAL:
-            return False
-
-        if self.config.hide_stdlib and category == ModuleCategory.STDLIB:
-            return False
-
-        if self.config.hide_external and category == ModuleCategory.EXTERNAL:
-            return False
-
-        if self.config.hide_unavailable and category == ModuleCategory.UNAVAILABLE:
+        if self.config.hide_unavailable and module.category == ModuleCategory.UNAVAILABLE:
             return False
 
         if self.config.hide_private and module.is_private:
@@ -310,28 +325,34 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
     def _collect_new_modules(
         self,
         node: ModuleNode,
-        new_nodes: Deque[Tuple[ModuleNode, int, List[Path]]],
+        new_nodes: Deque[PendingNode],
         *,
         processed: Set[Optional[Path]],
         is_root: bool = False,
         depth: int = 0,
         path: Optional[List[Path]] = None,
+        context: Optional[CategoryContext] = None,
     ) -> None:
         path = path or []
+        context = context or CategoryContext.root()
         imported_modules = self.analyze_module(
             node.module,
             processed=processed,
             is_root=is_root,
+            context=context,
         )
 
         processed.add(node.module.origin)
         for imported_module in imported_modules.values():
+            child_context = self._depth_policy.descend(
+                context,
+                imported_module.category,
+            )
             if (
                 (self.config.unify_nodes and imported_module.origin in processed)
                 or (self.config.hide_private and imported_module.is_private)
                 or (self.config.hide_unavailable and imported_module.category == ModuleCategory.UNAVAILABLE)
-                or (self.config.hide_stdlib and imported_module.category == ModuleCategory.STDLIB)
-                or (self.config.hide_external and imported_module.category == ModuleCategory.EXTERNAL)
+                or (not self._depth_policy.should_include(child_context))
                 or (node.module.name == imported_module.name)
             ):
                 continue
@@ -350,7 +371,14 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             current_path = path + [imported_module.origin] if imported_module.origin else path
             self._add(child, parent=node)
             self._cycle_detector.mark_visiting(imported_module.origin)
-            new_nodes.append((child, level, current_path))
+            new_nodes.append(
+                PendingNode(
+                    child,
+                    level,
+                    current_path,
+                    child_context,
+                )
+            )
 
     def _resolve_import_paths(
         self,

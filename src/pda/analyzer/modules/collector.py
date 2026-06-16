@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional, Tuple, Union, overload
 
 from pda.analyzer.base import BaseAnalyzer
+from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
 from pda.analyzer.lazy import lazy_execution
 from pda.analyzer.modules.creator import ModuleCreator
 from pda.analyzer.modules.pkg import PkgModuleScanner
@@ -41,6 +42,10 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         self._creator: ModuleCreator = ModuleCreator(project_root=self._project_root)
         self._pkg_scanner: PkgModuleScanner = PkgModuleScanner(config=self.config.module_scan)
         self._fs_scanner: FileSystemScanner = FileSystemScanner(project_root=self._project_root)
+        self._depth_policy: CategoryDepthPolicy = CategoryDepthPolicy(
+            self.config.stdlib_depth,
+            self.config.external_depth,
+        )
 
     def __bool__(self) -> bool:
         return bool(self._collection)
@@ -82,9 +87,9 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
     @property
     @lazy_execution
     def stdlib(self) -> CategorizedModuleDict:
-        if not self.config.scan_stdlib:
+        if self.config.stdlib_depth == 0:
             warnings.warn(
-                "Accessing 'stdlib' category while 'scan_stdlib' is False. This category will be empty.",
+                "Accessing 'stdlib' category while 'stdlib_depth' is 0. This category will be empty.",
                 PDACategoryDisabledWarning,
             )
 
@@ -93,9 +98,9 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
     @property
     @lazy_execution
     def external(self) -> CategorizedModuleDict:
-        if not self.config.scan_external:
+        if self.config.external_depth == 0:
             warnings.warn(
-                "Accessing 'external' category while 'scan_external' is False. This category will be empty.",
+                "Accessing 'external' category while 'external_depth' is 0. This category will be empty.",
                 PDACategoryDisabledWarning,
             )
 
@@ -137,6 +142,12 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         self.clear()
         self._collect_external_modules()
         self._collect_local_modules()
+        if self.config.collapse_level is not None:
+            self._graph = self._graph.simplify(
+                self.config.collapse_level,
+                qualified_name=self.config.qualified_names,
+                sort_method="auto",
+            )
         if not self:
             logger.warning("No modules collected. Check your configuration and project structure")
 
@@ -147,6 +158,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
                 name=module_info.name,
                 base_path=module_info.base_path,
                 package=module_info.package,
+                parent_context=CategoryContext.root(),
             )
 
     def _collect_local_modules(self) -> None:
@@ -157,6 +169,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
             location=self._project_root,
             base_path=self._project_root,
             package=self._package,
+            parent_context=CategoryContext.root(),
         )
 
     def _add_submodules_from_files(
@@ -167,9 +180,10 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         parent: Optional[ModuleNode] = None,
         package: Optional[str] = None,
         level: int = 0,
+        parent_context: CategoryContext,
     ) -> None:
-        max_level = self.config.max_level
-        if max_level is not None and level > max_level:
+        max_depth = self.config.max_depth
+        if max_depth is not None and level > max_depth:
             return
 
         origin = resolve_path(location)
@@ -185,6 +199,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
                 package=package,
                 parent=parent,
                 level=level,
+                parent_context=parent_context,
             )
 
     def _add_module(
@@ -195,6 +210,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         package: Optional[str] = None,
         parent: Optional[ModuleNode] = None,
         level: int = 0,
+        parent_context: CategoryContext,
     ) -> None:
         name = str(name)
         module = self._get_module(name, package=package)
@@ -205,10 +221,8 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         if self.config.hide_unavailable and module.category == ModuleCategory.UNAVAILABLE:
             return
 
-        if self.config.hide_stdlib and module.category == ModuleCategory.STDLIB:
-            return
-
-        if self.config.hide_external and module.category == ModuleCategory.EXTERNAL:
+        context = self._depth_policy.descend(parent_context, module.category)
+        if not self._depth_policy.should_include(context):
             return
 
         if self.config.hide_private and module.is_private:
@@ -216,7 +230,14 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
 
         node = ModuleNode(module, level=level, qualified_name=self.config.qualified_names)
         self._add(node, parent)
-        self._add_submodules(node, base_path, package=name, level=level + 1)
+        if self._depth_policy.should_recurse(context):
+            self._add_submodules(
+                node,
+                base_path,
+                package=name,
+                level=level + 1,
+                parent_context=context,
+            )
 
     def _add(self, node: ModuleNode, parent: Optional[ModuleNode] = None) -> None:
         self._graph.add_node(node)
@@ -231,6 +252,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         *,
         package: Optional[str] = None,
         level: int = 0,
+        parent_context: CategoryContext,
     ) -> None:
         spec = node.module.spec
         if not spec or not spec.submodule_search_locations:
@@ -243,6 +265,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
                 parent=node,
                 package=package,
                 level=level,
+                parent_context=parent_context,
             )
 
     def _get_module(

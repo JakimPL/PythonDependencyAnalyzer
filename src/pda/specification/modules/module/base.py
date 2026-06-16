@@ -39,6 +39,15 @@ class BaseModule(Specification, ABC):
     def qualified_name(self) -> str:
         return self.name.removesuffix(".__init__")
 
+    def prefix(self, level: int) -> str:
+        """
+        Dotted-name prefix of the qualified name up to the given absolute level,
+        counted from the package root (level 0 = top-level package). Levels beyond
+        the number of components are clamped to the full qualified name.
+        """
+        parts = self.qualified_name.split(DELIMITER)
+        return DELIMITER.join(parts[: level + 1])
+
     @property
     def top_level_module(self) -> str:
         top_level = self.package or self.name

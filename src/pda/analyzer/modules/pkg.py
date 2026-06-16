@@ -5,8 +5,9 @@ import sys
 from pathlib import Path
 from typing import List
 
+from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
 from pda.config import ModuleScanConfig
-from pda.specification import PKGModuleInfo
+from pda.specification import ModuleCategory, PKGModuleInfo
 
 
 class PkgModuleScanner:
@@ -14,15 +15,7 @@ class PkgModuleScanner:
 
     def __init__(self, config: ModuleScanConfig) -> None:
         self._pkg_modules = {module.name: module for module in pkgutil.iter_modules()}
-        self._config = config
-
-    @property
-    def scan_stdlib(self) -> bool:
-        return self._config.scan_stdlib
-
-    @property
-    def scan_external(self) -> bool:
-        return self._config.scan_external
+        self._policy = CategoryDepthPolicy(config.stdlib_depth, config.external_depth)
 
     def discover(self) -> List[PKGModuleInfo]:
         """
@@ -46,11 +39,11 @@ class PkgModuleScanner:
         return discovered
 
     def _skip_module(self, name: str) -> bool:
-        if name in sys.stdlib_module_names:
-            if not self.scan_stdlib:
-                return True
+        """
+        Decide whether to skip discovery of a top-level installed package.
 
-        elif not self.scan_external:
-            return True
-
-        return False
+        Each discovered package is the boundary node (category-depth 1) of its category,
+        so it is skipped only when that category is hidden entirely (its depth is 0).
+        """
+        category = ModuleCategory.STDLIB if name in sys.stdlib_module_names else ModuleCategory.EXTERNAL
+        return not self._policy.should_include(CategoryContext(category, 1))
