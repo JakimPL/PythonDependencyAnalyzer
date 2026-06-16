@@ -46,3 +46,11 @@ class ModulesCollectorConfig(BaseConfig):
     @property
     def hide_unavailable(self) -> bool:
         return self.module_scan.hide_unavailable
+
+    @property
+    def hide_stdlib(self) -> bool:
+        return self.module_scan.hide_stdlib
+
+    @property
+    def hide_external(self) -> bool:
+        return self.module_scan.hide_external

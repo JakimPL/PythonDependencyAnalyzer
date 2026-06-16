@@ -70,6 +70,41 @@ def validate_spec(
     return spec
 
 
+@lru_cache(maxsize=None)
+def _find_module_spec(
+    name: str,
+    package: Optional[str] = None,
+    *,
+    allow_missing_spec: bool = False,
+    raise_error: bool = True,
+    validate_origin: bool = True,
+    expect_python: bool = True,
+) -> Optional[ModuleSpec]:
+    spec: Optional[ModuleSpec] = None
+    try:
+        spec = find_spec(name, package=package)
+    except (ImportError, ModuleNotFoundError, ValueError) as error:
+        logger.debug("Error finding spec for module '%s': %s", name, error)
+    except Exception as error:
+        error_message = f"{error.__class__.__name__}: {error}"
+        message = f"An error occurred while finding spec for module '{name}' of package '{package}'"
+        if raise_error:
+            raise PDAFindSpecError(message) from error
+
+        logger.debug("%s: %s", message, error_message)
+
+    if spec is None:
+        if allow_missing_spec:
+            if name != "__main__":
+                logger.debug("Module spec for module '%s' not found", name)
+
+            return None
+
+        raise PDAMissingModuleSpecError(f"Module spec for module '{name}' not found")
+
+    return validate_spec(spec, validate_origin=validate_origin, expect_python=expect_python)
+
+
 @overload
 def find_module_spec(
     name: str,
@@ -94,7 +129,6 @@ def find_module_spec(
 ) -> Optional[ModuleSpec]: ...
 
 
-@lru_cache(maxsize=None)
 def find_module_spec(
     name: str,
     package: Optional[str] = None,
@@ -104,26 +138,16 @@ def find_module_spec(
     validate_origin: bool = True,
     expect_python: bool = True,
 ) -> Optional[ModuleSpec]:
-    spec: Optional[ModuleSpec] = None
-    try:
-        spec = find_spec(name, package=package)
-    except (ImportError, ModuleNotFoundError, ValueError) as error:
-        logger.debug("Error finding spec for module '%s': %s", name, error)
-    except (PermissionError, OSError) as error:
-        error_message = f"{error.__class__.__name__}: {error}"
-        message = f"An error occurred while finding spec for module '{name}' of package '{package}'"
-        if raise_error:
-            raise PDAFindSpecError(message) from error
+    return _find_module_spec(
+        name,
+        package,
+        allow_missing_spec=allow_missing_spec,
+        raise_error=raise_error,
+        validate_origin=validate_origin,
+        expect_python=expect_python,
+    )
 
-        logger.debug("%s: %s", message, error_message)
 
-    if spec is None:
-        if allow_missing_spec:
-            if name != "__main__":
-                logger.debug("Module spec for module '%s' not found", name)
-
-            return None
-
-        raise PDAMissingModuleSpecError(f"Module spec for module '{name}' not found")
-
-    return validate_spec(spec, validate_origin=validate_origin, expect_python=expect_python)
+def clear_module_spec_cache() -> None:
+    """Clear cached module spec lookups, e.g. after extending ``sys.path``."""
+    _find_module_spec.cache_clear()

@@ -246,6 +246,12 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         if not self.config.scan_external and category == ModuleCategory.EXTERNAL:
             return False
 
+        if self.config.hide_stdlib and category == ModuleCategory.STDLIB:
+            return False
+
+        if self.config.hide_external and category == ModuleCategory.EXTERNAL:
+            return False
+
         if self.config.hide_unavailable and category == ModuleCategory.UNAVAILABLE:
             return False
 
@@ -324,6 +330,8 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
                 (self.config.unify_nodes and imported_module.origin in processed)
                 or (self.config.hide_private and imported_module.is_private)
                 or (self.config.hide_unavailable and imported_module.category == ModuleCategory.UNAVAILABLE)
+                or (self.config.hide_stdlib and imported_module.category == ModuleCategory.STDLIB)
+                or (self.config.hide_external and imported_module.category == ModuleCategory.EXTERNAL)
                 or (node.module.name == imported_module.name)
             ):
                 continue

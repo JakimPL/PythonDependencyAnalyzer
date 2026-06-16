@@ -205,6 +205,12 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         if self.config.hide_unavailable and module.category == ModuleCategory.UNAVAILABLE:
             return
 
+        if self.config.hide_stdlib and module.category == ModuleCategory.STDLIB:
+            return
+
+        if self.config.hide_external and module.category == ModuleCategory.EXTERNAL:
+            return
+
         if self.config.hide_private and module.is_private:
             return
 
