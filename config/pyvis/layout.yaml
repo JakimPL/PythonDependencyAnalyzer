@@ -1,0 +1,28 @@
+mode: package_cloud
+
+group_level: 0
+
+flow:
+  direction: LR
+  level_separation: 200
+  band_spacing: 140
+  crossing_reduction: true
+  crossing_iterations: 4
+
+cluster:
+  node_spacing: 80
+  ring_spacing: 80
+  min_radius: 20
+  jitter: 0.1
+  seed: 0
+
+relaxation:
+  enabled: false
+  solver: forceAtlas2Based
+  gravity: -50
+  central_gravity: 0.003
+  spring_length: 200
+  spring_constant: 0.004
+  damping: 0.9
+  stabilization_iterations: 150
+  anchor_centers: false

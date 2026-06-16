@@ -1,4 +1,9 @@
 from pda.models.module.graph import ModuleGraph
+from pda.models.module.layout import (
+    PackageCloudLayout,
+    module_layout_from_config,
+    module_pyvis_converter,
+)
 from pda.models.module.node import ModuleNode
 from pda.models.paths.builder import build_path_tree
 from pda.models.paths.forest import PathForest, gather_python_files
@@ -36,4 +41,7 @@ __all__ = [
     # Module-related graphs
     "ModuleNode",
     "ModuleGraph",
+    "PackageCloudLayout",
+    "module_layout_from_config",
+    "module_pyvis_converter",
 ]

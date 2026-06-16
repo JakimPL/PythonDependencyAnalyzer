@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional, Self
 from pydantic import Field
 
 from pda.config.base import BaseConfig
+from pda.config.pyvis.layout import LayoutConfig
 from pda.config.pyvis.theme import Theme
 from pda.tools.serialization import load_yaml
 from pda.tools.templates import TemplateLoader
@@ -18,6 +19,10 @@ class PyVisConfig(BaseConfig):
     vis: Dict[str, Dict[str, Any]] = Field(
         default_factory=nested_defaultdict,
         description="vis.js options for customizing the appearance of the pyvis visualization.",
+    )
+    layout: LayoutConfig = Field(
+        default_factory=LayoutConfig,
+        description="Python-side layout strategy used to position nodes before handing them to vis.js.",
     )
 
     @classmethod
@@ -36,7 +41,17 @@ class PyVisConfig(BaseConfig):
         return cls(
             network=loader.load(config_path / "network.yaml"),
             vis=loader.load(config_path / "vis.yaml"),
+            layout=cls._load_layout(config_path),
         )
+
+    @staticmethod
+    def _load_layout(config_path: Path) -> LayoutConfig:
+        layout_path = config_path / "layout.yaml"
+        if not layout_path.exists():
+            return LayoutConfig()
+
+        data: Optional[Dict[str, Any]] = load_yaml(layout_path)
+        return LayoutConfig(**(data or {}))
 
     @staticmethod
     def _validate_config_path(config_path: Path) -> None:
