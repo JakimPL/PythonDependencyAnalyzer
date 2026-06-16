@@ -2,7 +2,18 @@ from __future__ import annotations
 
 from collections import deque
 from pathlib import Path
-from typing import Deque, FrozenSet, Iterable, List, NamedTuple, Optional, Set, Union, overload, override
+from typing import (
+    Deque,
+    FrozenSet,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Set,
+    Union,
+    overload,
+    override,
+)
 
 from pda.analyzer.base import BaseAnalyzer
 from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
@@ -199,7 +210,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         base_path: Path,
         package: str,
         *,
-        processed: Optional[Set[Optional[Path]]] = None,
         is_root: bool = False,
     ) -> CategorizedModuleDict:
         """
@@ -213,7 +223,7 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             validation_options=self._resolver.module_validation_options,
         )
 
-        import_paths = self._collect_imports(module_source, processed=processed, is_root=is_root)
+        import_paths = self._collect_imports(module_source, is_root=is_root)
         return self._resolver.resolve_batch(module_source, import_paths)
 
     def analyze_module(
@@ -239,7 +249,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             module.origin,
             module.base_path,
             module.top_level_module,
-            processed=processed,
             is_root=is_root,
         )
 
@@ -287,12 +296,11 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
     def _collect_imports(
         self,
         module_source: ModuleSource,
-        processed: Optional[Set[Optional[Path]]] = None,
         is_root: bool = False,
     ) -> List[ImportPath]:
         import_statements = self._collect_import_statements(module_source.origin)
         import_paths = self._filter_runtime_import_paths(import_statements, is_root=is_root)
-        return self._resolve_import_paths(module_source, import_paths, processed=processed)
+        return self._resolve_import_paths(module_source, import_paths)
 
     def _collect_import_statements(
         self,
@@ -353,8 +361,7 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
                 imported_module.category,
             )
             if (
-                (self.config.unify_nodes and imported_module.origin in processed)
-                or (self.config.hide_private and imported_module.is_private)
+                (self.config.hide_private and imported_module.is_private)
                 or (self.config.hide_unavailable and imported_module.category == ModuleCategory.UNAVAILABLE)
                 or (not self._depth_policy.should_include(child_context))
                 or (node.module.name == imported_module.name)
@@ -371,9 +378,12 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
                 ordinal=self._ordinal(),
                 qualified_name=self.config.qualified_names,
             )
+            self._add(child, parent=node)
+
+            if self.config.unify_nodes and imported_module.origin in processed:
+                continue
 
             current_path = path + [imported_module.origin] if imported_module.origin else path
-            self._add(child, parent=node)
             self._cycle_detector.mark_visiting(imported_module.origin)
             new_nodes.append(
                 PendingNode(
@@ -388,14 +398,11 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self,
         module_source: ModuleSource,
         import_paths: List[ImportPath],
-        *,
-        processed: Optional[Set[Optional[Path]]] = None,
     ) -> List[ImportPath]:
-        processed = processed or set()
         return [
             path
             for import_path in import_paths
-            if (path := self._resolver.resolve_import_path(module_source, import_path, processed)) is not None
+            if (path := self._resolver.resolve_import_path(module_source, import_path)) is not None
         ]
 
     def _ordinal(self) -> int:

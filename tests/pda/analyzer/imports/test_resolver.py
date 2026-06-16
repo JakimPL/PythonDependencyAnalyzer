@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from importlib.machinery import ModuleSpec
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, Union
 from unittest.mock import Mock, patch
 
 import pytest
@@ -211,7 +211,6 @@ class TestResolveImportPathMocked:
         label: str
         spec_return: Optional[ModuleSpec]
         is_namespace: bool
-        origin_in_processed: bool
         expected: Optional[ImportPath]
         is_namespace_called: bool
         validate_origin_called: bool
@@ -222,7 +221,6 @@ class TestResolveImportPathMocked:
             label="spec_none_returns_none",
             spec_return=None,
             is_namespace=False,
-            origin_in_processed=False,
             expected=None,
             is_namespace_called=False,
             validate_origin_called=False,
@@ -232,27 +230,15 @@ class TestResolveImportPathMocked:
             label="namespace_package_returns_none",
             spec_return=Mock(spec=ModuleSpec, name="test"),
             is_namespace=True,
-            origin_in_processed=False,
             expected=None,
             is_namespace_called=True,
             validate_origin_called=False,
             resolve_called=False,
         ),
         TestCase(
-            label="origin_in_processed_returns_none",
-            spec_return=Mock(spec=ModuleSpec, name="test"),
-            is_namespace=False,
-            origin_in_processed=True,
-            expected=None,
-            is_namespace_called=True,
-            validate_origin_called=True,
-            resolve_called=False,
-        ),
-        TestCase(
             label="successful_resolution",
             spec_return=Mock(spec=ModuleSpec, name="test"),
             is_namespace=False,
-            origin_in_processed=False,
             expected=ImportPath(module="test.resolved"),
             is_namespace_called=True,
             validate_origin_called=True,
@@ -264,20 +250,15 @@ class TestResolveImportPathMocked:
     def test_resolve_import_path(self, test_case: TestCase) -> None:
         resolver = create_resolver()
         mock_import_path = Mock(spec=ImportPath)
-        processed: Set[Optional[Path]] = set()
 
         mock_source = setup_mock_source(spec_return=test_case.spec_return)
-
-        if test_case.origin_in_processed:
-            test_origin = make_test_path("test")
-            processed.add(test_origin)
 
         with mock_resolve_import_path_dependencies(test_case.is_namespace, test_case.expected) as (
             mock_is_namespace,
             mock_validate,
             mock_resolve,
         ):
-            result = resolver.resolve_import_path(mock_source, mock_import_path, processed)
+            result = resolver.resolve_import_path(mock_source, mock_import_path)
 
         assert result == test_case.expected
         assert_called_if(mock_is_namespace, test_case.is_namespace_called, test_case.spec_return)

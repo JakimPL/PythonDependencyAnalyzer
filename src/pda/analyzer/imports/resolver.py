@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import List, Optional
 
 from pda.config import ModuleImportsAnalyzerConfig, ValidationOptions
 from pda.exceptions import PDAFindSpecError, PDAImportPathError
@@ -63,7 +63,6 @@ class ModuleResolver:
         self,
         module_source: ModuleSource,
         import_path: ImportPath,
-        processed: Set[Optional[Path]],
     ) -> Optional[ImportPath]:
         spec = module_source.get_spec(import_path)
         if spec is None:
@@ -74,9 +73,6 @@ class ModuleResolver:
             return None
 
         origin = validate_spec_origin(spec, expect_python=self._MODULE_VALIDATION_OPTIONS.expect_python)
-        if origin in processed:
-            return None
-
         return SysPaths.resolve(
             origin,
             base_path=module_source.base_path,
