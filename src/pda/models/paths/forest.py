@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Optional, Set, TypeAlias, Union, override
+from typing import List, Optional, Set, TypeAlias, Union, override
 
 from anytree import PostOrderIter
 
@@ -8,7 +8,7 @@ from pda.models.paths.builder import build_path_tree
 from pda.models.paths.graph import PathGraph
 from pda.models.paths.node import PathNode
 from pda.structures import Forest
-from pda.tools.paths import filter_subdirectories
+from pda.tools.paths import filter_subdirectories, normalize_paths
 from pda.types import Pathlike
 
 Paths: TypeAlias = Union[
@@ -78,3 +78,12 @@ class PathForest(Forest[Pathlike, PathNode]):
     @property
     def graph(self) -> PathGraph:
         return PathGraph(self.nx)
+
+
+def gather_python_files(paths: Union[Pathlike, Iterable[Pathlike]]) -> List[Path]:
+    """
+    Expand a single path or an iterable of files and directories into the sorted list of
+    Python source files they contain. Directories are walked recursively; overlapping
+    inputs are deduplicated; non-Python files are dropped.
+    """
+    return sorted(PathForest(normalize_paths(paths)).get_python_files())

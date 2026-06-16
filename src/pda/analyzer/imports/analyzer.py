@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from collections import deque
-from copy import copy
 from pathlib import Path
-from typing import Deque, List, NamedTuple, Optional, Set, Union, overload, override
+from typing import Deque, FrozenSet, Iterable, List, NamedTuple, Optional, Set, Union, overload, override
 
 from pda.analyzer.base import BaseAnalyzer
 from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
@@ -12,7 +11,7 @@ from pda.analyzer.imports.parser import ImportStatementParser
 from pda.analyzer.imports.resolver import ModuleResolver
 from pda.analyzer.lazy import lazy_execution
 from pda.config import ModuleImportsAnalyzerConfig
-from pda.models import ModuleGraph, ModuleNode
+from pda.models import ModuleGraph, ModuleNode, gather_python_files
 from pda.specification import (
     CategorizedModule,
     CategorizedModuleDict,
@@ -59,7 +58,8 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         if not self._package:
             raise ValueError("Package must be provided")
 
-        self._filepath: Optional[Path] = None
+        self._files: Optional[List[Path]] = None
+        self._root_origins: FrozenSet[Optional[Path]] = frozenset()
         self._collection: ModulesCollection = ModulesCollection(allow_unavailable=True)
         self._graph: ModuleGraph = ModuleGraph()
         self._parser: ImportStatementParser = ImportStatementParser()
@@ -82,11 +82,11 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
     @override
     def __call__(
         self,
-        filepath: Optional[Path] = None,
+        paths: Union[Pathlike, Iterable[Pathlike], None] = None,
         *,
         refresh: bool = False,
     ) -> ModuleGraph:
-        result = self._analyze_if_needed(filepath=filepath, refresh=refresh)
+        result = self._analyze_if_needed(paths=paths, refresh=refresh)
         self._check_graph()
         return result
 
@@ -100,15 +100,16 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         return self._collection[key]
 
     def clear(self) -> None:
-        self._filepath = None
+        self._files = None
+        self._root_origins = frozenset()
         self._collection.clear()
         self._graph.clear()
         self._counter = 0
         self._cycle_detector.reset()
 
     @property
-    def filepath(self) -> Optional[Path]:
-        return copy(self._filepath)
+    def filepaths(self) -> List[Path]:
+        return list(self._files) if self._files is not None else []
 
     @property
     @lazy_execution
@@ -122,33 +123,36 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
 
     def _analyze_if_needed(
         self,
-        filepath: Optional[Path] = None,
+        paths: Union[Pathlike, Iterable[Pathlike], None] = None,
         *,
         refresh: bool = False,
     ) -> ModuleGraph:
-        filepath = filepath or self._filepath
-        if not filepath:
-            raise ValueError("No module has been analyzed yet")
+        files = gather_python_files(paths) if paths is not None else self._files
+        if not files:
+            raise ValueError("No modules have been analyzed yet")
 
-        if refresh or not self or self._filepath != filepath:
-            self._create_graph(filepath)
+        if refresh or not self or self._files != files:
+            self._create_graph(files)
 
         return self._graph
 
-    def _create_graph(self, filepath: Path) -> None:
+    def _create_graph(self, paths: List[Path]) -> None:
         self.clear()
+        self._files = paths
 
-        self._filepath = filepath
-        root = self._resolver.create_root(filepath)
-        self._add(root)
+        roots = [self._resolver.create_root(path) for path in paths]
+        self._root_origins = frozenset(root.module.origin for root in roots)
 
         processed: Set[Optional[Path]] = {None}
-        new_nodes: Deque[PendingNode] = deque([PendingNode(root, 0, [], CategoryContext.root())])
-        self._cycle_detector.mark_visiting(root.module.origin)
+        new_nodes: Deque[PendingNode] = deque()
+        for root in roots:
+            self._add(root)
+            self._cycle_detector.mark_visiting(root.module.origin)
+            new_nodes.append(PendingNode(root, 0, [], CategoryContext.root()))
 
         while new_nodes:
             node, depth, path, context = new_nodes.pop()
-            is_root = node.module.origin == self._filepath
+            is_root = node.module.origin in self._root_origins
             module = node.module
             if self._check_if_should_process_module(
                 module,

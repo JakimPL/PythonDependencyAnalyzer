@@ -1,7 +1,7 @@
 from pda.models.module.graph import ModuleGraph
 from pda.models.module.node import ModuleNode
 from pda.models.paths.builder import build_path_tree
-from pda.models.paths.forest import PathForest
+from pda.models.paths.forest import PathForest, gather_python_files
 from pda.models.paths.graph import PathGraph
 from pda.models.paths.node import PathNode
 from pda.models.python.builder import build_ast_tree
@@ -29,6 +29,7 @@ __all__ = [
     "PathForest",
     "PathGraph",
     "build_path_tree",
+    "gather_python_files",
     # Scope-related structures
     "ScopeNode",
     "ScopeForest",
