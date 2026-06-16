@@ -33,6 +33,17 @@ class ModuleNode(Node[CategorizedModule]):
     def module(self) -> CategorizedModule:
         return self.item
 
+    @override
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ModuleNode):
+            return NotImplemented
+
+        return self.module.qualified_name == other.module.qualified_name and self.ordinal == other.ordinal
+
+    @override
+    def __hash__(self) -> int:
+        return hash((self.module.qualified_name, self.ordinal))
+
     @property
     @override
     def key(self) -> Tuple[Any, ...]:
