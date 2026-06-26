@@ -13,6 +13,7 @@ lib/
 **/*.idea
 **/*.vscode/**
 **/*.ipynb_checkpoints/**
+**/*__marimo__/**
 **/*__pycache__/**
 
 *.pyc

@@ -19,6 +19,9 @@ dependencies = [
 pda = "pda.cli:main"
 
 [project.optional-dependencies]
+notebook = [
+    "marimo==0.23.9",
+]
 dev = [
     "mypy==1.19.1",
     "pre-commit==4.5.1",
