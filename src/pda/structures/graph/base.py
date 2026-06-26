@@ -9,6 +9,8 @@ from pda.config import GraphSortMethod
 from pda.exceptions import PDAGraphLayoutWarning
 from pda.structures.node.types import Edge, NodeT
 from pda.tools import logger
+from pda.tools.serialization import save_json
+from pda.types import Pathlike
 
 
 class Graph(Generic[NodeT]):
@@ -64,6 +66,27 @@ class Graph(Generic[NodeT]):
         from_label = from_node.label
         to_label = to_node.label
         return f"{from_label} → {to_label}"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serialize the graph into the node-link format consumed by NetworkX,
+        Cytoscape.js, D3 and similar frameworks.
+        """
+        nodes = sorted(self._graph.nodes)
+        return {
+            "directed": True,
+            "nodes": [node.serialize() for node in nodes],
+            "links": [
+                {
+                    "source": source.identifier,
+                    "target": target.identifier,
+                }
+                for source, target in self._graph.edges
+            ],
+        }
+
+    def save(self, filepath: Pathlike, *, indent: int = 2) -> None:
+        save_json(self.to_dict(), filepath, indent=indent)
 
     @property
     def empty(self) -> bool:

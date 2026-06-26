@@ -1,13 +1,15 @@
-mode: package_ring
+mode: hierarchical
 
 ring:
-  node_spacing: 50
+  node_spacing: 100
   ring_spacing: 250
-  min_radius: 100
+  min_radius: 400
   dependency_blend: 1.0
-  edge_pull: 0.8
-  order_iterations: 15
-  nudge_passes: 40
+  edge_pull: 1.0
+  order_iterations: 40
+  nudge_passes: 20
+  repulsion: 200.0
+  repulsion_iterations: 40
   wedge_margin: 0.0
   jitter: 0.0
   seed: 0

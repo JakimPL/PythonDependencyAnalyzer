@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Generic, Optional, Self, Tuple
+from typing import Any, Dict, Generic, Optional, Self, Tuple
 
 from pda.types import HashableT
 
@@ -32,3 +32,22 @@ class Node(Generic[HashableT]):
     @property
     def key(self) -> Tuple[Any, ...]:
         return (self.level, self.order, self.label, self.ordinal)
+
+    @property
+    def identifier(self) -> str:
+        return f"{self.label}#{self.ordinal}" if self.ordinal else self.label
+
+    def serialize(self) -> Dict[str, Any]:
+        data: Dict[str, Any] = {
+            "id": self.identifier,
+            "label": self.label,
+            "level": self.level,
+        }
+
+        if self.group is not None:
+            data["group"] = self.group
+
+        if self.details is not None:
+            data["details"] = self.details
+
+        return data

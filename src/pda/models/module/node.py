@@ -1,4 +1,4 @@
-from typing import Any, Optional, Tuple, override
+from typing import Any, Dict, Optional, Tuple, override
 
 from pda.specification import CategorizedModule
 from pda.structures.node.base import Node
@@ -48,3 +48,24 @@ class ModuleNode(Node[CategorizedModule]):
     @override
     def key(self) -> Tuple[Any, ...]:
         return (self.level, self.order, self.details, self.label, self.ordinal)
+
+    @property
+    @override
+    def identifier(self) -> str:
+        name = self.module.qualified_name
+        return f"{name}#{self.ordinal}" if self.ordinal else name
+
+    @override
+    def serialize(self) -> Dict[str, Any]:
+        data: Dict[str, Any] = {
+            "id": self.identifier,
+            "label": self.label,
+            "category": self.group,
+            "level": self.level,
+        }
+
+        origin = self.module.origin
+        if origin is not None:
+            data["origin"] = str(origin)
+
+        return data

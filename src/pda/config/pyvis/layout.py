@@ -40,6 +40,16 @@ class RingConfig(BaseConfig):
         default=10,
         description="Number of bounded angular nudge passes applied to reduce edge length.",
     )
+    repulsion: float = Field(
+        default=0.0,
+        description="Antigravity strength that pushes overlapping nodes apart (0 = off). Repulsion acts only on "
+        "nodes closer than 'node_spacing' and stays within each node's package wedge (angle) and depth band "
+        "(radius), so the ring structure is preserved.",
+    )
+    repulsion_iterations: int = Field(
+        default=50,
+        description="Number of repulsion relaxation passes applied to separate overlapping nodes.",
+    )
     wedge_margin: float = Field(
         default=0.0,
         description="Angular margin (radians) kept clear at each wedge's edges when nudging.",
@@ -69,7 +79,7 @@ class RingConfig(BaseConfig):
 
         return value
 
-    @field_validator("wedge_margin", "jitter")
+    @field_validator("wedge_margin", "jitter", "repulsion")
     @classmethod
     def _validate_non_negative(cls, value: float) -> float:
         if value < 0:
@@ -77,7 +87,7 @@ class RingConfig(BaseConfig):
 
         return value
 
-    @field_validator("order_iterations", "nudge_passes")
+    @field_validator("order_iterations", "nudge_passes", "repulsion_iterations")
     @classmethod
     def _validate_iterations(cls, value: int) -> int:
         if value < 0:

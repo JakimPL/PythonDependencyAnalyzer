@@ -47,8 +47,10 @@ class PackageRingLayout(GraphLayout[ModuleNode]):
         neighbours = self._neighbours(graph)
 
         node_angle = self._order(tree, root, subtree_modules, subtree_sets, neighbours)
-        node_radius = self._radii(tree, root_depth)
+        node_radius, node_band, node_ring = self._radii(tree, root_depth, node_angle)
         node_angle = self._nudge(tree, node_angle, node_radius, neighbours)
+        node_wedge = self._node_wedges(tree, self._config.ring.wedge_margin)
+        node_angle, node_radius = self._separate(node_angle, node_radius, node_band, node_wedge, node_ring)
 
         rng = Random(self._config.ring.seed)
         positions = self._positions(node_angle, node_radius, rng)
@@ -152,7 +154,13 @@ class PackageRingLayout(GraphLayout[ModuleNode]):
                 mid = (branch.wedge_start + branch.wedge_end) / 2
                 branch.children.sort(
                     key=lambda child: self._order_key(
-                        child, mid, tree, subtree_modules, subtree_sets, neighbours, node_angle
+                        child,
+                        mid,
+                        tree,
+                        subtree_modules,
+                        subtree_sets,
+                        neighbours,
+                        node_angle,
                     )
                 )
 
@@ -246,32 +254,52 @@ class PackageRingLayout(GraphLayout[ModuleNode]):
 
         return node_angle
 
-    def _radii(self, tree: Dict[str, _TreeNode], root_depth: int) -> Dict[ModuleNode, float]:
+    def _radii(
+        self,
+        tree: Dict[str, _TreeNode],
+        root_depth: int,
+        node_angle: Dict[ModuleNode, float],
+    ) -> Tuple[Dict[ModuleNode, float], Dict[ModuleNode, Tuple[float, float]], Dict[ModuleNode, int]]:
         ring_members: Dict[int, List[ModuleNode]] = defaultdict(list)
+        node_ring: Dict[ModuleNode, int] = {}
         for branch in tree.values():
             for module in branch.modules:
-                ring_members[branch.depth - root_depth].append(module)
+                ring = branch.depth - root_depth
+                ring_members[ring].append(module)
+                node_ring[module] = ring
 
-        schedule = self._radius_schedule(ring_members)
+        schedule = self._radius_schedule(ring_members, self._min_angular_gaps(ring_members, node_angle))
         blend = self._config.ring.dependency_blend
         ring_spacing = self._config.ring.ring_spacing
 
         node_radius: Dict[ModuleNode, float] = {}
+        node_band: Dict[ModuleNode, Tuple[float, float]] = {}
         for ring, members in ring_members.items():
             if ring == 0:
                 for module in members:
                     node_radius[module] = 0.0
+                    node_band[module] = (0.0, 0.0)
                 continue
+
+            center = schedule[ring]
+            inner_gap = center - schedule[ring - 1]
+            outer_gap = schedule[ring + 1] - center if (ring + 1) in schedule else inner_gap
+            half_band = min(0.5 * blend * ring_spacing, 0.5 * min(inner_gap, outer_gap))
 
             levels = [module.level for module in members]
             low, high = min(levels), max(levels)
             for module in members:
                 position = (module.level - low) / (high - low) if high > low else 0.5
-                node_radius[module] = schedule[ring] + (position - 0.5) * blend * ring_spacing
+                node_radius[module] = center + (position - 0.5) * 2 * half_band
+                node_band[module] = (center - half_band, center + half_band)
 
-        return node_radius
+        return node_radius, node_band, node_ring
 
-    def _radius_schedule(self, ring_members: Dict[int, List[ModuleNode]]) -> Dict[int, float]:
+    def _radius_schedule(
+        self,
+        ring_members: Dict[int, List[ModuleNode]],
+        min_gaps: Dict[int, float],
+    ) -> Dict[int, float]:
         node_spacing = self._config.ring.node_spacing
         ring_spacing = self._config.ring.ring_spacing
         min_radius = self._config.ring.min_radius
@@ -279,10 +307,131 @@ class PackageRingLayout(GraphLayout[ModuleNode]):
         schedule: Dict[int, float] = {0: 0.0}
         for ring in range(1, max(ring_members, default=0) + 1):
             base = min_radius + (ring - 1) * ring_spacing
-            arc_fit = len(ring_members.get(ring, [])) * node_spacing / _TWO_PI
-            schedule[ring] = max(base, schedule[ring - 1] + ring_spacing, arc_fit)
+            gap = min_radius if ring == 1 else ring_spacing
+            min_gap = min_gaps.get(ring, _TWO_PI)
+            arc_fit = node_spacing / min_gap if min_gap > _EPSILON else 0.0
+            schedule[ring] = max(base, schedule[ring - 1] + gap, arc_fit)
 
         return schedule
+
+    @staticmethod
+    def _min_angular_gaps(
+        ring_members: Dict[int, List[ModuleNode]],
+        node_angle: Dict[ModuleNode, float],
+    ) -> Dict[int, float]:
+        gaps: Dict[int, float] = {}
+        for ring, members in ring_members.items():
+            angles = sorted(node_angle[module] % _TWO_PI for module in members)
+            if len(angles) < 2:
+                gaps[ring] = _TWO_PI
+                continue
+
+            spacings = [angles[index] - angles[index - 1] for index in range(1, len(angles))]
+            spacings.append(angles[0] + _TWO_PI - angles[-1])
+            gaps[ring] = min((spacing for spacing in spacings if spacing > _EPSILON), default=_TWO_PI)
+
+        return gaps
+
+    @staticmethod
+    def _node_wedges(tree: Dict[str, _TreeNode], margin: float) -> Dict[ModuleNode, Tuple[float, float]]:
+        wedges: Dict[ModuleNode, Tuple[float, float]] = {}
+        for branch in tree.values():
+            if not branch.modules:
+                continue
+
+            low = branch.wedge_start + margin
+            high = branch.wedge_end - margin
+            if high < low:
+                low = high = (branch.wedge_start + branch.wedge_end) / 2
+
+            for module in branch.modules:
+                wedges[module] = (low, high)
+
+        return wedges
+
+    def _separate(
+        self,
+        node_angle: Dict[ModuleNode, float],
+        node_radius: Dict[ModuleNode, float],
+        node_band: Dict[ModuleNode, Tuple[float, float]],
+        node_wedge: Dict[ModuleNode, Tuple[float, float]],
+        node_ring: Dict[ModuleNode, int],
+    ) -> Tuple[Dict[ModuleNode, float], Dict[ModuleNode, float]]:
+        repulsion = self._config.ring.repulsion
+        if repulsion <= 0 or self._config.ring.repulsion_iterations == 0:
+            return node_angle, node_radius
+
+        min_separation = self._config.ring.node_spacing
+        modules = sorted(node_angle, key=lambda node: (node.module.qualified_name, node.ordinal))
+        order = {module: index for index, module in enumerate(modules)}
+        by_ring: Dict[int, List[ModuleNode]] = defaultdict(list)
+        for module in modules:
+            by_ring[node_ring[module]].append(module)
+
+        angle = dict(node_angle)
+        radius = dict(node_radius)
+        for _ in range(self._config.ring.repulsion_iterations):
+            points = {
+                module: (radius[module] * math.cos(angle[module]), radius[module] * math.sin(angle[module]))
+                for module in modules
+            }
+            next_angle = dict(angle)
+            next_radius = dict(radius)
+            for module in modules:
+                ring = node_ring[module]
+                candidates = by_ring[ring - 1] + by_ring[ring] + by_ring[ring + 1]
+                push_x, push_y = self._repulsion_vector(module, points, candidates, min_separation, order, len(modules))
+                point_x, point_y = points[module]
+                moved_x = point_x + repulsion * push_x
+                moved_y = point_y + repulsion * push_y
+                next_angle[module] = self._clamp_angle(math.atan2(moved_y, moved_x), node_wedge[module])
+                low, high = node_band[module]
+                next_radius[module] = min(high, max(low, math.hypot(moved_x, moved_y)))
+
+            angle, radius = next_angle, next_radius
+
+        return angle, radius
+
+    @staticmethod
+    def _repulsion_vector(
+        module: ModuleNode,
+        points: Dict[ModuleNode, Position],
+        candidates: List[ModuleNode],
+        min_separation: float,
+        order: Dict[ModuleNode, int],
+        total: int,
+    ) -> Position:
+        point_x, point_y = points[module]
+        push_x = 0.0
+        push_y = 0.0
+        for other in candidates:
+            if other is module:
+                continue
+
+            other_x, other_y = points[other]
+            delta_x = point_x - other_x
+            delta_y = point_y - other_y
+            distance = math.hypot(delta_x, delta_y)
+            if distance >= min_separation:
+                continue
+
+            if distance > _EPSILON:
+                strength = (min_separation - distance) / distance * 0.5
+                push_x += delta_x * strength
+                push_y += delta_y * strength
+            else:
+                seed_angle = _TWO_PI * order[module] / total
+                push_x += math.cos(seed_angle) * min_separation * 0.5
+                push_y += math.sin(seed_angle) * min_separation * 0.5
+
+        return (push_x, push_y)
+
+    @staticmethod
+    def _clamp_angle(angle: float, wedge: Tuple[float, float]) -> float:
+        low, high = wedge
+        mid = (low + high) / 2
+        nearest = mid + ((angle - mid + math.pi) % _TWO_PI - math.pi)
+        return min(high, max(low, nearest))
 
     def _nudge(
         self,

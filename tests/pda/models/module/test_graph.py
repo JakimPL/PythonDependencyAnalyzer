@@ -1,4 +1,8 @@
+import json
+from pathlib import Path
 from typing import List, Set, Tuple
+
+import networkx as nx
 
 from pda.models import ModuleGraph, ModuleNode
 from pda.specification import CategorizedModule, ModuleCategory, UnavailableModule
@@ -88,3 +92,45 @@ class TestSimplifyLevel:
         collapsed = graph.simplify(0, sort_method="condensation")
 
         assert _labels(collapsed) == {"pkg", "other"}
+
+
+class TestToDict:
+    def test_node_link_structure(self) -> None:
+        graph = _build_graph([("pkg.a", "pkg.b"), ("pkg.b", "other.c")])
+
+        data = graph.to_dict()
+
+        assert data["directed"] is True
+        assert {node["id"] for node in data["nodes"]} == {"pkg.a", "pkg.b", "other.c"}
+        links = {(link["source"], link["target"]) for link in data["links"]}
+        assert links == {("pkg.a", "pkg.b"), ("pkg.b", "other.c")}
+
+    def test_node_attributes(self) -> None:
+        graph = _build_graph([("pkg.a", "pkg.b")])
+
+        node = next(item for item in graph.to_dict()["nodes"] if item["id"] == "pkg.a")
+
+        assert node["label"] == "pkg.a"
+        assert node["category"] == ModuleCategory.LOCAL.value
+        assert node["level"] == 0
+
+    def test_importable_by_networkx(self) -> None:
+        graph = _build_graph([("pkg.a", "pkg.b"), ("pkg.b", "other.c")])
+
+        restored = nx.node_link_graph(graph.to_dict(), directed=True, multigraph=False, edges="links")
+
+        assert restored.is_directed()
+        assert set(restored.nodes) == {"pkg.a", "pkg.b", "other.c"}
+        assert ("pkg.a", "pkg.b") in restored.edges
+
+
+class TestSave:
+    def test_save_writes_json_file(self, tmp_path: Path) -> None:
+        graph = _build_graph([("pkg.a", "pkg.b")])
+        filepath = tmp_path / "graph.json"
+
+        graph.save(filepath)
+
+        loaded = json.loads(filepath.read_text(encoding="utf-8"))
+        assert {node["id"] for node in loaded["nodes"]} == {"pkg.a", "pkg.b"}
+        assert loaded["links"] == [{"source": "pkg.a", "target": "pkg.b"}]

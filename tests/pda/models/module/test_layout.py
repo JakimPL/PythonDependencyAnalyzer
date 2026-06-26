@@ -59,6 +59,15 @@ def _edge_length(layout: PackageRingLayout, graph: ModuleGraph) -> float:
     )
 
 
+def _min_pairwise_distance(positions: Dict[str, Position]) -> float:
+    points = list(positions.values())
+    return min(
+        math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1])
+        for i in range(len(points))
+        for j in range(i + 1, len(points))
+    )
+
+
 class TestPackageRingLayout:
     def test_all_nodes_are_positioned(self) -> None:
         graph = _build_graph([("pkg.a", "pkg.b"), ("pkg.b", "other.x")])
@@ -105,6 +114,17 @@ class TestPackageRingLayout:
         assert math.isclose(radii[0], radii[1], abs_tol=1e-6)
         assert math.isclose(radii[1], radii[2], abs_tol=1e-6)
 
+    def test_min_radius_sets_planet_orbit_independent_of_ring_spacing(self) -> None:
+        graph = _build_graph([("pkg", "pkg.a"), ("pkg.a", "pkg.a.b")])
+        settings = dict(jitter=0.0, dependency_blend=0.0, node_spacing=10.0, ring_spacing=250.0)
+
+        near = _positions_by_label(PackageRingLayout(_config(ring=RingConfig(min_radius=100.0, **settings))), graph)
+        far = _positions_by_label(PackageRingLayout(_config(ring=RingConfig(min_radius=700.0, **settings))), graph)
+
+        assert math.isclose(_radius(near["pkg.a"]), 100.0, rel_tol=1e-6)
+        assert math.isclose(_radius(far["pkg.a"]), 700.0, rel_tol=1e-6)
+        assert math.isclose(_radius(far["pkg.a.b"]) - _radius(far["pkg.a"]), 250.0, rel_tol=1e-6)
+
     def test_dependency_blend_separates_levels_within_a_ring(self) -> None:
         graph = _build_graph([("pkg.a", "pkg.b")])
         nodes = {node.label: node for node in graph.nodes}
@@ -121,7 +141,9 @@ class TestPackageRingLayout:
         children = [f"pkg.m{index}" for index in range(12)]
         graph = _build_graph([("pkg", child) for child in children])
         node_spacing = 400.0
-        layout = PackageRingLayout(_config(ring=RingConfig(jitter=0.0, dependency_blend=0.0, node_spacing=node_spacing)))
+        layout = PackageRingLayout(
+            _config(ring=RingConfig(jitter=0.0, dependency_blend=0.0, node_spacing=node_spacing))
+        )
 
         positions = _positions_by_label(layout, graph)
 
@@ -169,6 +191,58 @@ class TestPackageRingLayout:
         balanced = _edge_length(PackageRingLayout(_config(ring=RingConfig(jitter=0.0, edge_pull=0.5))), graph)
 
         assert balanced <= structure + 1e-6
+
+    def test_repulsion_separates_overlapping_nodes(self) -> None:
+        graph = _build_graph([("pkg.a", "pkg.a.b"), ("pkg.z", "pkg.z.y"), ("pkg.a", "pkg.z")])
+        levels = {"pkg.a": 0, "pkg.z": 1, "pkg.a.b": 1, "pkg.z.y": 0}
+        for node in graph.nodes:
+            node.level = levels[node.label]
+
+        node_spacing = 120.0
+        settings = dict(jitter=0.0, dependency_blend=1.0, edge_pull=0.0, node_spacing=node_spacing, ring_spacing=150.0)
+        crowded = _positions_by_label(PackageRingLayout(_config(ring=RingConfig(repulsion=0.0, **settings))), graph)
+        spread = PackageRingLayout(_config(ring=RingConfig(repulsion=1.0, repulsion_iterations=80, **settings)))
+        separated = _positions_by_label(spread, graph)
+
+        assert _min_pairwise_distance(crowded) < node_spacing
+        assert _min_pairwise_distance(separated) >= _min_pairwise_distance(crowded)
+        assert _min_pairwise_distance(separated) > 0.9 * node_spacing
+
+    def test_isolated_nodes_in_a_confined_wedge_do_not_overlap(self) -> None:
+        edges = [("pkg", "pkg.crowded"), ("pkg", "pkg.deep")]
+        graph = _build_graph(edges)
+        for index in range(20):
+            graph.add_node(_node(f"pkg.crowded.iso{index}"))
+        for index in range(80):
+            graph.add_node(_node(f"pkg.deep.sub.m{index}"))
+
+        node_spacing = 50.0
+        layout = PackageRingLayout(
+            _config(ring=RingConfig(jitter=0.0, node_spacing=node_spacing, ring_spacing=200.0, min_radius=400.0))
+        )
+        positions = _positions_by_label(layout, graph)
+
+        assert _min_pairwise_distance(positions) > 0.95 * node_spacing
+
+    def test_repulsion_is_deterministic(self) -> None:
+        graph = _build_graph([("pkg.a", "pkg.a.b"), ("pkg.z", "pkg.z.y"), ("pkg.a", "pkg.z")])
+        layout = PackageRingLayout(_config(ring=RingConfig(jitter=0.0, dependency_blend=1.0, repulsion=1.0)))
+
+        first = layout.compute(graph)
+        second = layout.compute(graph)
+
+        assert first is not None and second is not None
+        assert first.positions == second.positions
+
+    def test_repulsion_keeps_radius_within_band(self) -> None:
+        graph = _build_graph([("pkg", "pkg.a"), ("pkg", "pkg.b"), ("pkg", "pkg.c")])
+        layout = PackageRingLayout(_config(ring=RingConfig(jitter=0.0, dependency_blend=0.0, repulsion=1.0)))
+
+        positions = _positions_by_label(layout, graph)
+
+        radii = [_radius(positions[label]) for label in ("pkg.a", "pkg.b", "pkg.c")]
+        assert math.isclose(radii[0], radii[1], abs_tol=1e-6)
+        assert math.isclose(radii[1], radii[2], abs_tol=1e-6)
 
 
 class TestVisOptionsPatch:
