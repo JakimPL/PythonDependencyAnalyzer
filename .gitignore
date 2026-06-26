@@ -2,9 +2,11 @@ __pycache__/
 .ipynb_checkpoints/
 .mypy_cache/
 .pytest_cache/
+.ruff_cache/
+.claude/
+.github/
 .idea/
 .vscode/
-.github/
 .venv/
 lib/
 
@@ -18,7 +20,6 @@ lib/
 *.coverage
 
 *.txt
-*.json
 *.log
 *.png
 *.dot
@@ -28,7 +29,3 @@ lib/
 *.html
 *.js
 *.css
-
-*.ipynb
-
-!config/**/*.json
