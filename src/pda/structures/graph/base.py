@@ -1,5 +1,6 @@
 import warnings
 from collections import defaultdict
+from itertools import islice
 from typing import Any, Dict, Generic, Iterator, List, Optional, Self, get_args
 
 import networkx as nx
@@ -108,6 +109,43 @@ class Graph(Generic[NodeT]):
             return [list(cycle) for cycle in nx.simple_cycles(self._graph)]
 
         return []
+
+    def _nontrivial_components(self) -> List[List[NodeT]]:
+        components = [
+            sorted(component, key=lambda node: node.identifier)
+            for component in nx.strongly_connected_components(self._graph)
+            if len(component) > 1
+        ]
+        components.sort(key=lambda members: members[0].identifier)
+        return components
+
+    def annotate_cycles(self) -> None:
+        for node in self._graph.nodes:
+            node.in_cycle = False
+            node.component = None
+
+        for index, members in enumerate(self._nontrivial_components()):
+            for node in members:
+                node.in_cycle = True
+                node.component = index
+
+    def cycle_components(self, *, length_bound: int, max_examples: int) -> List[Dict[str, Any]]:
+        components: List[Dict[str, Any]] = []
+        for index, members in enumerate(self._nontrivial_components()):
+            subgraph = self._graph.subgraph(members)
+            examples = [
+                [node.identifier for node in cycle]
+                for cycle in islice(nx.simple_cycles(subgraph, length_bound=length_bound), max_examples)
+            ]
+            components.append(
+                {
+                    "component": index,
+                    "modules": [node.identifier for node in members],
+                    "examples": examples,
+                }
+            )
+
+        return components
 
     def sort(self, method: GraphSortMethod = "auto") -> None:
         self._graph = self._sort(self._graph, method=method)

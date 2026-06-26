@@ -30,3 +30,8 @@ lib/
 *.html
 *.js
 *.css
+
+imports.json
+modules.json
+*-imports.json
+*-modules.json

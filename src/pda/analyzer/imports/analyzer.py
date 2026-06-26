@@ -17,11 +17,12 @@ from typing import (
 
 from pda.analyzer.base import BaseAnalyzer
 from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
-from pda.analyzer.imports.cycle import CycleDetector
 from pda.analyzer.imports.parser import ImportStatementParser
+from pda.analyzer.imports.report import build_cycle_report, format_cycle_report
 from pda.analyzer.imports.resolver import ModuleResolver
 from pda.analyzer.lazy import lazy_execution
 from pda.config import ModuleImportsAnalyzerConfig
+from pda.exceptions import PDADependencyCycleError
 from pda.models import ModuleGraph, ModuleNode, gather_python_files
 from pda.specification import (
     CategorizedModule,
@@ -44,7 +45,6 @@ class PendingNode(NamedTuple):
 
     node: ModuleNode
     depth: int
-    path: List[Path]
     context: CategoryContext
 
 
@@ -74,7 +74,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self._collection: ModulesCollection = ModulesCollection(allow_unavailable=True)
         self._graph: ModuleGraph = ModuleGraph()
         self._parser: ImportStatementParser = ImportStatementParser()
-        self._cycle_detector: CycleDetector = CycleDetector(config)
         self._resolver: ModuleResolver = ModuleResolver(
             project_root=self._project_root,
             package=self._package,
@@ -116,7 +115,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self._collection.clear()
         self._graph.clear()
         self._counter = 0
-        self._cycle_detector.reset()
 
     @property
     def filepaths(self) -> List[Path]:
@@ -158,11 +156,10 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         new_nodes: Deque[PendingNode] = deque()
         for root in roots:
             self._add(root)
-            self._cycle_detector.mark_visiting(root.module.origin)
-            new_nodes.append(PendingNode(root, 0, [], CategoryContext.root()))
+            new_nodes.append(PendingNode(root, 0, CategoryContext.root()))
 
         while new_nodes:
-            node, depth, path, context = new_nodes.pop()
+            node, depth, context = new_nodes.pop()
             is_root = node.module.origin in self._root_origins
             module = node.module
             if self._check_if_should_process_module(
@@ -170,18 +167,14 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
                 processed=processed,
                 depth=depth,
             ):
-                current_path = path + [module.origin] if module.origin else path
                 self._collect_new_modules(
                     node,
                     new_nodes,
                     processed=processed,
                     is_root=is_root,
                     depth=depth,
-                    path=current_path,
                     context=context,
                 )
-
-            self._cycle_detector.mark_visited(module.origin)
 
         if self.config.collapse_level is not None:
             self._graph = self._graph.simplify(
@@ -192,11 +185,26 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         else:
             self._graph.sort(method=self.config.sort_method)
 
+        self._graph.annotate_cycles()
+
     def _check_graph(self) -> None:
         if self._graph.empty:
             logger.warning("The dependency graph is empty")
+            return
 
-        self._cycle_detector.report_cycles()
+        if not self._graph.has_cycles:
+            return
+
+        report = build_cycle_report(
+            self._graph,
+            length_bound=self.config.cycle_length_bound,
+            max_examples=self.config.cycle_examples,
+        )
+        summary = format_cycle_report(report)
+        if self.config.fail_on_cycle:
+            raise PDADependencyCycleError(summary)
+
+        logger.warning("%s", summary)
 
     def _add(self, node: ModuleNode, parent: Optional[ModuleNode] = None) -> None:
         self._graph.add_node(node)
@@ -342,10 +350,8 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         processed: Set[Optional[Path]],
         is_root: bool = False,
         depth: int = 0,
-        path: Optional[List[Path]] = None,
         context: Optional[CategoryContext] = None,
     ) -> None:
-        path = path or []
         context = context or CategoryContext.root()
         imported_modules = self.analyze_module(
             node.module,
@@ -368,9 +374,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             ):
                 continue
 
-            if self._cycle_detector.check_cycle(path, imported_module.origin):
-                continue
-
             level = depth + 1
             child = ModuleNode(
                 imported_module,
@@ -383,13 +386,10 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             if self.config.unify_nodes and imported_module.origin in processed:
                 continue
 
-            current_path = path + [imported_module.origin] if imported_module.origin else path
-            self._cycle_detector.mark_visiting(imported_module.origin)
             new_nodes.append(
                 PendingNode(
                     child,
                     level,
-                    current_path,
                     child_context,
                 )
             )

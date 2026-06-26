@@ -13,6 +13,8 @@ class Node(Generic[HashableT]):
     level: int = 0
     order: int = 0
     group: Optional[str] = None
+    in_cycle: bool = False
+    component: Optional[int] = None
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Node):
@@ -37,6 +39,16 @@ class Node(Generic[HashableT]):
     def identifier(self) -> str:
         return f"{self.label}#{self.ordinal}" if self.ordinal else self.label
 
+    def cycle_data(self) -> Dict[str, Any]:
+        if not self.in_cycle:
+            return {}
+
+        data: Dict[str, Any] = {"in_cycle": True}
+        if self.component is not None:
+            data["component"] = self.component
+
+        return data
+
     def serialize(self) -> Dict[str, Any]:
         data: Dict[str, Any] = {
             "id": self.identifier,
@@ -50,4 +62,5 @@ class Node(Generic[HashableT]):
         if self.details is not None:
             data["details"] = self.details
 
+        data.update(self.cycle_data())
         return data

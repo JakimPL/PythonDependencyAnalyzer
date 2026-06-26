@@ -62,7 +62,7 @@ directories) and defaults to the whole project root.
 
 Most of the work is in shaping the graph to the question you are asking. The extended form
 below keeps only your own modules, merges them to two name components, and labels nodes
-with their full dotted path (each option is explained under [Tuning the graph](#tuning-the-graph)):
+with their full dotted path (each option is explained under [Options](#options)):
 
 ```bash
 # Local modules only, merged to two dotted-name components, full dotted-path labels.
@@ -70,7 +70,6 @@ pda analyze src pda \
     --stdlib-depth 0 \
     --external-depth 0 \
     --hide-private \
-    --unify-nodes \
     --qualified-names \
     --collapse-level 2 \
     --output pda-imports.json
@@ -110,8 +109,9 @@ options.
 
 PDA writes the graph as **node-link JSON**: a list of `nodes` and a list of directed
 `links`. Each node records its category, its depth from the entry point (`level`), and the
-file it came from. The excerpt below is the result of analysing `pda.cli`, trimmed to one
-node and its first two imports:
+file it came from; modules that take part in an import cycle also carry `in_cycle` and a
+shared `component` id (see [Cycles](#cycles)). The excerpt below is the result of analysing
+`pda.cli`, trimmed to one node and its first two imports:
 
 ```json
 {
@@ -153,12 +153,42 @@ legibility; all are available both as CLI flags and as configuration fields.
   components are kept (`pda.models.module` and `pda.models.scope` both become
   `pda.models`); higher levels keep more detail. This is separate from how far PDA scans —
   it restructures the finished graph.
-- **Node unification** (`--unify-nodes`) — when a module is reached through several import
-  paths, represent it as one node (a true dependency graph) rather than one node per path
-  (a tree-like view).
+- **Node unification** (`--unify-nodes`, on by default) — represent a module reached
+  through several import paths as a single node, giving a true dependency graph.
+  `--no-unify-nodes` instead emits one node per path (a tree-like view), which cannot
+  contain cycles.
 - **Visibility** (`--hide-private`, `--hide-unavailable`) and **labels**
   (`--qualified-names`) — drop modules whose names begin with `_` or that fail to resolve,
   and choose between short and fully-qualified names on nodes.
+
+## Cycles
+
+Circular imports are kept in the graph rather than treated as errors. When PDA finds a
+cycle it:
+
+- leaves the cycle's edges in place, so the dependency graph is faithful. A topological
+  order is then impossible, so PDA falls back to a layered order grouped by
+  strongly-connected component.
+- tags every module in a cycle with `in_cycle` and a shared `component` id in the export.
+- prints a report of the cycle groups, each with an example loop.
+
+Write that report to a file with `--cycles-output`:
+
+```bash
+pda analyze src pda --cycles-output cycles.json
+```
+
+To treat cycles as a failure instead — for example as a CI gate — pass `--fail-on-cycle`,
+which prints the same report and exits non-zero:
+
+```bash
+pda analyze src pda --fail-on-cycle
+```
+
+Cycles are a property of the unified dependency graph (the default); under
+`--no-unify-nodes` the graph is a tree and has none. In the interactive visualization the
+hierarchical layout assumes an acyclic graph, so for cyclic graphs PDA warns and the
+`package_ring` layout is the better choice.
 
 ## Using PDA from Python
 

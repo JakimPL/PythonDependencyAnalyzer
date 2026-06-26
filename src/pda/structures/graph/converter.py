@@ -1,4 +1,5 @@
 import json
+import warnings
 from pathlib import Path
 from typing import Any, Dict, Generic, List, Literal, Optional, Union, overload
 
@@ -6,6 +7,7 @@ from bs4 import BeautifulSoup, Tag
 from pyvis.network import Network
 
 from pda.config import LayoutConfig, PyVisConfig, Theme
+from pda.exceptions import PDAGraphLayoutWarning
 from pda.structures.graph.base import Graph
 from pda.structures.graph.layout import GraphLayout, LayoutResult
 from pda.structures.node.types import NodeT
@@ -45,6 +47,13 @@ class PyVisConverter(Generic[NodeT]):
         html: bool = False,
         **kwargs: Any,
     ) -> Union[str, Network]:
+        if self.layout is None and graph.has_cycles:
+            warnings.warn(
+                "Graph contains cycles; the hierarchical layout may render them poorly. "
+                "Consider the 'package_ring' layout.",
+                PDAGraphLayoutWarning,
+            )
+
         result = self.layout.compute(graph) if self.layout is not None else None
         network = self._build_network(graph, result, **kwargs)
         self._set_network_options(network, result)

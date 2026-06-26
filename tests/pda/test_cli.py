@@ -106,7 +106,7 @@ class TestConfigFlags:
         assert config.stdlib_depth == 1
         assert config.hide_private is True
         assert config.collapse_level is None
-        assert config.unify_nodes is False
+        assert config.unify_nodes is True
 
     def test_analyze_flat_flags_override_nested_and_top_fields(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

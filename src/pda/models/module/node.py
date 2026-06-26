@@ -68,4 +68,5 @@ class ModuleNode(Node[CategorizedModule]):
         if origin is not None:
             data["origin"] = str(origin)
 
+        data.update(self.cycle_data())
         return data
