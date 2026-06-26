@@ -1,6 +1,6 @@
 from pda.models.module.graph import ModuleGraph
 from pda.models.module.layout import (
-    PackageCloudLayout,
+    PackageRingLayout,
     module_layout_from_config,
     module_pyvis_converter,
 )
@@ -41,7 +41,7 @@ __all__ = [
     # Module-related graphs
     "ModuleNode",
     "ModuleGraph",
-    "PackageCloudLayout",
+    "PackageRingLayout",
     "module_layout_from_config",
     "module_pyvis_converter",
 ]

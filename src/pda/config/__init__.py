@@ -5,11 +5,10 @@ from pda.config.analyzer.scope import ScopeAnalyzerConfig
 from pda.config.base import BaseConfig
 from pda.config.pyvis.config import PyVisConfig
 from pda.config.pyvis.layout import (
-    ClusterConfig,
-    FlowConfig,
     LayoutConfig,
     LayoutMode,
     RelaxationConfig,
+    RingConfig,
 )
 from pda.config.pyvis.theme import Theme
 from pda.config.structures.graph import GraphSortMethod
@@ -32,7 +31,6 @@ __all__ = [
     "PyVisConfig",
     "LayoutConfig",
     "LayoutMode",
-    "FlowConfig",
-    "ClusterConfig",
+    "RingConfig",
     "RelaxationConfig",
 ]

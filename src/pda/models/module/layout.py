@@ -1,5 +1,6 @@
 import math
 from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 from random import Random
 from typing import Any, Dict, Final, List, Optional, Set, Tuple
@@ -13,10 +14,24 @@ from pda.structures.graph.base import Graph
 from pda.structures.graph.converter import PyVisConverter
 from pda.structures.graph.layout import GraphLayout, LayoutResult, Position
 
-_ANGLE_JITTER_SCALE: Final[float] = 0.25
+_VIRTUAL_ROOT: Final[str] = ""
+_TWO_PI: Final[float] = 2.0 * math.pi
+_EPSILON: Final[float] = 1e-9
 
 
-class PackageCloudLayout(GraphLayout[ModuleNode]):
+@dataclass
+class _TreeNode:
+    prefix: str
+    depth: int
+    parent: Optional[str] = None
+    children: List[str] = field(default_factory=list)
+    modules: List[ModuleNode] = field(default_factory=list)
+    leaf_count: int = 1
+    wedge_start: float = 0.0
+    wedge_end: float = _TWO_PI
+
+
+class PackageRingLayout(GraphLayout[ModuleNode]):
     def __init__(self, config: LayoutConfig) -> None:
         self._config = config
 
@@ -24,191 +39,350 @@ class PackageCloudLayout(GraphLayout[ModuleNode]):
         if graph.empty or not isinstance(graph, ModuleGraph):
             return None
 
-        group_level = self._config.group_level
-        clusters = self._clusters(graph, group_level)
-        levels, predecessors = self._package_structure(graph, group_level)
+        tree = self._build_tree(graph)
+        root, root_depth = self._root(tree)
+        subtree_modules = self._subtree_modules(tree, root)
+        subtree_sets: Dict[str, Set[ModuleNode]] = {prefix: set(modules) for prefix, modules in subtree_modules.items()}
+        self._leaf_counts(tree, root, subtree_modules)
+        neighbours = self._neighbours(graph)
 
-        rng = Random(self._config.cluster.seed)
-        offsets = {prefix: self._cluster_offsets(clusters[prefix], group_level, rng) for prefix in sorted(clusters)}
-        radii = {prefix: self._bounding_radius(member_offsets) for prefix, member_offsets in offsets.items()}
-        centers = self._package_centers(levels, predecessors, radii)
+        node_angle = self._order(tree, root, subtree_modules, subtree_sets, neighbours)
+        node_radius = self._radii(tree, root_depth)
+        node_angle = self._nudge(tree, node_angle, node_radius, neighbours)
 
-        positions: Dict[ModuleNode, Position] = {}
-        anchors: Set[ModuleNode] = set()
-        for prefix, member_offsets in offsets.items():
-            center_x, center_y = centers[prefix]
-            for node, (offset_x, offset_y) in member_offsets.items():
-                positions[node] = (center_x + offset_x, center_y + offset_y)
-
-            anchors.add(clusters[prefix][0])
+        rng = Random(self._config.ring.seed)
+        positions = self._positions(node_angle, node_radius, rng)
 
         return LayoutResult(
             positions=positions,
-            node_options=self._node_options(anchors),
+            node_options=self._node_options(tree, root),
             vis_options_patch=self._vis_patch(),
         )
 
-    def _clusters(self, graph: ModuleGraph, group_level: int) -> Dict[str, List[ModuleNode]]:
-        clusters: Dict[str, List[ModuleNode]] = defaultdict(list)
+    def _build_tree(self, graph: ModuleGraph) -> Dict[str, _TreeNode]:
+        tree: Dict[str, _TreeNode] = {}
         for node in graph.nodes:
-            clusters[node.module.prefix(group_level)].append(node)
+            parts = node.module.qualified_name.split(DELIMITER)
+            for depth in range(len(parts)):
+                prefix = DELIMITER.join(parts[: depth + 1])
+                if prefix not in tree:
+                    tree[prefix] = _TreeNode(prefix=prefix, depth=depth)
 
-        for members in clusters.values():
-            members.sort(key=lambda node: node.module.qualified_name)
+                if depth > 0:
+                    parent = DELIMITER.join(parts[:depth])
+                    child = tree[prefix]
+                    if child.parent is None:
+                        child.parent = parent
+                        tree[parent].children.append(prefix)
 
-        return clusters
+            tree[node.module.qualified_name].modules.append(node)
 
-    def _package_structure(
+        for branch in tree.values():
+            branch.children.sort()
+
+        return tree
+
+    def _root(self, tree: Dict[str, _TreeNode]) -> Tuple[str, int]:
+        roots = sorted(prefix for prefix, branch in tree.items() if branch.depth == 0)
+        if len(roots) == 1:
+            return roots[0], 0
+
+        virtual = _TreeNode(prefix=_VIRTUAL_ROOT, depth=-1, children=roots)
+        tree[_VIRTUAL_ROOT] = virtual
+        for prefix in roots:
+            tree[prefix].parent = _VIRTUAL_ROOT
+
+        return _VIRTUAL_ROOT, -1
+
+    def _subtree_modules(self, tree: Dict[str, _TreeNode], root: str) -> Dict[str, List[ModuleNode]]:
+        modules: Dict[str, List[ModuleNode]] = {}
+
+        def collect(prefix: str) -> List[ModuleNode]:
+            branch = tree[prefix]
+            gathered = list(branch.modules)
+            for child in branch.children:
+                gathered.extend(collect(child))
+
+            modules[prefix] = gathered
+            return gathered
+
+        collect(root)
+        return modules
+
+    def _leaf_counts(
         self,
-        graph: ModuleGraph,
-        group_level: int,
-    ) -> Tuple[Dict[str, int], Dict[str, List[str]]]:
-        package_graph = graph.simplify(group_level, sort_method="auto")
-        levels: Dict[str, int] = {}
-        for representative in package_graph.nodes:
-            levels[representative.module.prefix(group_level)] = representative.level
-
-        predecessors: Dict[str, List[str]] = defaultdict(list)
-        for source, target in package_graph.edges:
-            predecessors[target.module.prefix(group_level)].append(source.module.prefix(group_level))
-
-        return levels, predecessors
-
-    def _package_centers(
-        self,
-        levels: Dict[str, int],
-        predecessors: Dict[str, List[str]],
-        radii: Dict[str, float],
-    ) -> Dict[str, Position]:
-        level_gap = self._config.flow.level_separation
-        band_gap = self._config.flow.band_spacing
-
-        by_level: Dict[int, List[str]] = defaultdict(list)
-        for prefix, level in levels.items():
-            by_level[level].append(prefix)
-
-        order = self._order_levels(by_level, predecessors)
-
-        centers: Dict[str, Position] = {}
-        flow = 0.0
-        previous_reach = 0.0
-        for index, level in enumerate(sorted(order)):
-            prefixes = order[level]
-            reach = max((radii[prefix] for prefix in prefixes), default=0.0)
-            flow = reach if index == 0 else flow + previous_reach + reach + level_gap
-            previous_reach = reach
-            self._place_band(prefixes, radii, band_gap, flow, centers)
-
-        return centers
-
-    def _place_band(
-        self,
-        prefixes: List[str],
-        radii: Dict[str, float],
-        band_gap: float,
-        flow: float,
-        centers: Dict[str, Position],
+        tree: Dict[str, _TreeNode],
+        root: str,
+        subtree_modules: Dict[str, List[ModuleNode]],
     ) -> None:
-        bands: List[float] = []
-        cursor = 0.0
-        previous_radius = 0.0
-        for index, prefix in enumerate(prefixes):
-            radius = radii[prefix]
-            cursor = radius if index == 0 else cursor + previous_radius + radius + band_gap
-            bands.append(cursor)
-            previous_radius = radius
+        def assign(prefix: str) -> int:
+            branch = tree[prefix]
+            if not branch.children:
+                branch.leaf_count = max(1, len(branch.modules))
+                return branch.leaf_count
 
-        midpoint = (bands[0] + bands[-1]) / 2 if bands else 0.0
-        for prefix, band in zip(prefixes, bands):
-            centers[prefix] = self._project(flow, band - midpoint)
+            branch.leaf_count = max(1, sum(assign(child) for child in branch.children))
+            return branch.leaf_count
 
-    def _order_levels(
-        self,
-        by_level: Dict[int, List[str]],
-        predecessors: Dict[str, List[str]],
-    ) -> Dict[int, List[str]]:
-        order: Dict[int, List[str]] = {level: sorted(prefixes) for level, prefixes in by_level.items()}
-        if not self._config.flow.crossing_reduction:
-            return order
-
-        levels_sorted = sorted(order.keys())
-        for _ in range(self._config.flow.crossing_iterations):
-            for level in levels_sorted[1:]:
-                previous_index = {prefix: index for index, prefix in enumerate(order.get(level - 1, []))}
-                decorated: List[Tuple[float, int, str]] = []
-                for index, prefix in enumerate(order[level]):
-                    barycenter = self._barycenter(prefix, predecessors, previous_index)
-                    decorated.append((barycenter if barycenter is not None else float(index), index, prefix))
-
-                decorated.sort()
-                order[level] = [prefix for _, _, prefix in decorated]
-
-        return order
+        assign(root)
 
     @staticmethod
-    def _barycenter(
-        prefix: str,
-        predecessors: Dict[str, List[str]],
-        previous_index: Dict[str, int],
-    ) -> Optional[float]:
-        ranks = [previous_index[parent] for parent in predecessors.get(prefix, []) if parent in previous_index]
-        if not ranks:
-            return None
+    def _neighbours(graph: ModuleGraph) -> Dict[ModuleNode, List[ModuleNode]]:
+        neighbours: Dict[ModuleNode, List[ModuleNode]] = defaultdict(list)
+        for source, target in graph.edges:
+            neighbours[source].append(target)
+            neighbours[target].append(source)
 
-        return sum(ranks) / len(ranks)
+        return neighbours
 
-    def _cluster_offsets(
+    def _order(
         self,
-        members: List[ModuleNode],
-        group_level: int,
+        tree: Dict[str, _TreeNode],
+        root: str,
+        subtree_modules: Dict[str, List[ModuleNode]],
+        subtree_sets: Dict[str, Set[ModuleNode]],
+        neighbours: Dict[ModuleNode, List[ModuleNode]],
+    ) -> Dict[ModuleNode, float]:
+        node_angle = self._assign_wedges(tree, root)
+        for _ in range(self._config.ring.order_iterations):
+            for branch in tree.values():
+                if len(branch.children) < 2:
+                    continue
+
+                mid = (branch.wedge_start + branch.wedge_end) / 2
+                branch.children.sort(
+                    key=lambda child: self._order_key(
+                        child, mid, tree, subtree_modules, subtree_sets, neighbours, node_angle
+                    )
+                )
+
+            node_angle = self._assign_wedges(tree, root)
+
+        return self._spread_modules(tree)
+
+    def _order_key(
+        self,
+        child: str,
+        mid: float,
+        tree: Dict[str, _TreeNode],
+        subtree_modules: Dict[str, List[ModuleNode]],
+        subtree_sets: Dict[str, Set[ModuleNode]],
+        neighbours: Dict[ModuleNode, List[ModuleNode]],
+        node_angle: Dict[ModuleNode, float],
+    ) -> Tuple[float, str]:
+        barycenter = self._subtree_barycenter(child, subtree_modules, subtree_sets, neighbours, node_angle)
+        if barycenter is None:
+            branch = tree[child]
+            barycenter = (branch.wedge_start + branch.wedge_end) / 2
+
+        relative = ((barycenter - mid + math.pi) % _TWO_PI) - math.pi
+        return (relative, child)
+
+    def _subtree_barycenter(
+        self,
+        prefix: str,
+        subtree_modules: Dict[str, List[ModuleNode]],
+        subtree_sets: Dict[str, Set[ModuleNode]],
+        neighbours: Dict[ModuleNode, List[ModuleNode]],
+        node_angle: Dict[ModuleNode, float],
+    ) -> Optional[float]:
+        members = subtree_sets[prefix]
+        sum_cos = 0.0
+        sum_sin = 0.0
+        for module in subtree_modules[prefix]:
+            for neighbour in neighbours.get(module, ()):
+                if neighbour in members:
+                    continue
+
+                angle = node_angle.get(neighbour)
+                if angle is None:
+                    continue
+
+                sum_cos += math.cos(angle)
+                sum_sin += math.sin(angle)
+
+        return self._circular_mean(sum_cos, sum_sin)
+
+    def _assign_wedges(self, tree: Dict[str, _TreeNode], root: str) -> Dict[ModuleNode, float]:
+        node_angle: Dict[ModuleNode, float] = {}
+
+        def place(prefix: str, start: float, end: float) -> None:
+            branch = tree[prefix]
+            branch.wedge_start = start
+            branch.wedge_end = end
+            angle = (start + end) / 2
+            for module in branch.modules:
+                node_angle[module] = angle
+
+            if not branch.children:
+                return
+
+            total = sum(tree[child].leaf_count for child in branch.children)
+            cursor = start
+            for child in branch.children:
+                fraction = tree[child].leaf_count / total if total > 0 else 1.0 / len(branch.children)
+                child_end = cursor + fraction * (end - start)
+                place(child, cursor, child_end)
+                cursor = child_end
+
+        place(root, 0.0, _TWO_PI)
+        return node_angle
+
+    def _spread_modules(self, tree: Dict[str, _TreeNode]) -> Dict[ModuleNode, float]:
+        node_angle: Dict[ModuleNode, float] = {}
+        for branch in tree.values():
+            if not branch.modules:
+                continue
+
+            mid = (branch.wedge_start + branch.wedge_end) / 2
+            modules = sorted(branch.modules, key=lambda node: (node.module.qualified_name, node.ordinal))
+            if len(modules) == 1:
+                node_angle[modules[0]] = mid
+                continue
+
+            span = (branch.wedge_end - branch.wedge_start) / 4
+            for index, module in enumerate(modules):
+                node_angle[module] = mid - span + (index + 0.5) / len(modules) * 2 * span
+
+        return node_angle
+
+    def _radii(self, tree: Dict[str, _TreeNode], root_depth: int) -> Dict[ModuleNode, float]:
+        ring_members: Dict[int, List[ModuleNode]] = defaultdict(list)
+        for branch in tree.values():
+            for module in branch.modules:
+                ring_members[branch.depth - root_depth].append(module)
+
+        schedule = self._radius_schedule(ring_members)
+        blend = self._config.ring.dependency_blend
+        ring_spacing = self._config.ring.ring_spacing
+
+        node_radius: Dict[ModuleNode, float] = {}
+        for ring, members in ring_members.items():
+            if ring == 0:
+                for module in members:
+                    node_radius[module] = 0.0
+                continue
+
+            levels = [module.level for module in members]
+            low, high = min(levels), max(levels)
+            for module in members:
+                position = (module.level - low) / (high - low) if high > low else 0.5
+                node_radius[module] = schedule[ring] + (position - 0.5) * blend * ring_spacing
+
+        return node_radius
+
+    def _radius_schedule(self, ring_members: Dict[int, List[ModuleNode]]) -> Dict[int, float]:
+        node_spacing = self._config.ring.node_spacing
+        ring_spacing = self._config.ring.ring_spacing
+        min_radius = self._config.ring.min_radius
+
+        schedule: Dict[int, float] = {0: 0.0}
+        for ring in range(1, max(ring_members, default=0) + 1):
+            base = min_radius + (ring - 1) * ring_spacing
+            arc_fit = len(ring_members.get(ring, [])) * node_spacing / _TWO_PI
+            schedule[ring] = max(base, schedule[ring - 1] + ring_spacing, arc_fit)
+
+        return schedule
+
+    def _nudge(
+        self,
+        tree: Dict[str, _TreeNode],
+        node_angle: Dict[ModuleNode, float],
+        node_radius: Dict[ModuleNode, float],
+        neighbours: Dict[ModuleNode, List[ModuleNode]],
+    ) -> Dict[ModuleNode, float]:
+        pull = self._config.ring.edge_pull
+        margin = self._config.ring.wedge_margin
+        if pull <= 0 or self._config.ring.nudge_passes == 0:
+            return node_angle
+
+        bounds = self._leaf_bounds(tree, margin)
+        if not bounds:
+            return node_angle
+
+        best = dict(node_angle)
+        best_cost = self._edge_cost(best, node_radius, neighbours)
+        for _ in range(self._config.ring.nudge_passes):
+            candidate = dict(best)
+            for module in sorted(bounds, key=lambda node: (node.module.qualified_name, node.ordinal)):
+                target = self._circular_mean(
+                    sum(math.cos(best[neighbour]) for neighbour in neighbours.get(module, ())),
+                    sum(math.sin(best[neighbour]) for neighbour in neighbours.get(module, ())),
+                )
+                if target is None:
+                    continue
+
+                current = best[module]
+                delta = math.atan2(math.sin(target - current), math.cos(target - current))
+                low, high = bounds[module]
+                candidate[module] = min(high, max(low, current + pull * delta))
+
+            cost = self._edge_cost(candidate, node_radius, neighbours)
+            if cost > best_cost - _EPSILON:
+                break
+
+            best, best_cost = candidate, cost
+
+        return best
+
+    @staticmethod
+    def _leaf_bounds(tree: Dict[str, _TreeNode], margin: float) -> Dict[ModuleNode, Tuple[float, float]]:
+        bounds: Dict[ModuleNode, Tuple[float, float]] = {}
+        for branch in tree.values():
+            if branch.children or not branch.modules:
+                continue
+
+            low = branch.wedge_start + margin
+            high = branch.wedge_end - margin
+            if high < low:
+                low = high = (branch.wedge_start + branch.wedge_end) / 2
+
+            for module in branch.modules:
+                bounds[module] = (low, high)
+
+        return bounds
+
+    @staticmethod
+    def _edge_cost(
+        node_angle: Dict[ModuleNode, float],
+        node_radius: Dict[ModuleNode, float],
+        neighbours: Dict[ModuleNode, List[ModuleNode]],
+    ) -> float:
+        cost = 0.0
+        for source, targets in neighbours.items():
+            source_x = node_radius[source] * math.cos(node_angle[source])
+            source_y = node_radius[source] * math.sin(node_angle[source])
+            for target in targets:
+                target_x = node_radius[target] * math.cos(node_angle[target])
+                target_y = node_radius[target] * math.sin(node_angle[target])
+                cost += math.hypot(source_x - target_x, source_y - target_y)
+
+        return cost
+
+    def _positions(
+        self,
+        node_angle: Dict[ModuleNode, float],
+        node_radius: Dict[ModuleNode, float],
         rng: Random,
     ) -> Dict[ModuleNode, Position]:
-        offsets: Dict[ModuleNode, Position] = {members[0]: (0.0, 0.0)}
-        others = members[1:]
-        if not others:
-            return offsets
+        jitter = self._config.ring.jitter
+        ring_spacing = self._config.ring.ring_spacing
 
-        subgroups: Dict[str, List[ModuleNode]] = defaultdict(list)
-        for node in others:
-            subgroups[node.module.prefix(group_level + 1)].append(node)
+        positions: Dict[ModuleNode, Position] = {}
+        for module, angle in node_angle.items():
+            radius = node_radius[module]
+            if jitter > 0 and radius > 0:
+                radius = max(0.0, radius + rng.uniform(-jitter, jitter) * ring_spacing)
 
-        total = len(others)
-        node_spacing = self._config.cluster.node_spacing
-        ring_spacing = self._config.cluster.ring_spacing
-        jitter = self._config.cluster.jitter
+            positions[module] = (radius * math.cos(angle), radius * math.sin(angle))
 
-        cursor = 0.0
-        for subkey in sorted(subgroups):
-            siblings = subgroups[subkey]
-            width = 2 * math.pi * len(siblings) / total
-            by_depth: Dict[int, List[ModuleNode]] = defaultdict(list)
-            for node in siblings:
-                by_depth[max(1, self._sub_depth(node, group_level))].append(node)
+        return positions
 
-            for depth in sorted(by_depth):
-                ring = by_depth[depth]
-                count = len(ring)
-                spacing_radius = count * node_spacing / width if width > 0 else 0.0
-                radius = max(self._ring_radius(depth), spacing_radius)
-                for index, node in enumerate(ring):
-                    angle = cursor + (index + 0.5) / count * width
-                    angle += rng.uniform(-jitter, jitter) * width * _ANGLE_JITTER_SCALE / count
-                    distance = radius + rng.uniform(-jitter, jitter) * ring_spacing
-                    offsets[node] = (distance * math.cos(angle), distance * math.sin(angle))
-
-            cursor += width
-
-        return offsets
-
-    @staticmethod
-    def _bounding_radius(offsets: Dict[ModuleNode, Position]) -> float:
-        return max((math.hypot(offset_x, offset_y) for offset_x, offset_y in offsets.values()), default=0.0)
-
-    def _node_options(self, anchors: Set[ModuleNode]) -> Dict[ModuleNode, Dict[str, Any]]:
+    def _node_options(self, tree: Dict[str, _TreeNode], root: str) -> Dict[ModuleNode, Dict[str, Any]]:
         options: Dict[ModuleNode, Dict[str, Any]] = {}
         if self._config.relaxation.enabled and self._config.relaxation.anchor_centers:
-            for node in anchors:
-                options[node] = {"fixed": {"x": True, "y": True}}
+            for module in tree[root].modules:
+                options[module] = {"fixed": {"x": True, "y": True}}
 
         return options
 
@@ -221,7 +395,7 @@ class PackageCloudLayout(GraphLayout[ModuleNode]):
             patch["physics"] = {"enabled": False}
             return patch
 
-        layout["randomSeed"] = self._config.cluster.seed
+        layout["randomSeed"] = self._config.ring.seed
         patch["physics"] = {
             "enabled": True,
             "solver": relaxation.solver,
@@ -239,32 +413,18 @@ class PackageCloudLayout(GraphLayout[ModuleNode]):
         }
         return patch
 
-    def _project(self, flow: float, band: float) -> Position:
-        match self._config.flow.direction:
-            case "LR":
-                return (flow, band)
-            case "RL":
-                return (-flow, band)
-            case "UD":
-                return (band, flow)
-            case "DU":
-                return (band, -flow)
-            case _:
-                return (flow, band)
-
     @staticmethod
-    def _sub_depth(node: ModuleNode, group_level: int) -> int:
-        parts = node.module.qualified_name.split(DELIMITER)
-        return max(0, len(parts) - (group_level + 1))
+    def _circular_mean(sum_cos: float, sum_sin: float) -> Optional[float]:
+        if abs(sum_cos) < _EPSILON and abs(sum_sin) < _EPSILON:
+            return None
 
-    def _ring_radius(self, depth: int) -> float:
-        return self._config.cluster.min_radius + self._config.cluster.ring_spacing * (depth - 1)
+        return math.atan2(sum_sin, sum_cos) % _TWO_PI
 
 
 def module_layout_from_config(config: LayoutConfig) -> Optional[GraphLayout[ModuleNode]]:
     match config.mode:
-        case "package_cloud":
-            return PackageCloudLayout(config)
+        case "package_ring":
+            return PackageRingLayout(config)
         case _:
             return None
 

@@ -4,70 +4,49 @@ from pydantic import Field, field_validator
 
 from pda.config.base import BaseConfig
 
-LayoutMode: TypeAlias = Literal["hierarchical", "package_cloud"]
-FlowDirection: TypeAlias = Literal["LR", "RL", "UD", "DU"]
+LayoutMode: TypeAlias = Literal["hierarchical", "package_ring"]
 RelaxationSolver: TypeAlias = Literal["forceAtlas2Based", "barnesHut", "repulsion", "hierarchicalRepulsion"]
 
 
-class FlowConfig(BaseConfig):
-    direction: FlowDirection = Field(
-        default="LR",
-        description="Axis along which inter-package dependencies flow (LR/RL = horizontal, UD/DU = vertical).",
-    )
-    level_separation: float = Field(
-        default=200.0,
-        description="Gap between the edges of clouds on consecutive levels, along the flow axis "
-        "(added to the clouds' radii; inter-group spacing, independent of cloud size).",
-    )
-    band_spacing: float = Field(
-        default=140.0,
-        description="Gap between the edges of clouds sharing a level, perpendicular to the flow "
-        "(added to the clouds' radii; inter-group spacing, independent of cloud size).",
-    )
-    crossing_reduction: bool = Field(
-        default=True,
-        description="Reorder packages within a level to reduce inter-package edge crossings.",
-    )
-    crossing_iterations: int = Field(
-        default=4,
-        description="Number of barycenter sweeps used when crossing reduction is enabled.",
-    )
-
-    @field_validator("level_separation", "band_spacing")
-    @classmethod
-    def _validate_separation(cls, value: float) -> float:
-        if value <= 0:
-            raise ValueError("Separation distances must be positive.")
-
-        return value
-
-    @field_validator("crossing_iterations")
-    @classmethod
-    def _validate_iterations(cls, value: int) -> int:
-        if value < 0:
-            raise ValueError("Crossing iterations must be >= 0.")
-
-        return value
-
-
-class ClusterConfig(BaseConfig):
+class RingConfig(BaseConfig):
     node_spacing: float = Field(
         default=160.0,
-        description="Minimum arc distance between sibling modules within a cloud (intra-group spacing). "
-        "A ring's radius grows with its member count to honour this, so dense rings spread out "
-        "instead of overlapping.",
+        description="Minimum arc distance between modules on the same ring. A ring's radius grows with its "
+        "member count to honour this, so crowded rings are pushed outward instead of overlapping.",
     )
     ring_spacing: float = Field(
         default=140.0,
-        description="Radial distance between consecutive sub-module depth rings within a package cloud.",
+        description="Radial distance between consecutive package-depth rings.",
     )
     min_radius: float = Field(
         default=80.0,
-        description="Radius of the innermost ring around a package centre.",
+        description="Radius of the innermost ring (package depth 1) around the centre.",
+    )
+    dependency_blend: float = Field(
+        default=0.4,
+        description="How strongly topological dependency level positions a node within its depth ring "
+        "(0 = pure equi-radial rings; 1 = full band thickness so importers/imports sit on adjacent sub-rings).",
+    )
+    edge_pull: float = Field(
+        default=0.5,
+        description="How strongly a node's angle is nudged toward its import neighbours, clamped within its "
+        "package wedge (0 = strict package wedges; 1 = maximum in-wedge pull toward connected modules).",
+    )
+    order_iterations: int = Field(
+        default=4,
+        description="Number of circular-barycenter sweeps used to order packages and siblings around the rings.",
+    )
+    nudge_passes: int = Field(
+        default=10,
+        description="Number of bounded angular nudge passes applied to reduce edge length.",
+    )
+    wedge_margin: float = Field(
+        default=0.0,
+        description="Angular margin (radians) kept clear at each wedge's edges when nudging.",
     )
     jitter: float = Field(
-        default=0.1,
-        description="Fraction of ring spacing used for deterministic, seeded radial/angular jitter.",
+        default=0.0,
+        description="Fraction of ring spacing used for deterministic, seeded radial jitter.",
     )
     seed: int = Field(
         default=0,
@@ -78,15 +57,31 @@ class ClusterConfig(BaseConfig):
     @classmethod
     def _validate_radius(cls, value: float) -> float:
         if value <= 0:
-            raise ValueError("Cluster distances must be positive.")
+            raise ValueError("Ring distances must be positive.")
 
         return value
 
-    @field_validator("jitter")
+    @field_validator("dependency_blend", "edge_pull")
     @classmethod
-    def _validate_jitter(cls, value: float) -> float:
+    def _validate_fraction(cls, value: float) -> float:
+        if not 0.0 <= value <= 1.0:
+            raise ValueError("Blend factors must be within [0, 1].")
+
+        return value
+
+    @field_validator("wedge_margin", "jitter")
+    @classmethod
+    def _validate_non_negative(cls, value: float) -> float:
         if value < 0:
-            raise ValueError("Jitter must be >= 0.")
+            raise ValueError("Margins must be >= 0.")
+
+        return value
+
+    @field_validator("order_iterations", "nudge_passes")
+    @classmethod
+    def _validate_iterations(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("Iteration counts must be >= 0.")
 
         return value
 
@@ -126,7 +121,7 @@ class RelaxationConfig(BaseConfig):
     )
     anchor_centers: bool = Field(
         default=True,
-        description="Pin each package centre during relaxation so the macro directional flow is preserved.",
+        description="Pin the centre node during relaxation so the macro ring structure is preserved.",
     )
 
     @field_validator("stabilization_iterations")
@@ -141,20 +136,7 @@ class RelaxationConfig(BaseConfig):
 class LayoutConfig(BaseConfig):
     mode: LayoutMode = Field(
         default="hierarchical",
-        description="'hierarchical' delegates to vis.js (current tree); 'package_cloud' computes positions in Python.",
+        description="'hierarchical' delegates to vis.js (current tree); 'package_ring' computes positions in Python.",
     )
-    group_level: int = Field(
-        default=0,
-        description="Absolute dotted-name level that defines a cloud (0 = top-level package).",
-    )
-    flow: FlowConfig = Field(default_factory=FlowConfig)
-    cluster: ClusterConfig = Field(default_factory=ClusterConfig)
+    ring: RingConfig = Field(default_factory=RingConfig)
     relaxation: RelaxationConfig = Field(default_factory=RelaxationConfig)
-
-    @field_validator("group_level")
-    @classmethod
-    def _validate_group_level(cls, value: int) -> int:
-        if value < 0:
-            raise ValueError("Group level must be >= 0.")
-
-        return value

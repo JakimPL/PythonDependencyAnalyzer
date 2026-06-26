@@ -1,19 +1,15 @@
-mode: package_cloud
+mode: package_ring
 
-group_level: 0
-
-flow:
-  direction: LR
-  level_separation: 200
-  band_spacing: 140
-  crossing_reduction: true
-  crossing_iterations: 4
-
-cluster:
-  node_spacing: 80
-  ring_spacing: 80
-  min_radius: 20
-  jitter: 0.1
+ring:
+  node_spacing: 50
+  ring_spacing: 250
+  min_radius: 100
+  dependency_blend: 1.0
+  edge_pull: 0.8
+  order_iterations: 15
+  nudge_passes: 40
+  wedge_margin: 0.0
+  jitter: 0.0
   seed: 0
 
 relaxation:
