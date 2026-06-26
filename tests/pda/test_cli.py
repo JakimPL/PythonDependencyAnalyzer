@@ -49,7 +49,7 @@ class TestAnalyze:
         assert captured["package"] == "mypkg"
         assert captured["paths"] == [tmp_path]
 
-        data = json.loads((tmp_path / "mypkg_imports.json").read_text(encoding="utf-8"))
+        data = json.loads((tmp_path / "mypkg-imports.json").read_text(encoding="utf-8"))
         assert {node["id"] for node in data["nodes"]} == {"mypkg.a", "mypkg.b"}
 
     def test_custom_output_and_explicit_paths(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -95,15 +95,81 @@ class TestCollect:
         assert list(tmp_path.glob("*.json")) == []
 
 
+class TestConfigFlags:
+    def test_analyze_defaults_when_no_flags(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured = _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("a", "b")]))
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["analyze", str(tmp_path), "mypkg"])
+
+        config = captured["config"]
+        assert config.stdlib_depth == 1
+        assert config.hide_private is True
+        assert config.collapse_level is None
+        assert config.unify_nodes is False
+
+    def test_analyze_flat_flags_override_nested_and_top_fields(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured = _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("a", "b")]))
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(
+            [
+                "analyze",
+                str(tmp_path),
+                "mypkg",
+                "--collapse-level",
+                "2",
+                "--stdlib-depth",
+                "0",
+                "--no-hide-private",
+                "--qualified-names",
+                "--unify-nodes",
+                "--sort-method",
+                "topological",
+            ]
+        )
+
+        config = captured["config"]
+        assert config.collapse_level == 2
+        assert config.stdlib_depth == 0
+        assert config.hide_private is False
+        assert config.qualified_names is True
+        assert config.unify_nodes is True
+        assert config.sort_method == "topological"
+        assert config.external_depth == 1
+
+    def test_collect_shared_flags(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured = _patch(monkeypatch, "ModulesCollector", _graph([("a", "b")]))
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["collect", str(tmp_path), "mypkg", "--external-depth", "1", "--qualified-names"])
+
+        config = captured["config"]
+        assert config.external_depth == 1
+        assert config.qualified_names is True
+
+    def test_collect_rejects_imports_only_flag(self, tmp_path: Path) -> None:
+        with pytest.raises(SystemExit):
+            cli.main(["collect", str(tmp_path), "mypkg", "--sort-method", "auto"])
+
+    def test_invalid_collapse_level_returns_one(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("a", "b")]))
+        monkeypatch.chdir(tmp_path)
+
+        assert cli.main(["analyze", str(tmp_path), "mypkg", "--collapse-level", "-1"]) == 1
+
+
 class TestErrors:
     def test_runtime_error_returns_one(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        def boom(*, config: object, project_root: object, package: object) -> Callable[..., ModuleGraph]:
+        def action(*, config: object, project_root: object, package: object) -> Callable[..., ModuleGraph]:
             def run(paths: Optional[object] = None, *, refresh: bool = False) -> ModuleGraph:
                 raise ValueError("no modules found")
 
             return run
 
-        monkeypatch.setattr(cli, "ModuleImportsAnalyzer", boom)
+        monkeypatch.setattr(cli, "ModuleImportsAnalyzer", action)
 
         assert cli.main(["analyze", str(tmp_path), "mypkg"]) == 1
 

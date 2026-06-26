@@ -1,3 +1,4 @@
+from pda.config.analyzer.base import ModuleAnalyzerConfig
 from pda.config.analyzer.collector import ModulesCollectorConfig
 from pda.config.analyzer.imports import ModuleImportsAnalyzerConfig
 from pda.config.analyzer.scan import ModuleScanConfig
@@ -21,6 +22,7 @@ __all__ = [
     "ValidationOptions",
     # Analyzers
     "ModuleScanConfig",
+    "ModuleAnalyzerConfig",
     "ModulesCollectorConfig",
     "ModuleImportsAnalyzerConfig",
     "ScopeAnalyzerConfig",
