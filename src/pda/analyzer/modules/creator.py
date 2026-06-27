@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from pda.config import ValidationOptions
+from pda.exceptions import PDAImportPathError
 from pda.specification import CategorizedModule, ModuleCategory, UnavailableModule
 from pda.tools.logger import logger
 
@@ -46,7 +47,7 @@ class ModuleCreator:
                 validation_options=self._VALIDATION_OPTIONS,
             )
 
-        except (AttributeError, KeyError, IndexError) as error:
+        except (AttributeError, KeyError, IndexError, PDAImportPathError) as error:
             logger.warning(
                 "Module '%s' error:\n%s: [%s]",
                 name,

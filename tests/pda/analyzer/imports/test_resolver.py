@@ -218,15 +218,6 @@ class TestResolveImportPathMocked:
 
     test_cases = [
         TestCase(
-            label="spec_none_returns_none",
-            spec_return=None,
-            is_namespace=False,
-            expected=None,
-            is_namespace_called=False,
-            validate_origin_called=False,
-            resolve_called=False,
-        ),
-        TestCase(
             label="namespace_package_returns_none",
             spec_return=Mock(spec=ModuleSpec, name="test"),
             is_namespace=True,
@@ -554,3 +545,43 @@ class TestModuleValidationOptionsProperty:
         assert options.validate_origin is True
         assert options.expect_python is False
         assert options.raise_error is False
+
+
+def test_resolve_import_path_keeps_missing_spec_for_categorization() -> None:
+    resolver = create_resolver()
+    import_path = ImportPath(module="missing_module")
+    source = setup_mock_source(spec_return=None)
+
+    result = resolver.resolve_import_path(source, import_path)
+
+    assert result is import_path
+
+
+def test_resolve_import_path_falls_back_when_origin_outside_known_roots() -> None:
+    resolver = create_resolver()
+    import_path = ImportPath(module="yaml")
+    source = setup_mock_source(spec_return=Mock(spec=ModuleSpec))
+
+    with (
+        patch("pda.analyzer.imports.resolver.is_namespace_package", return_value=False),
+        patch("pda.analyzer.imports.resolver.validate_spec_origin", return_value=Path("/cache/yaml/__init__.py")),
+        patch("pda.analyzer.imports.resolver.SysPaths.resolve", return_value=None),
+    ):
+        result = resolver.resolve_import_path(source, import_path)
+
+    assert result is import_path
+
+
+def test_resolve_import_path_drops_unresolvable_builtin_origin() -> None:
+    resolver = create_resolver()
+    import_path = ImportPath(module="sys")
+    source = setup_mock_source(spec_return=Mock(spec=ModuleSpec))
+
+    with (
+        patch("pda.analyzer.imports.resolver.is_namespace_package", return_value=False),
+        patch("pda.analyzer.imports.resolver.validate_spec_origin", return_value=Path("built-in")),
+        patch("pda.analyzer.imports.resolver.SysPaths.resolve", return_value=None),
+    ):
+        result = resolver.resolve_import_path(source, import_path)
+
+    assert result is None

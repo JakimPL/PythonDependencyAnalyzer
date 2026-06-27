@@ -7,6 +7,7 @@ from pda.config import ValidationOptions
 from pda.exceptions import PDAPathResolutionError, PDARelativeBasePathError
 from pda.specification.imports import ImportPath
 from pda.specification.modules.spec.spec import validate_spec_origin
+from pda.tools.logger import logger
 from pda.tools.singleton import Singleton
 from pda.types import Pathlike
 
@@ -63,7 +64,7 @@ class SysPaths(metaclass=Singleton):
         return cls.resolve_import_path(origin, base_path)
 
     @classmethod
-    def resolve_import_path(cls, origin: Path, base_path: Optional[Pathlike]) -> ImportPath:
+    def resolve_import_path(cls, origin: Path, base_path: Optional[Pathlike]) -> Optional[ImportPath]:
         import_path: Optional[ImportPath] = None
         candidates = cls.get_candidates(base_path=base_path)
         if not candidates:
@@ -74,4 +75,5 @@ class SysPaths(metaclass=Singleton):
             if import_path is not None:
                 return import_path
 
-        raise PDAPathResolutionError(f"Could not resolve path '{origin}' against candidates: {candidates}")
+        logger.debug("Could not resolve path '%s' against candidates: %s", origin, candidates)
+        return None

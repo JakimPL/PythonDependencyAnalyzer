@@ -66,18 +66,26 @@ class ModuleResolver:
     ) -> Optional[ImportPath]:
         spec = module_source.get_spec(import_path)
         if spec is None:
-            logger.debug("Module spec not found for import path '%s'", import_path)
-            return None
+            logger.debug("Module spec not found for import path '%s'; keeping it for categorization", import_path)
+            return import_path
 
         if is_namespace_package(spec):
             return None
 
         origin = validate_spec_origin(spec, expect_python=self._MODULE_VALIDATION_OPTIONS.expect_python)
-        return SysPaths.resolve(
+        resolved = SysPaths.resolve(
             origin,
             base_path=module_source.base_path,
             validation_options=self._MODULE_VALIDATION_OPTIONS,
         )
+        if resolved is not None:
+            return resolved
+
+        if isinstance(origin, Path) and origin.is_absolute():
+            logger.debug("Origin '%s' for '%s' is outside known roots; categorizing as-is", origin, import_path)
+            return import_path
+
+        return None
 
     def resolve_to_module(
         self,

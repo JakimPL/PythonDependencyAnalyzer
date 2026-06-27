@@ -44,8 +44,9 @@ async def _():
 
     MAX_COLLAPSE_LEVEL: Final[int] = 3
     MAX_DEPTH: Final[int] = 3
+    is_restricted = sys.platform == "emscripten"
 
-    if sys.platform == "emscripten":
+    if is_restricted:
         from pyodide.http import pyfetch
 
         location = mo.notebook_location()
@@ -80,6 +81,7 @@ async def _():
         ModuleScanConfig,
         ModulesCollector,
         ModulesCollectorConfig,
+        is_restricted,
         mo,
         module_pyvis_converter,
         package,
@@ -107,11 +109,18 @@ def _(mo, module_pyvis_converter):
 
 
 @app.cell(hide_code=True)
-def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", mo):
+def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", is_restricted, mo):
     import_collapse_level = mo.ui.slider(0, MAX_COLLAPSE_LEVEL, value=1, label="collapse level")
     import_stdlib_depth = mo.ui.slider(0, MAX_DEPTH, value=0, label="stdlib depth")
-    import_external_depth = mo.ui.slider(0, MAX_DEPTH, value=0, label="external depth")
+    import_external_depth = mo.ui.slider(
+        0,
+        MAX_DEPTH,
+        value=0,
+        label="external depth (disabled in demo)" if is_restricted else "external depth",
+        disabled=is_restricted,
+    )
     import_hide_private = mo.ui.switch(value=True, label="hide private")
+    import_hide_unavailable = mo.ui.switch(value=True, label="hide unavailable")
     import_unify_nodes = mo.ui.switch(value=True, label="unify nodes")
     import_qualified_names = mo.ui.switch(value=True, label="qualified names")
 
@@ -122,6 +131,7 @@ def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", mo):
             import_stdlib_depth,
             import_external_depth,
             import_hide_private,
+            import_hide_unavailable,
             import_unify_nodes,
             import_qualified_names,
         ]
@@ -130,6 +140,7 @@ def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", mo):
         import_collapse_level,
         import_external_depth,
         import_hide_private,
+        import_hide_unavailable,
         import_qualified_names,
         import_stdlib_depth,
         import_unify_nodes,
@@ -144,6 +155,7 @@ def _(
     import_collapse_level,
     import_external_depth,
     import_hide_private,
+    import_hide_unavailable,
     import_qualified_names,
     import_stdlib_depth,
     import_unify_nodes,
@@ -156,7 +168,7 @@ def _(
             stdlib_depth=import_stdlib_depth.value,
             external_depth=import_external_depth.value,
             hide_private=import_hide_private.value,
-            hide_unavailable=True,
+            hide_unavailable=import_hide_unavailable.value,
         ),
         unify_nodes=import_unify_nodes.value,
         qualified_names=import_qualified_names.value,
@@ -183,11 +195,18 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", mo):
+def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", is_restricted, mo):
     collect_collapse_level = mo.ui.slider(0, MAX_COLLAPSE_LEVEL, value=1, label="collapse level")
     collect_stdlib_depth = mo.ui.slider(0, MAX_DEPTH, value=0, label="stdlib depth")
-    collect_external_depth = mo.ui.slider(0, MAX_DEPTH, value=0, label="external depth")
+    collect_external_depth = mo.ui.slider(
+        0,
+        MAX_DEPTH,
+        value=0,
+        label="external depth (disabled in demo)" if is_restricted else "external depth",
+        disabled=is_restricted,
+    )
     collect_hide_private = mo.ui.switch(value=True, label="hide private")
+    collect_hide_unavailable = mo.ui.switch(value=True, label="hide unavailable")
     collect_qualified_names = mo.ui.switch(value=True, label="qualified names")
 
     mo.vstack(
@@ -197,6 +216,7 @@ def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", mo):
             collect_stdlib_depth,
             collect_external_depth,
             collect_hide_private,
+            collect_hide_unavailable,
             collect_qualified_names,
         ]
     )
@@ -204,6 +224,7 @@ def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", mo):
         collect_collapse_level,
         collect_external_depth,
         collect_hide_private,
+        collect_hide_unavailable,
         collect_qualified_names,
         collect_stdlib_depth,
     )
@@ -231,6 +252,7 @@ def _(
     collect_collapse_level,
     collect_external_depth,
     collect_hide_private,
+    collect_hide_unavailable,
     collect_qualified_names,
     collect_stdlib_depth,
     package,
@@ -242,7 +264,7 @@ def _(
             stdlib_depth=collect_stdlib_depth.value,
             external_depth=collect_external_depth.value,
             hide_private=collect_hide_private.value,
-            hide_unavailable=True,
+            hide_unavailable=collect_hide_unavailable.value,
         ),
         qualified_names=collect_qualified_names.value,
         collapse_level=collect_collapse_level.value,
@@ -259,11 +281,13 @@ def _(
     collect_collapse_level,
     collect_external_depth,
     collect_hide_private,
+    collect_hide_unavailable,
     collect_qualified_names,
     collect_stdlib_depth,
     import_collapse_level,
     import_external_depth,
     import_hide_private,
+    import_hide_unavailable,
     import_qualified_names,
     import_stdlib_depth,
     import_unify_nodes,
@@ -280,7 +304,7 @@ def _(
             f"--stdlib-depth {import_stdlib_depth.value}",
             f"--external-depth {import_external_depth.value}",
             _flag("hide-private", import_hide_private.value),
-            "--hide-unavailable",
+            _flag("hide-unavailable", import_hide_unavailable.value),
             _flag("unify-nodes", import_unify_nodes.value),
             _flag("qualified-names", import_qualified_names.value),
             f"-o {package}-imports.json",
@@ -294,6 +318,7 @@ def _(
             f"--stdlib-depth {collect_stdlib_depth.value}",
             f"--external-depth {collect_external_depth.value}",
             _flag("hide-private", collect_hide_private.value),
+            _flag("hide-unavailable", collect_hide_unavailable.value),
             _flag("qualified-names", collect_qualified_names.value),
             f"-o {package}-modules.json",
         ]
