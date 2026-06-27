@@ -8,9 +8,9 @@ authors = [{ name = "Jakim" }]
 
 dependencies = [
     "anytree==2.13.0",
-    "beautifulsoup4==4.14.2",
+    "beautifulsoup4==4.15.0",
     "networkx==3.6.1",
-    "pydantic==2.12.5",
+    "pydantic==2.13.4",
     "pyvis==0.3.2",
     "pyyaml==6.0.3",
 ]
@@ -19,16 +19,14 @@ dependencies = [
 pda = "pda.cli:main"
 
 [project.optional-dependencies]
-notebook = [
-    "marimo==0.23.9",
-]
+notebook = ["marimo==0.23.11"]
 dev = [
-    "mypy==1.19.1",
-    "pre-commit==4.5.1",
-    "pylint==4.0.4",
+    "mypy==2.1.0",
+    "pre-commit==4.6.0",
+    "pylint==4.0.6",
     "pylint-pydantic==0.4.1",
-    "pytest==9.0.2",
-    "pytest-cov==7.0.0",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
 ]
 
 [build-system]

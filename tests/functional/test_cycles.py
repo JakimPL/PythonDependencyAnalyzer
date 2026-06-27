@@ -80,10 +80,11 @@ class TestRendering:
     def test_cyclic_graph_renders_without_crashing(self) -> None:
         graph = _analyze("cyclic_three")
 
-        for theme in ("light",):
-            converter = module_pyvis_converter(theme=theme)
-            html = converter(graph, html=True)
-            assert isinstance(html, str) and html
+        for theme in ("light", "dark"):
+            for layout in (None, "package_ring"):
+                converter = module_pyvis_converter(theme=theme, layout=layout)
+                html = converter(graph, html=True)
+                assert isinstance(html, str) and html
 
 
 class TestCli:

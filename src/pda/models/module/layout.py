@@ -6,7 +6,7 @@ from random import Random
 from typing import Any, Dict, Final, List, Optional, Set, Tuple
 
 from pda.config import PyVisConfig, Theme
-from pda.config.pyvis.layout import LayoutConfig
+from pda.config.pyvis.layout import LayoutConfig, LayoutMode
 from pda.constants import DELIMITER
 from pda.models.module.graph import ModuleGraph
 from pda.models.module.node import ModuleNode
@@ -283,7 +283,7 @@ class PackageRingLayout(GraphLayout[ModuleNode]):
 
             center = schedule[ring]
             inner_gap = center - schedule[ring - 1]
-            outer_gap = schedule[ring + 1] - center if (ring + 1) in schedule else inner_gap
+            outer_gap = schedule[ring + 1] - center if ring + 1 in schedule else inner_gap
             half_band = min(0.5 * blend * ring_spacing, 0.5 * min(inner_gap, outer_gap))
 
             levels = [module.level for module in members]
@@ -582,6 +582,7 @@ def module_pyvis_converter(
     *,
     config_path: Path = PyVisConfig.default_path(),
     theme: Theme = "light",
+    layout: Optional[LayoutMode] = None,
     network_kwargs: Optional[Dict[str, Any]] = None,
     vis_options: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> PyVisConverter[ModuleNode]:
@@ -591,5 +592,9 @@ def module_pyvis_converter(
         network_kwargs=network_kwargs,
         vis_options=vis_options,
     )
-    converter.layout = module_layout_from_config(converter.config.layout)
+    layout_config = converter.config.layout
+    if layout is not None:
+        layout_config = layout_config.model_copy(update={"mode": layout})
+
+    converter.layout = module_layout_from_config(layout_config)
     return converter

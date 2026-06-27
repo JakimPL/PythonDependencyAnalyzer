@@ -24,3 +24,8 @@ def load_yaml(filepath: Pathlike) -> Any:
 def save_yaml(data: Any, filepath: Pathlike) -> None:
     with open(filepath, "w", encoding="utf-8") as file:
         yaml.safe_dump(data, file)
+
+
+def save_html(content: str, filepath: Pathlike) -> None:
+    with open(filepath, "w", encoding="utf-8") as file:
+        file.write(content)

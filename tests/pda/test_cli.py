@@ -5,6 +5,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 import pytest
 
 from pda import cli
+from pda.cli import commands, output
 from pda.models import ModuleGraph, ModuleNode
 from pda.specification import CategorizedModule, ModuleCategory, UnavailableModule
 
@@ -33,7 +34,7 @@ def _patch(monkeypatch: pytest.MonkeyPatch, attr: str, graph: ModuleGraph) -> Di
 
         return run
 
-    monkeypatch.setattr(cli, attr, factory)
+    monkeypatch.setattr(commands, attr, factory)
     return captured
 
 
@@ -169,10 +170,81 @@ class TestErrors:
 
             return run
 
-        monkeypatch.setattr(cli, "ModuleImportsAnalyzer", action)
+        monkeypatch.setattr(commands, "ModuleImportsAnalyzer", action)
 
         assert cli.main(["analyze", str(tmp_path), "mypkg"]) == 1
 
     def test_missing_subcommand_exits(self) -> None:
         with pytest.raises(SystemExit):
             cli.main([])
+
+
+class TestFormatResolution:
+    def test_extension_selects_format(self) -> None:
+        assert output.resolve_format(Path("graph.json"), None) == "json"
+        assert output.resolve_format(Path("graph.html"), None) == "html"
+        assert output.resolve_format(Path("graph.htm"), None) == "html"
+
+    def test_explicit_format_wins_over_extension(self) -> None:
+        assert output.resolve_format(Path("graph.json"), "html") == "html"
+        assert output.resolve_format(Path("graph.html"), "json") == "json"
+
+    def test_unsupported_extension_rejected(self) -> None:
+        with pytest.raises(ValueError, match="Unsupported output extension"):
+            output.resolve_format(Path("graph.txt"), None)
+
+        with pytest.raises(ValueError, match="Unsupported output extension"):
+            output.resolve_format(Path("graph.txt"), "html")
+
+    def test_missing_extension_defaults_to_format_or_json(self) -> None:
+        assert output.resolve_format(Path("graph"), None) == "json"
+        assert output.resolve_format(Path("graph"), "html") == "html"
+
+    def test_default_output_name_follows_format(self) -> None:
+        assert output.resolve_output(None, None, "mypkg-imports") == (Path("mypkg-imports.json"), "json")
+        assert output.resolve_output(None, "html", "mypkg-imports") == (Path("mypkg-imports.html"), "html")
+
+
+class TestHtmlOutput:
+    def test_analyze_writes_self_contained_html(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("mypkg.a", "mypkg.b")]))
+        output = tmp_path / "graph.html"
+
+        code = cli.main(["analyze", str(tmp_path), "mypkg", "--output", str(output)])
+
+        assert code == 0
+        html = output.read_text(encoding="utf-8")
+        assert "<html" in html.lower()
+        assert 'src="lib/' not in html and 'href="lib/' not in html
+        assert "vis-network" in html and len(html) > 200_000
+
+    def test_format_html_overrides_json_extension(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("mypkg.a", "mypkg.b")]))
+        output = tmp_path / "graph.json"
+
+        code = cli.main(["analyze", str(tmp_path), "mypkg", "--output", str(output), "--format", "html"])
+
+        assert code == 0
+        assert "<html" in output.read_text(encoding="utf-8").lower()
+
+    def test_unsupported_extension_returns_one(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("mypkg.a", "mypkg.b")]))
+
+        assert cli.main(["analyze", str(tmp_path), "mypkg", "--output", str(tmp_path / "graph.txt")]) == 1
+
+    def test_invalid_layout_exits(self, tmp_path: Path) -> None:
+        with pytest.raises(SystemExit):
+            cli.main(["analyze", str(tmp_path), "mypkg", "--layout", "bogus"])
+
+    def test_invalid_theme_exits(self, tmp_path: Path) -> None:
+        with pytest.raises(SystemExit):
+            cli.main(["analyze", str(tmp_path), "mypkg", "--theme", "bogus"])
+
+    def test_collect_writes_html(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        _patch(monkeypatch, "ModulesCollector", _graph([("mypkg", "mypkg.sub")]))
+        output = tmp_path / "modules.html"
+
+        code = cli.main(["collect", str(tmp_path), "mypkg", "--output", str(output)])
+
+        assert code == 0
+        assert "<html" in output.read_text(encoding="utf-8").lower()

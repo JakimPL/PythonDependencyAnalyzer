@@ -134,8 +134,26 @@ shared `component` id (see [Cycles](#cycles)). The excerpt below is the result o
 
 This is a widely understood format: it loads directly into NetworkX
 (`networkx.node_link_graph(..., edges="links")`), Cytoscape.js, D3, and sigma.js, so you
-can lay it out, query it, or feed it into your own tooling. PDA can also render the graph
-as a self-contained interactive HTML page from the library and the notebook (see below).
+can lay it out, query it, or feed it into your own tooling.
+
+### Interactive HTML
+
+`pda analyze` and `pda collect` can also write an interactive
+[pyvis](https://pyvis.readthedocs.io/) visualization. Pass `--format html`, or give
+`--output` a `.html`/`.htm` path:
+
+```bash
+pda analyze src pda --format html --theme dark --layout package_ring
+```
+
+The file is self-contained — the vis-network assets are inlined, so it opens in any browser
+with no network access or sidecar files. The format follows `--format` when given, otherwise
+the `--output` extension (`.html`/`.htm` → HTML, `.json` → JSON); any other extension is an
+error, and a `--format` that disagrees with the extension wins with a warning. When
+`--output` is omitted the default name follows the chosen format (for example
+`pda-imports.html`). `--theme` selects `light` or `dark`; `--layout` selects `hierarchical`
+(laid out by vis.js, the default) or `package_ring` (positions computed by PDA, the better
+choice for cyclic graphs). Both options apply to HTML output only.
 
 ## Options
 
@@ -221,7 +239,7 @@ To render the interactive HTML view:
 from pda.models import module_pyvis_converter
 
 converter = module_pyvis_converter(theme="dark")
-html = converter(graph, html=True)  # self-contained HTML string
+html = converter(graph, html=True)  # interactive HTML string
 ```
 
 ## Notebook
