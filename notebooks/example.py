@@ -13,13 +13,13 @@
 import marimo
 
 __generated_with = "0.23.11"
-app = marimo.App(width="medium", app_title="PDA — self analysis")
+app = marimo.App(width="medium", app_title="Python Dependency Analyzer")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    # Python Dependency Analyzer — on itself
+    # Python Dependency Analyzer
 
     [Python Dependency Analyzer (PDA)](https://github.com/JakimPL/PythonDependencyAnalyzer)
     maps how the modules in a Python project depend on one another: it follows the imports
@@ -34,7 +34,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 async def _():
     import sys
     from pathlib import Path
@@ -46,20 +46,16 @@ async def _():
     MAX_DEPTH: Final[int] = 3
 
     if sys.platform == "emscripten":
-        import io
-        import zipfile
-
-        import micropip
         from pyodide.http import pyfetch
 
-        await micropip.install(["anytree", "beautifulsoup4", "networkx", "pydantic", "pyyaml", "pyvis"])
+        location = mo.notebook_location()
+        Path("/app").mkdir(parents=True, exist_ok=True)
+        Path("/app/wasm.py").write_bytes(await (await pyfetch(f"{location}/wasm.py")).bytes())
+        sys.path.insert(0, "/app")
 
-        bundle_root = Path("/app")
-        if not (bundle_root / "src" / "pda").exists():
-            response = await pyfetch(f"{mo.notebook_location()}/pda-bundle.zip")
-            zipfile.ZipFile(io.BytesIO(await response.bytes())).extractall(bundle_root)
+        import wasm
 
-        project_src = bundle_root / "src"
+        project_src = await wasm.bootstrap(location)
     else:
         notebook_directory = mo.notebook_dir() or Path(__file__).parent
         project_src = notebook_directory.parent / "src"
@@ -68,18 +64,12 @@ async def _():
         sys.path.insert(0, str(project_src))
 
     from pda.analyzer import ModuleImportsAnalyzer, ModulesCollector
-    from pda.config import ModuleImportsAnalyzerConfig, ModuleScanConfig, ModulesCollectorConfig
+    from pda.config import (
+        ModuleImportsAnalyzerConfig,
+        ModuleScanConfig,
+        ModulesCollectorConfig,
+    )
     from pda.models import module_pyvis_converter
-
-    if sys.platform == "emscripten":
-        import ast as _ast
-
-        from pda.specification.modules.sys_paths import SysPaths
-
-        candidates = SysPaths().paths
-        for key, value in list(candidates.items()):
-            candidates[key] = Path("/" + str(value).lstrip("/"))
-        candidates.setdefault("stdlib_archive", Path(_ast.__file__).parent)
 
     package = "pda"
     return (
@@ -97,7 +87,7 @@ async def _():
     )
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo, module_pyvis_converter):
     import base64
 
@@ -116,7 +106,7 @@ def _(mo, module_pyvis_converter):
     return (render_graph,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", mo):
     import_collapse_level = mo.ui.slider(0, MAX_COLLAPSE_LEVEL, value=1, label="collapse level")
     import_stdlib_depth = mo.ui.slider(0, MAX_DEPTH, value=0, label="stdlib depth")
@@ -146,7 +136,7 @@ def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", mo):
     )
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     ModuleImportsAnalyzer,
     ModuleImportsAnalyzerConfig,
@@ -179,7 +169,7 @@ def _(
     return (import_graph,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md("""
     ## Module inventory
@@ -192,7 +182,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", mo):
     collect_collapse_level = mo.ui.slider(0, MAX_COLLAPSE_LEVEL, value=1, label="collapse level")
     collect_stdlib_depth = mo.ui.slider(0, MAX_DEPTH, value=0, label="stdlib depth")
@@ -219,7 +209,7 @@ def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", mo):
     )
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(collect_external_depth, collect_stdlib_depth, mo):
     (
         mo.callout(
@@ -233,7 +223,7 @@ def _(collect_external_depth, collect_stdlib_depth, mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     ModuleScanConfig,
     ModulesCollector,
@@ -264,7 +254,7 @@ def _(
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     collect_collapse_level,
     collect_external_depth,
@@ -310,22 +300,22 @@ def _(
     )
 
     mo.md(f"""
-        ## The same thing from the command line
+## The same thing from the command line
 
-        These commands reproduce the two graphs above with the current control values:
+These commands reproduce the two graphs above with the current control values:
 
-    ```bash
-    {analyze_command}
-    ```
+```bash
+{analyze_command}
+```
 
-    ```bash
-    {collect_command}
-    ```
-        """)
+```bash
+{collect_command}
+```
+""")
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(import_graph, mo):
     data = import_graph.to_dict()
     mo.md(f"""
@@ -338,9 +328,9 @@ def _(import_graph, mo):
     return (data,)
 
 
-@app.cell
-def _(data):
-    data
+@app.cell(hide_code=True)
+def _(data, mo):
+    mo.accordion({"Show raw node-link JSON": data})
     return
 
 

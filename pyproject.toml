@@ -48,6 +48,7 @@ known_first_party = ["pda"]
 addopts = """
 --import-mode=importlib
 """
+pythonpath = ["notebooks/utils"]
 
 [tool.coverage.report]
 show_missing = true
