@@ -1,19 +1,19 @@
 import marimo
 
-__generated_with = "0.23.9"
+__generated_with = "0.23.11"
 app = marimo.App(width="medium", app_title="PDA — self analysis")
 
 
 @app.cell
 def _(mo):
     mo.md("""
-        # Python Dependency Analyzer — on itself
+    # Python Dependency Analyzer — on itself
 
-        This notebook runs **PDA against its own source tree** (`src/pda`, package `pda`).
+    This notebook runs **PDA against its own source tree** (`src/pda`, package `pda`).
 
-        Move the controls to reshape the import graph live, then scroll down for the raw
-        node-link JSON export and the module inventory.
-        """)
+    Move the controls to reshape the import graph live; the module inventory sits
+    directly below it. The raw node-link JSON export is collected at the very end.
+    """)
     return
 
 
@@ -21,13 +21,15 @@ def _(mo):
 def _():
     import sys
     from pathlib import Path
+    from typing import Final
 
     import marimo as mo
 
-    project_src = next(
-        (c for c in (Path.cwd() / "src", Path.cwd().parent / "src") if (c / "pda").is_dir()),
-        Path.cwd() / "src",
-    )
+    MAX_COLLAPSE_LEVEL: Final[int] = 3
+    MAX_DEPTH: Final[int] = 3
+
+    notebook_directory = mo.notebook_dir() or Path(__file__).parent
+    project_src = notebook_directory.parent / "src"
     if str(project_src) not in sys.path:
         sys.path.insert(0, str(project_src))
 
@@ -37,6 +39,8 @@ def _():
 
     package = "pda"
     return (
+        MAX_COLLAPSE_LEVEL,
+        MAX_DEPTH,
         ModuleImportsAnalyzer,
         ModuleImportsAnalyzerConfig,
         ModuleScanConfig,
@@ -56,32 +60,32 @@ def _(mo, module_pyvis_converter):
 
 
 @app.cell
-def _(mo):
-    collapse_level = mo.ui.slider(0, 3, value=1, label="collapse level")
-    stdlib_depth = mo.ui.slider(0, 3, value=0, label="stdlib depth")
-    external_depth = mo.ui.slider(0, 3, value=0, label="external depth")
-    hide_private = mo.ui.switch(value=True, label="hide private")
-    unify_nodes = mo.ui.switch(value=True, label="unify nodes")
-    qualified_names = mo.ui.switch(value=True, label="qualified names")
+def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", mo):
+    import_collapse_level = mo.ui.slider(0, MAX_COLLAPSE_LEVEL, value=1, label="collapse level")
+    import_stdlib_depth = mo.ui.slider(0, MAX_DEPTH, value=0, label="stdlib depth")
+    import_external_depth = mo.ui.slider(0, MAX_DEPTH, value=0, label="external depth")
+    import_hide_private = mo.ui.switch(value=True, label="hide private")
+    import_unify_nodes = mo.ui.switch(value=True, label="unify nodes")
+    import_qualified_names = mo.ui.switch(value=True, label="qualified names")
 
     mo.vstack(
         [
             mo.md("### Import-graph controls"),
-            collapse_level,
-            stdlib_depth,
-            external_depth,
-            hide_private,
-            unify_nodes,
-            qualified_names,
+            import_collapse_level,
+            import_stdlib_depth,
+            import_external_depth,
+            import_hide_private,
+            import_unify_nodes,
+            import_qualified_names,
         ]
     )
     return (
-        collapse_level,
-        external_depth,
-        hide_private,
-        qualified_names,
-        stdlib_depth,
-        unify_nodes,
+        import_collapse_level,
+        import_external_depth,
+        import_hide_private,
+        import_qualified_names,
+        import_stdlib_depth,
+        import_unify_nodes,
     )
 
 
@@ -90,27 +94,27 @@ def _(
     ModuleImportsAnalyzer,
     ModuleImportsAnalyzerConfig,
     ModuleScanConfig,
-    collapse_level,
-    external_depth,
-    hide_private,
+    import_collapse_level,
+    import_external_depth,
+    import_hide_private,
+    import_qualified_names,
+    import_stdlib_depth,
+    import_unify_nodes,
     mo,
     package,
     project_src,
     pyvis_converter,
-    qualified_names,
-    stdlib_depth,
-    unify_nodes,
 ):
     import_config = ModuleImportsAnalyzerConfig(
         module_scan=ModuleScanConfig(
-            stdlib_depth=stdlib_depth.value,
-            external_depth=external_depth.value,
-            hide_private=hide_private.value,
+            stdlib_depth=import_stdlib_depth.value,
+            external_depth=import_external_depth.value,
+            hide_private=import_hide_private.value,
             hide_unavailable=True,
         ),
-        unify_nodes=unify_nodes.value,
-        qualified_names=qualified_names.value,
-        collapse_level=collapse_level.value,
+        unify_nodes=import_unify_nodes.value,
+        qualified_names=import_qualified_names.value,
+        collapse_level=import_collapse_level.value,
     )
     import_analyzer = ModuleImportsAnalyzer(config=import_config, project_root=project_src, package=package)
     import_graph = import_analyzer(project_src / package)
@@ -120,33 +124,56 @@ def _(
 
 
 @app.cell
-def _(import_graph, mo):
-    data = import_graph.to_dict()
-    mo.md(f"""
-        ### Export
+def _(mo):
+    mo.md("""
+    ## Module inventory
 
-        The same graph as **node-link JSON** — `{len(data['nodes'])}` nodes,
-        `{len(data['links'])}` links. Persist it with `import_graph.save("pda-imports.json")`
-        or straight from the CLI with `pda analyze`. The structure below is rendered live:
-        """)
-    return (data,)
-
-
-@app.cell
-def _(data):
-    data
+    `pda collect` enumerates a package's modules as a containment graph instead of
+    following imports. Use the controls below to choose how far to descend into the
+    standard library and external packages — both default to `0` (the package's own
+    modules only).
+    """)
     return
 
 
 @app.cell
-def _(mo):
-    mo.md("""
-        ## Module inventory
+def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", mo):
+    collect_collapse_level = mo.ui.slider(0, MAX_COLLAPSE_LEVEL, value=1, label="collapse level")
+    collect_stdlib_depth = mo.ui.slider(0, MAX_DEPTH, value=0, label="stdlib depth")
+    collect_external_depth = mo.ui.slider(0, MAX_DEPTH, value=0, label="external depth")
+    collect_hide_private = mo.ui.switch(value=True, label="hide private")
+    collect_qualified_names = mo.ui.switch(value=True, label="qualified names")
 
-        `pda collect` enumerates a package's modules as a containment graph instead of
-        following imports. Standard-library and external modules are excluded here by
-        setting their depth to `0`.
-        """)
+    mo.vstack(
+        [
+            mo.md("### Module-inventory controls"),
+            collect_collapse_level,
+            collect_stdlib_depth,
+            collect_external_depth,
+            collect_hide_private,
+            collect_qualified_names,
+        ]
+    )
+    return (
+        collect_collapse_level,
+        collect_external_depth,
+        collect_hide_private,
+        collect_qualified_names,
+        collect_stdlib_depth,
+    )
+
+
+@app.cell
+def _(collect_external_depth, collect_stdlib_depth, mo):
+    (
+        mo.callout(
+            "Including standard-library or external modules makes collection considerably "
+            "slower; keep both depths at 0 for a quick inventory of the package itself.",
+            kind="warn",
+        )
+        if collect_stdlib_depth.value or collect_external_depth.value
+        else None
+    )
     return
 
 
@@ -155,17 +182,25 @@ def _(
     ModuleScanConfig,
     ModulesCollector,
     ModulesCollectorConfig,
-    collapse_level,
+    collect_collapse_level,
+    collect_external_depth,
+    collect_hide_private,
+    collect_qualified_names,
+    collect_stdlib_depth,
     mo,
     package,
     project_src,
     pyvis_converter,
-    qualified_names,
 ):
     collect_config = ModulesCollectorConfig(
-        module_scan=ModuleScanConfig(stdlib_depth=0, external_depth=0, hide_private=True),
-        qualified_names=qualified_names.value,
-        collapse_level=collapse_level.value,
+        module_scan=ModuleScanConfig(
+            stdlib_depth=collect_stdlib_depth.value,
+            external_depth=collect_external_depth.value,
+            hide_private=collect_hide_private.value,
+            hide_unavailable=True,
+        ),
+        qualified_names=collect_qualified_names.value,
+        collapse_level=collect_collapse_level.value,
     )
     collector = ModulesCollector(config=collect_config, project_root=project_src, package=package)
     modules_graph = collector()
@@ -175,17 +210,82 @@ def _(
 
 
 @app.cell
-def _(mo):
-    mo.md(r"""
+def _(
+    collect_collapse_level,
+    collect_external_depth,
+    collect_hide_private,
+    collect_qualified_names,
+    collect_stdlib_depth,
+    import_collapse_level,
+    import_external_depth,
+    import_hide_private,
+    import_qualified_names,
+    import_stdlib_depth,
+    import_unify_nodes,
+    mo,
+    package,
+):
+    def _flag(name, enabled):
+        return f"--{name}" if enabled else f"--no-{name}"
+
+    analyze_command = "\n".join(
+        [
+            f"pda analyze src {package}",
+            f"--collapse-level {import_collapse_level.value}",
+            f"--stdlib-depth {import_stdlib_depth.value}",
+            f"--external-depth {import_external_depth.value}",
+            _flag("hide-private", import_hide_private.value),
+            "--hide-unavailable",
+            _flag("unify-nodes", import_unify_nodes.value),
+            _flag("qualified-names", import_qualified_names.value),
+            f"-o {package}-imports.json",
+        ]
+    )
+
+    collect_command = "\n".join(
+        [
+            f"pda collect src {package}",
+            f"--collapse-level {collect_collapse_level.value}",
+            f"--stdlib-depth {collect_stdlib_depth.value}",
+            f"--external-depth {collect_external_depth.value}",
+            _flag("hide-private", collect_hide_private.value),
+            _flag("qualified-names", collect_qualified_names.value),
+            f"-o {package}-modules.json",
+        ]
+    )
+
+    mo.md(f"""
         ## The same thing from the command line
 
-        ```bash
-        pda analyze src pda --collapse-level 1 --stdlib-depth 0 --external-depth 0 \
-          --hide-private --hide-unavailable --unify-nodes --qualified-names -o pda-imports.json
+        These commands reproduce the two graphs above with the current control values:
 
-        pda collect src pda --stdlib-depth 0 --external-depth 0 --hide-private -o pda-modules.json
-        ```
+    ```bash
+    {analyze_command}
+    ```
+
+    ```bash
+    {collect_command}
+    ```
         """)
+    return
+
+
+@app.cell
+def _(import_graph, mo):
+    data = import_graph.to_dict()
+    mo.md(f"""
+        ## Raw export
+
+        The import graph as **node-link JSON** — `{len(data['nodes'])}` nodes,
+        `{len(data['links'])}` links. Persist it with `import_graph.save("pda-imports.json")`
+        or straight from the CLI with `pda analyze`. The full structure is rendered below:
+        """)
+    return (data,)
+
+
+@app.cell
+def _(data):
+    data
     return
 
 

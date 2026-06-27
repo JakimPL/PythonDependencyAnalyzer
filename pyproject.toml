@@ -20,6 +20,8 @@ pda = "pda.cli:main"
 
 [project.optional-dependencies]
 notebook = ["marimo==0.23.11"]
+
+[dependency-groups]
 dev = [
     "mypy==2.1.0",
     "pre-commit==4.6.0",

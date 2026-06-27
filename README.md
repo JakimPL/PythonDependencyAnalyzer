@@ -37,10 +37,11 @@ PDA targets Python 3.13+.
 
 ```bash
 # with uv
-uv sync --extra dev
+uv sync
 
 # or with pip, editable
-pip install -e ".[dev]"
+pip install -e .         # the package
+pip install --group dev  # dev tooling (pip >= 25.1)
 ```
 
 This installs the library and the `pda` command-line tool.
@@ -256,7 +257,7 @@ marimo edit notebooks/example.py
 ## Development
 
 ```bash
-uv run --extra dev pytest -q
-uv run --extra dev python -m mypy        # strict, over src/pda
-uv run --extra dev python -m pylint --rcfile=.pylintrc src/pda
+uv run pytest -q
+uv run python -m mypy        # strict, over src/pda
+uv run python -m pylint --rcfile=.pylintrc src/pda
 ```
