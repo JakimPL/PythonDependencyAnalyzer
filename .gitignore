@@ -9,6 +9,7 @@ __pycache__/
 .vscode/
 .venv/
 lib/
+site/
 
 **/*.idea
 **/*.vscode/**
