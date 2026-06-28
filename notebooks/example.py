@@ -110,12 +110,13 @@ def _(mo, module_pyvis_converter):
 
 @app.cell(hide_code=True)
 def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", is_restricted, mo):
-    import_collapse_level = mo.ui.slider(0, MAX_COLLAPSE_LEVEL, value=1, label="collapse level")
-    import_stdlib_depth = mo.ui.slider(0, MAX_DEPTH, value=0, label="stdlib depth")
+    import_collapse_level = mo.ui.slider(0, MAX_COLLAPSE_LEVEL, value=1, debounce=True, label="collapse level")
+    import_stdlib_depth = mo.ui.slider(0, MAX_DEPTH, value=0, debounce=True, label="stdlib depth")
     import_external_depth = mo.ui.slider(
         0,
         MAX_DEPTH,
         value=0,
+        debounce=True,
         label="external depth (disabled in demo)" if is_restricted else "external depth",
         disabled=is_restricted,
     )
@@ -196,12 +197,13 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", is_restricted, mo):
-    collect_collapse_level = mo.ui.slider(0, MAX_COLLAPSE_LEVEL, value=1, label="collapse level")
-    collect_stdlib_depth = mo.ui.slider(0, MAX_DEPTH, value=0, label="stdlib depth")
+    collect_collapse_level = mo.ui.slider(0, MAX_COLLAPSE_LEVEL, value=1, debounce=True, label="collapse level")
+    collect_stdlib_depth = mo.ui.slider(0, MAX_DEPTH, value=0, debounce=True, label="stdlib depth")
     collect_external_depth = mo.ui.slider(
         0,
         MAX_DEPTH,
         value=0,
+        debounce=True,
         label="external depth (disabled in demo)" if is_restricted else "external depth",
         disabled=is_restricted,
     )
