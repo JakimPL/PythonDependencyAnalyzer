@@ -13,7 +13,7 @@ from pda.specification.modules.module.type import ModuleType
 from pda.specification.modules.module.unavailable import UnavailableModule
 from pda.specification.modules.spec.spec import find_module_spec
 from pda.tools.logger import logger
-from pda.tools.paths import resolve_path
+from pda.tools.paths import is_file, resolve_path
 from pda.types import Pathlike
 
 
@@ -87,6 +87,26 @@ class CategorizedModule(NamedTuple):
     def type(self) -> ModuleType:
         return self.module.type if isinstance(self.module, Module) else ModuleType.UNKNOWN
 
+    @property
+    def available(self) -> bool:
+        if isinstance(self.module, UnavailableModule):
+            return False
+
+        if self.origin_type == OriginType.PYTHON:
+            return self.origin is not None and is_file(self.origin)
+
+        return True
+
+    @property
+    def availability_reason(self) -> Optional[str]:
+        if isinstance(self.module, UnavailableModule):
+            return str(self.module.error) if self.module.error else "module not found"
+
+        if not self.available:
+            return "source not available for analysis"
+
+        return None
+
     @staticmethod
     def from_spec(
         spec: ModuleSpec,
@@ -144,7 +164,7 @@ class CategorizedModule(NamedTuple):
             )
             return CategorizedModule(
                 module=module,
-                category=ModuleCategory.UNAVAILABLE,
+                category=ModuleCategory.UNKNOWN,
             )
 
         return CategorizedModule.from_spec(
@@ -161,7 +181,7 @@ class CategorizedModule(NamedTuple):
         project_root: Optional[Pathlike] = None,
     ) -> ModuleCategory:
         if isinstance(module, UnavailableModule):
-            return ModuleCategory.UNAVAILABLE
+            return ModuleCategory.UNKNOWN
 
         if category is None:
             base_path = resolve_path(project_root)

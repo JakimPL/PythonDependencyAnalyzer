@@ -13,6 +13,7 @@ class Node(Generic[HashableT]):
     level: int = 0
     order: int = 0
     group: Optional[str] = None
+    available: bool = True
     in_cycle: bool = False
     component: Optional[int] = None
 
@@ -58,6 +59,9 @@ class Node(Generic[HashableT]):
 
         if self.group is not None:
             data["group"] = self.group
+
+        if not self.available:
+            data["available"] = False
 
         if self.details is not None:
             data["details"] = self.details

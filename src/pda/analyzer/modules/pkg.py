@@ -3,7 +3,7 @@ from __future__ import annotations
 import pkgutil
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
 from pda.config import ModuleScanConfig
@@ -31,12 +31,27 @@ class PkgModuleScanner:
             if self._skip_module(name):
                 continue
 
-            is_package = pkg_module.ispkg
-            package = name if is_package else None
-            base_path = Path(pkg_module.module_finder.path)  # type: ignore[union-attr]
+            base_path = self._finder_base_path(pkg_module.module_finder)
+            if base_path is None:
+                continue
+
+            package = name if pkg_module.ispkg else None
             discovered.append(PKGModuleInfo(name=name, base_path=base_path, package=package))
 
         return discovered
+
+    @staticmethod
+    def _finder_base_path(finder: object) -> Optional[Path]:
+        path = getattr(finder, "path", None)
+        if path is not None:
+            return Path(path)
+
+        archive = getattr(finder, "archive", None)
+        if archive is not None:
+            prefix = getattr(finder, "prefix", "") or ""
+            return Path(archive) / prefix if prefix else Path(archive)
+
+        return None
 
     def _skip_module(self, name: str) -> bool:
         """

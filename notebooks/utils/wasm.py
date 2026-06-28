@@ -18,7 +18,7 @@ async def bootstrap(notebook_location: str) -> Path:
     await micropip.install(list(WASM_DEPENDENCIES))
 
     if not (BUNDLE_ROOT / "src" / "pda").exists():
-        response = await pyfetch(f"{notebook_location}/{BUNDLE_NAME}")
+        response = await pyfetch(f"{notebook_location}/{BUNDLE_NAME}", cache="no-store")
         zipfile.ZipFile(io.BytesIO(await response.bytes())).extractall(BUNDLE_ROOT)
 
     project_src = BUNDLE_ROOT / "src"

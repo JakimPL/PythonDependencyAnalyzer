@@ -61,5 +61,5 @@ class ModuleCreator:
                     package=package,
                     error=error,
                 ),
-                category=ModuleCategory.UNAVAILABLE,
+                category=ModuleCategory.UNKNOWN,
             )

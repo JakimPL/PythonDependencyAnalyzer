@@ -144,6 +144,11 @@ class PyVisConverter(Generic[NodeT]):
             "group": node.group if node.group else "",
         }
 
+        if not node.available:
+            props["opacity"] = 0.45
+            shape_properties = {**props.get("shapeProperties", {}), "borderDashes": [6, 4]}
+            props["shapeProperties"] = shape_properties
+
         if result is not None and node in result.positions:
             x, y = result.positions[node]
             props["x"] = x

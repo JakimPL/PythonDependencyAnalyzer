@@ -38,7 +38,7 @@ class TestShouldIncludeAndRecurse:
         assert policy.should_include(context) is test_case.include
         assert policy.should_recurse(context) is test_case.recurse
 
-    @pytest.mark.parametrize("category", [ModuleCategory.LOCAL, ModuleCategory.UNAVAILABLE])
+    @pytest.mark.parametrize("category", [ModuleCategory.LOCAL, ModuleCategory.UNKNOWN])
     def test_non_foreign_always_passes(self, category: ModuleCategory) -> None:
         policy = CategoryDepthPolicy(stdlib_depth=0, external_depth=0)
         context = CategoryContext(category, 0)
@@ -84,4 +84,4 @@ class TestDescend:
         parent = CategoryContext(ModuleCategory.STDLIB, 4)
 
         assert policy.descend(parent, ModuleCategory.LOCAL) == CategoryContext(ModuleCategory.LOCAL, 0)
-        assert policy.descend(parent, ModuleCategory.UNAVAILABLE) == CategoryContext(ModuleCategory.UNAVAILABLE, 0)
+        assert policy.descend(parent, ModuleCategory.UNKNOWN) == CategoryContext(ModuleCategory.UNKNOWN, 0)

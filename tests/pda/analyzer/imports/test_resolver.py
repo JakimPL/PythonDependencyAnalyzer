@@ -281,7 +281,7 @@ class TestResolveToModuleMocked:
                     package=None,
                     error=PDAFindSpecError(ImportPath(module="test.module")),
                 ),
-                category=ModuleCategory.UNAVAILABLE,
+                category=ModuleCategory.UNKNOWN,
             ),
             from_spec_called=False,
         ),
@@ -295,7 +295,7 @@ class TestResolveToModuleMocked:
                     package="test_package",
                     error=PDAFindSpecError(ImportPath(module="test.module")),
                 ),
-                category=ModuleCategory.UNAVAILABLE,
+                category=ModuleCategory.UNKNOWN,
             ),
             from_spec_called=False,
         ),
@@ -309,7 +309,7 @@ class TestResolveToModuleMocked:
                     package=None,
                     error=AttributeError("test"),
                 ),
-                category=ModuleCategory.UNAVAILABLE,
+                category=ModuleCategory.UNKNOWN,
             ),
             from_spec_called=True,
         ),
@@ -323,7 +323,7 @@ class TestResolveToModuleMocked:
                     package=None,
                     error=KeyError("test"),
                 ),
-                category=ModuleCategory.UNAVAILABLE,
+                category=ModuleCategory.UNKNOWN,
             ),
             from_spec_called=True,
         ),
@@ -337,7 +337,7 @@ class TestResolveToModuleMocked:
                     package=None,
                     error=IndexError("test"),
                 ),
-                category=ModuleCategory.UNAVAILABLE,
+                category=ModuleCategory.UNKNOWN,
             ),
             from_spec_called=True,
         ),
@@ -351,7 +351,7 @@ class TestResolveToModuleMocked:
                     package=None,
                     error=PDAImportPathError("test"),
                 ),
-                category=ModuleCategory.UNAVAILABLE,
+                category=ModuleCategory.UNKNOWN,
             ),
             from_spec_called=True,
         ),
@@ -436,7 +436,7 @@ class TestResolveToModuleReal:
         )
         expected = CategorizedModule(
             module=module,
-            category=ModuleCategory.UNAVAILABLE,
+            category=ModuleCategory.UNKNOWN,
         )
 
         assert result.category == expected.category
@@ -467,7 +467,7 @@ class TestResolveBatchMocked:
             expected={
                 "test": CategorizedModule(
                     module=UnavailableModule(name="test", package=None),
-                    category=ModuleCategory.UNAVAILABLE,
+                    category=ModuleCategory.UNKNOWN,
                 )
             },
         ),
@@ -481,15 +481,15 @@ class TestResolveBatchMocked:
             expected={
                 "test1": CategorizedModule(
                     module=UnavailableModule(name="test1", package=None),
-                    category=ModuleCategory.UNAVAILABLE,
+                    category=ModuleCategory.UNKNOWN,
                 ),
                 "test2": CategorizedModule(
                     module=UnavailableModule(name="test2", package=None),
-                    category=ModuleCategory.UNAVAILABLE,
+                    category=ModuleCategory.UNKNOWN,
                 ),
                 "test3": CategorizedModule(
                     module=UnavailableModule(name="test3", package=None),
-                    category=ModuleCategory.UNAVAILABLE,
+                    category=ModuleCategory.UNKNOWN,
                 ),
             },
         ),
@@ -505,7 +505,7 @@ class TestResolveBatchMocked:
             def create_module(source: ModuleSource, path: ImportPath) -> CategorizedModule:
                 return CategorizedModule(
                     module=UnavailableModule(name=path.module or "unknown", package=None),
-                    category=ModuleCategory.UNAVAILABLE,
+                    category=ModuleCategory.UNKNOWN,
                 )
 
             mock_resolve.side_effect = create_module

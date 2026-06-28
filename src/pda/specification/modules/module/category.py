@@ -9,7 +9,7 @@ class ModuleCategory(Enum):
     LOCAL = "local"  # project modules under project_root
     STDLIB = "stdlib"  # Python standard library modules
     EXTERNAL = "external"  # third-party packages from site-packages
-    UNAVAILABLE = "unavailable"  # not installed or unresolvable modules
+    UNKNOWN = "unknown"  # origin could not be determined (e.g. the module was not found)
 
     @property
     def order(self) -> int:

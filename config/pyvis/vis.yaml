@@ -113,21 +113,21 @@ groups:
 
   stdlib:
     color:
+      background: "#A5D6A7"
+      border: "#66BB6A"
+      highlight:
+        background: "#C8E6C9"
+        border: "#43A047"
+
+  external:
+    color:
       background: "#FFF59D"
       border: "#FBC02D"
       highlight:
         background: "#FFFF8D"
         border: "#F9A825"
 
-  external:
-    color:
-      background: "#FFCC80"
-      border: "#FB8C00"
-      highlight:
-        background: "#FFE0B2"
-        border: "#F57C00"
-
-  unavailable:
+  unknown:
     color:
       background: "#EF9A9A"
       border: "#E53935"

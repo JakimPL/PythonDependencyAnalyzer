@@ -76,20 +76,20 @@ module_groups:
       border: "#87A1BA"
 
   stdlib:
+    background: "#8FC89A"
+    border: "#5DAB6E"
+    highlight:
+      background: "#A4D7AD"
+      border: "#72BA82"
+
+  external:
     background: "#C9B87A"
     border: "#AC9B5D"
     highlight:
       background: "#D8C78F"
       border: "#BBB072"
 
-  external:
-    background: "#C9A87A"
-    border: "#AC8B5D"
-    highlight:
-      background: "#D8BD8F"
-      border: "#BBA072"
-
-  unavailable:
+  unknown:
     background: "#C87A7A"
     border: "#AB5D5D"
     highlight:

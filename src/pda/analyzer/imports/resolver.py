@@ -103,7 +103,7 @@ class ModuleResolver:
                     package=package,
                     error=error,
                 ),
-                category=ModuleCategory.UNAVAILABLE,
+                category=ModuleCategory.UNKNOWN,
             )
 
         if spec is None:

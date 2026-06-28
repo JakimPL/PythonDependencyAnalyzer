@@ -38,4 +38,4 @@ class UnavailableModule(BaseModule):
         return None
 
     def get_category(self, base_path: Optional[Path] = None) -> ModuleCategory:
-        return ModuleCategory.UNAVAILABLE
+        return ModuleCategory.UNKNOWN

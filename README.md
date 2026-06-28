@@ -16,7 +16,9 @@ rest out of the way.
 
 PDA resolves each imported module the way Python itself does (through `importlib`), so the
 result reflects what the interpreter would really load rather than a guess from reading
-text. Each resolved module is placed in one of four categories:
+text. Each module is described along two independent axes.
+
+**Category** — where the module comes from:
 
 - **local** — code belonging to the project under analysis (the project root and package
   you point PDA at).
@@ -24,10 +26,17 @@ text. Each resolved module is placed in one of four categories:
   (`os`, `pathlib`, `json` etc.).
 - **external** — installed third-party packages, i.e. dependencies that came from PyPI or
   a similar source.
-- **unavailable** — names that an import refers to but that cannot be resolved in the
-  current environment, for example an optional dependency that is not installed.
+- **unknown** — the origin could not be determined, e.g. an import that does not resolve in
+  the current environment (an optional dependency that is not installed).
 
-These categories colour the visualization and drive the depth controls below: you can,
+**Availability** — whether PDA could fully resolve and read the module. A module is
+*unavailable* when it cannot be found, or when it is found but its source cannot be read for
+analysis (for example a standard-library module shipped inside a zip, as in the Pyodide/WASM
+build). Availability is orthogonal to category — a module can be, say, `stdlib` **and**
+unavailable. The category drives the node colour; unavailable nodes are drawn dashed and
+faded, and can be hidden with `--hide-unavailable`.
+
+The category colours the visualization and drives the depth controls below: you can,
 for instance, show your own modules in full while including third-party packages only at
 the point where your code first touches them.
 
@@ -110,9 +119,11 @@ options.
 
 PDA writes the graph as **node-link JSON**: a list of `nodes` and a list of directed
 `links`. Each node records its category, its depth from the entry point (`level`), and the
-file it came from; modules that take part in an import cycle also carry `in_cycle` and a
-shared `component` id (see [Cycles](#cycles)). The excerpt below is the result of analysing
-`pda.cli`, trimmed to one node and its first two imports:
+file it came from; a module that could not be fully resolved also carries `"available":
+false` (its `category` is its origin where known, or `unknown`), and modules that take part
+in an import cycle carry `in_cycle` and a shared `component` id (see [Cycles](#cycles)). The
+excerpt below is the result of analysing `pda.cli`, trimmed to one node and its first two
+imports:
 
 ```json
 {

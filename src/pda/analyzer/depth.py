@@ -20,7 +20,7 @@ class CategoryContext:
 
     ``depth`` counts how deep the current node sits within an uninterrupted run of a
     single foreign category (standard library or external), where ``1`` is the boundary
-    node that first crossed into that category. Local, unavailable, and root nodes carry
+    node that first crossed into that category. Local, unknown, and root nodes carry
     ``depth`` ``0`` because the per-category depth limits do not apply to them.
     """
 
@@ -47,7 +47,7 @@ class CategoryDepthPolicy:
     * otherwise -- nodes with ``k <= d`` are included, and traversal recurses while
       ``k < d`` (so a node at depth ``d`` is shown as a boundary but not expanded).
 
-    Local and unavailable categories are never constrained here; their visibility is
+    Local and unknown categories are never constrained here; their visibility is
     governed by the dedicated ``hide_*`` options instead.
     """
 

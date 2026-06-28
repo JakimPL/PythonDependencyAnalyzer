@@ -51,7 +51,7 @@ async def _():
 
         location = mo.notebook_location()
         Path("/app").mkdir(parents=True, exist_ok=True)
-        Path("/app/wasm.py").write_bytes(await (await pyfetch(f"{location}/wasm.py")).bytes())
+        Path("/app/wasm.py").write_bytes(await (await pyfetch(f"{location}/wasm.py", cache="no-store")).bytes())
         sys.path.insert(0, "/app")
 
         import wasm

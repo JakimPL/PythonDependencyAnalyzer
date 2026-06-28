@@ -13,7 +13,7 @@ class ModulesCollection:
     * stdlib (standard library)
     * external (third-party packages)
     * local (project-specific modules)
-    * unavailable (modules that could not be categorized)
+    * unknown (modules whose origin could not be determined)
     """
 
     def __init__(
@@ -85,8 +85,12 @@ class ModulesCollection:
         return self._categorized_modules[ModuleCategory.LOCAL].copy()
 
     @property
+    def unknown(self) -> CategorizedModuleDict:
+        return self._categorized_modules[ModuleCategory.UNKNOWN].copy()
+
+    @property
     def unavailable(self) -> CategorizedModuleDict:
-        return self._categorized_modules[ModuleCategory.UNAVAILABLE].copy()
+        return {name: module for name, module in self.modules.items() if not module.available}
 
     @property
     def modules(self) -> CategorizedModuleDict:

@@ -14,10 +14,13 @@ def test_create_module_returns_available_module_for_real_module() -> None:
     result = creator.create_module("pathlib")
 
     assert result.name == "pathlib"
-    assert result.category != ModuleCategory.UNAVAILABLE
+    assert result.category == ModuleCategory.STDLIB
+    assert result.available is True
 
 
-def test_create_module_marks_unavailable_when_base_path_unresolvable(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_create_module_marks_unknown_and_unavailable_when_base_path_unresolvable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def _raise(_self: Module) -> None:
         raise PDAPathResolutionError("simulated base path failure")
 
@@ -27,4 +30,5 @@ def test_create_module_marks_unavailable_when_base_path_unresolvable(monkeypatch
     result = creator.create_module("pathlib")
 
     assert result.name == "pathlib"
-    assert result.category == ModuleCategory.UNAVAILABLE
+    assert result.category == ModuleCategory.UNKNOWN
+    assert result.available is False

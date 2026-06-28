@@ -16,7 +16,12 @@ class ModuleNode(Node[CategorizedModule]):
     ) -> None:
         if label is None:
             label = module.qualified_name if qualified_name else module.module_name
+
+        available = module.available
         details = module.name
+        if not available and module.availability_reason:
+            details = f"{module.name} — {module.availability_reason}"
+
         group = module.category.value
         order = module.category.order
         super().__init__(
@@ -27,6 +32,7 @@ class ModuleNode(Node[CategorizedModule]):
             level=level,
             order=order,
             group=group,
+            available=available,
         )
 
     @property
@@ -63,6 +69,9 @@ class ModuleNode(Node[CategorizedModule]):
             "category": self.group,
             "level": self.level,
         }
+
+        if not self.available:
+            data["available"] = False
 
         origin = self.module.origin
         if origin is not None:

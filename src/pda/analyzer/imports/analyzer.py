@@ -284,11 +284,11 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         if module.origin_type != OriginType.PYTHON:
             return False
 
-        context = context or CategoryContext.root()
-        if not self._depth_policy.should_recurse(context):
+        if not module.available:
             return False
 
-        if self.config.hide_unavailable and module.category == ModuleCategory.UNAVAILABLE:
+        context = context or CategoryContext.root()
+        if not self._depth_policy.should_recurse(context):
             return False
 
         if self.config.hide_private and module.is_private:
@@ -368,7 +368,7 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             )
             if (
                 (self.config.hide_private and imported_module.is_private)
-                or (self.config.hide_unavailable and imported_module.category == ModuleCategory.UNAVAILABLE)
+                or (self.config.hide_unavailable and not imported_module.available)
                 or (not self._depth_policy.should_include(child_context))
                 or (node.module.name == imported_module.name)
             ):

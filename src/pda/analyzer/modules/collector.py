@@ -218,7 +218,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         if not module:
             return
 
-        if self.config.hide_unavailable and module.category == ModuleCategory.UNAVAILABLE:
+        if self.config.hide_unavailable and not module.available:
             return
 
         context = self._depth_policy.descend(parent_context, module.category)
