@@ -1,6 +1,10 @@
+import warnings
+from pathlib import Path
+
 import pytest
 
-from pda.config import ModuleImportsAnalyzerConfig, ModuleScanConfig, ModulesCollectorConfig
+from pda.config import ModuleImportsAnalyzerConfig, ModuleResolutionConfig, ModuleScanConfig, ModulesCollectorConfig
+from pda.exceptions import PDAExternalResolutionWarning
 
 
 class TestDepthValidation:
@@ -42,3 +46,38 @@ class TestWrapperDefaults:
     def test_collapse_level_validation(self, config_class: type) -> None:
         with pytest.raises(ValueError):
             config_class(collapse_level=-1)
+
+    def test_external_depth_warns_when_no_external_search_roots_are_available(self) -> None:
+        with pytest.warns(PDAExternalResolutionWarning):
+            ModuleImportsAnalyzerConfig(
+                module_scan=ModuleScanConfig(external_depth=1),
+                resolution=ModuleResolutionConfig(include_sys_path=False),
+            )
+
+    @pytest.mark.parametrize(
+        "module_scan,resolution",
+        [
+            (
+                ModuleScanConfig(external_depth=0),
+                ModuleResolutionConfig(include_sys_path=False),
+            ),
+            (
+                ModuleScanConfig(external_depth=1),
+                ModuleResolutionConfig(include_sys_path=False, external_roots=(Path(".venv/site-packages"),)),
+            ),
+            (
+                ModuleScanConfig(external_depth=1),
+                ModuleResolutionConfig(include_sys_path=True),
+            ),
+        ],
+    )
+    def test_external_depth_warning_allows_disabled_or_configured_external_search(
+        self,
+        module_scan: ModuleScanConfig,
+        resolution: ModuleResolutionConfig,
+    ) -> None:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            ModuleImportsAnalyzerConfig(module_scan=module_scan, resolution=resolution)
+
+        assert not [warning for warning in caught if issubclass(warning.category, PDAExternalResolutionWarning)]

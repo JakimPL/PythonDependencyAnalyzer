@@ -6,7 +6,8 @@ from typing import Set, Tuple
 import pytest
 
 from pda.analyzer import ModuleImportsAnalyzer
-from pda.config import ModuleImportsAnalyzerConfig, ModuleScanConfig
+from pda.config import ModuleImportsAnalyzerConfig, ModuleResolutionConfig, ModuleScanConfig
+from pda.exceptions import PDAExternalResolutionWarning
 from pda.specification import ModuleCategory
 
 PKG = "pdadepthimports"
@@ -62,12 +63,14 @@ class TestExternalEnvironmentSearch:
         monkeypatch.syspath_prepend(str(external_root))
         importlib.invalidate_caches()
 
-        config = ModuleImportsAnalyzerConfig(module_scan=ModuleScanConfig(stdlib_depth=0, external_depth=1))
+        config = ModuleImportsAnalyzerConfig(
+            module_scan=ModuleScanConfig(stdlib_depth=0, external_depth=1),
+            resolution=ModuleResolutionConfig(include_sys_path=True),
+        )
         analyzer = ModuleImportsAnalyzer(
             config,
             project_root=project_root,
             root_module_name="app_pkg",
-            include_sys_path=True,
         )
         analyzer(package / "main.py")
 
@@ -91,14 +94,15 @@ class TestExternalEnvironmentSearch:
         monkeypatch.syspath_prepend(str(external_root))
         importlib.invalidate_caches()
 
-        config = ModuleImportsAnalyzerConfig(
-            module_scan=ModuleScanConfig(stdlib_depth=0, external_depth=1, hide_unavailable=False)
-        )
+        with pytest.warns(PDAExternalResolutionWarning):
+            config = ModuleImportsAnalyzerConfig(
+                module_scan=ModuleScanConfig(stdlib_depth=0, external_depth=1, hide_unavailable=False),
+                resolution=ModuleResolutionConfig(include_sys_path=False),
+            )
         analyzer = ModuleImportsAnalyzer(
             config,
             project_root=project_root,
             root_module_name="strict_app_pkg",
-            include_sys_path=False,
         )
         analyzer(package / "main.py")
 

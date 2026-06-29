@@ -59,11 +59,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         config: ModuleImportsAnalyzerConfig,
         project_root: Pathlike,
         root_module_name: str,
-        *,
-        source_roots: Optional[Tuple[Pathlike, ...]] = None,
-        local_boundary: Optional[Pathlike] = None,
-        external_roots: Tuple[Pathlike, ...] = (),
-        include_sys_path: bool = True,
     ) -> None:
         analysis_target = AnalysisTarget(root_module_name=root_module_name)
         super().__init__(
@@ -77,10 +72,10 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
 
         self._project_context = ProjectResolutionContext.create(
             self._project_root,
-            source_roots=source_roots,
-            local_boundary=local_boundary,
-            external_roots=external_roots,
-            include_sys_path=include_sys_path,
+            source_roots=config.resolution.source_roots,
+            local_boundary=config.resolution.local_boundary,
+            external_roots=config.resolution.external_roots,
+            include_sys_path=config.resolution.include_sys_path,
         )
         self._files: Optional[List[Path]] = None
         self._root_origins: FrozenSet[Optional[Path]] = frozenset()

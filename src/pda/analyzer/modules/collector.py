@@ -39,11 +39,6 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         config: ModulesCollectorConfig,
         project_root: Optional[Pathlike] = None,
         root_module_name: Optional[str] = None,
-        *,
-        source_roots: Optional[Tuple[Pathlike, ...]] = None,
-        local_boundary: Optional[Pathlike] = None,
-        external_roots: Tuple[Pathlike, ...] = (),
-        include_sys_path: bool = True,
     ) -> None:
         analysis_target = AnalysisTarget(root_module_name=root_module_name) if root_module_name is not None else None
         super().__init__(config=config, project_root=project_root, analysis_target=analysis_target)
@@ -52,12 +47,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         self._graph: ModuleGraph = ModuleGraph()
         self._project_context: Optional[ProjectResolutionContext] = None
 
-        self._source_roots, self._module_lookup = self._create_source_roots_and_lookup(
-            source_roots=source_roots,
-            local_boundary=local_boundary,
-            external_roots=external_roots,
-            include_sys_path=include_sys_path,
-        )
+        self._source_roots, self._module_lookup = self._create_source_roots_and_lookup()
         self._pkg_scanner: PkgModuleScanner = PkgModuleScanner(
             config=self.config.module_scan,
             paths=self._package_discovery_paths(),
@@ -71,16 +61,14 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
             self.config.external_depth,
         )
 
-    def _create_source_roots_and_lookup(
-        self,
-        *,
-        source_roots: Optional[Tuple[Pathlike, ...]],
-        local_boundary: Optional[Pathlike],
-        external_roots: Tuple[Pathlike, ...],
-        include_sys_path: bool,
-    ) -> Tuple[Tuple[Path, ...], ModuleLookup]:
+    def _create_source_roots_and_lookup(self) -> Tuple[Tuple[Path, ...], ModuleLookup]:
+        resolution = self.config.resolution
         if self._project_root is None:
-            if source_roots is not None or local_boundary is not None or external_roots:
+            if (
+                resolution.source_roots is not None
+                or resolution.local_boundary is not None
+                or resolution.external_roots
+            ):
                 raise ValueError("source_roots, local_boundary, and external_roots require a project_root")
 
             return (), RuntimeModuleLookup.create()
@@ -90,10 +78,10 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
 
         context = ProjectResolutionContext.create(
             self._project_root,
-            source_roots=source_roots,
-            local_boundary=local_boundary,
-            external_roots=external_roots,
-            include_sys_path=include_sys_path,
+            source_roots=resolution.source_roots,
+            local_boundary=resolution.local_boundary,
+            external_roots=resolution.external_roots,
+            include_sys_path=resolution.include_sys_path,
         )
         self._project_context = context
 

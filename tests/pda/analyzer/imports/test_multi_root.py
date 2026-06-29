@@ -6,7 +6,7 @@ from typing import Iterable, Optional, Set, Tuple, Union
 import pytest
 
 from pda.analyzer import ModuleImportsAnalyzer
-from pda.config import ModuleImportsAnalyzerConfig, ModuleScanConfig
+from pda.config import ModuleImportsAnalyzerConfig, ModuleResolutionConfig, ModuleScanConfig
 from pda.specification import ModuleCategory
 from pda.types import Pathlike
 
@@ -47,12 +47,14 @@ def _analyze(
     source_roots: Optional[Tuple[Pathlike, ...]] = None,
     **scan_kwargs: object,
 ) -> ModuleImportsAnalyzer:
-    config = (
-        ModuleImportsAnalyzerConfig(module_scan=ModuleScanConfig(**scan_kwargs))
-        if scan_kwargs
-        else ModuleImportsAnalyzerConfig()
-    )
-    analyzer = ModuleImportsAnalyzer(config, project_root=project_root, root_module_name=PKG, source_roots=source_roots)
+    config_kwargs = {}
+    if scan_kwargs:
+        config_kwargs["module_scan"] = ModuleScanConfig(**scan_kwargs)
+    if source_roots is not None:
+        config_kwargs["resolution"] = ModuleResolutionConfig(source_roots=source_roots)
+
+    config = ModuleImportsAnalyzerConfig(**config_kwargs)
+    analyzer = ModuleImportsAnalyzer(config, project_root=project_root, root_module_name=PKG)
     analyzer(paths)
     return analyzer
 

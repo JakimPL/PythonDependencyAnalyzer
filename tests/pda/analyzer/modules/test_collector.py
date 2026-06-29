@@ -6,7 +6,8 @@ from typing import Optional, Set, Tuple
 import pytest
 
 from pda.analyzer import ModulesCollector
-from pda.config import ModuleScanConfig, ModulesCollectorConfig
+from pda.config import ModuleResolutionConfig, ModuleScanConfig, ModulesCollectorConfig
+from pda.exceptions import PDAExternalResolutionWarning
 from pda.specification import ModuleCategory, NamespacePortion
 
 PKG = "pdadepthcollector"
@@ -52,14 +53,16 @@ def _collect(
         hide_private=False,
         hide_unavailable=False,
     )
-    config = ModulesCollectorConfig(module_scan=module_scan, **config_kwargs)
+    resolution = ModuleResolutionConfig(
+        source_roots=source_roots,
+        external_roots=external_roots,
+        include_sys_path=include_sys_path,
+    )
+    config = ModulesCollectorConfig(module_scan=module_scan, resolution=resolution, **config_kwargs)
     collector = ModulesCollector(
         config,
         project_root=project_root,
         root_module_name=root_module_name,
-        source_roots=source_roots,
-        external_roots=external_roots,
-        include_sys_path=include_sys_path,
     )
     collector()
     return collector
@@ -248,12 +251,14 @@ class TestCollectorMaxDepth:
         importlib.invalidate_caches()
 
         module_scan = ModuleScanConfig(stdlib_depth=0, external_depth=1, hide_unavailable=False)
-        config = ModulesCollectorConfig(module_scan=module_scan)
+        config = ModulesCollectorConfig(
+            module_scan=module_scan,
+            resolution=ModuleResolutionConfig(include_sys_path=True),
+        )
         collector = ModulesCollector(
             config,
             project_root=project_root,
             root_module_name="app_pkg",
-            include_sys_path=True,
         )
         collector()
 
@@ -278,12 +283,15 @@ class TestCollectorMaxDepth:
         importlib.invalidate_caches()
 
         module_scan = ModuleScanConfig(stdlib_depth=0, external_depth=1, hide_unavailable=False)
-        config = ModulesCollectorConfig(module_scan=module_scan)
+        with pytest.warns(PDAExternalResolutionWarning):
+            config = ModulesCollectorConfig(
+                module_scan=module_scan,
+                resolution=ModuleResolutionConfig(include_sys_path=False),
+            )
         collector = ModulesCollector(
             config,
             project_root=project_root,
             root_module_name="app_pkg",
-            include_sys_path=False,
         )
         collector()
 
@@ -303,13 +311,17 @@ class TestCollectorMaxDepth:
         importlib.invalidate_caches()
 
         module_scan = ModuleScanConfig(stdlib_depth=0, external_depth=1, hide_unavailable=False)
-        config = ModulesCollectorConfig(module_scan=module_scan)
+        config = ModulesCollectorConfig(
+            module_scan=module_scan,
+            resolution=ModuleResolutionConfig(
+                external_roots=(external_root,),
+                include_sys_path=False,
+            ),
+        )
         collector = ModulesCollector(
             config,
             project_root=project_root,
             root_module_name="app_pkg",
-            external_roots=(external_root,),
-            include_sys_path=False,
         )
         collector()
 

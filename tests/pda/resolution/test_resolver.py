@@ -248,6 +248,50 @@ def test_project_context_can_disable_sys_path_external_dependencies(tmp_path: Pa
         importlib.invalidate_caches()
 
 
+def test_project_context_does_not_follow_shadowing_external_regular_package_under_local_namespace(
+    tmp_path: Path,
+) -> None:
+    module_name = "ambient_shadowed_namespace"
+    project_root = tmp_path / "project"
+    source_root = project_root / "src"
+    external_root = tmp_path / "site-packages"
+    local_namespace = source_root / module_name
+    external_package = external_root / module_name
+
+    local_namespace.mkdir(parents=True)
+    external_package.mkdir(parents=True)
+    (local_namespace / "local_mod.py").write_text("")
+    (external_package / "__init__.py").write_text("")
+    (external_package / "external_only.py").write_text("")
+
+    sys.path.insert(0, str(external_root))
+    importlib.invalidate_caches()
+    try:
+        context = ProjectResolutionContext.create(
+            project_root,
+            source_roots=(Path("src"),),
+            include_sys_path=True,
+        )
+        resolver = ModuleResolutionService(context.environment)
+
+        top_level = resolver.resolve_project_name(module_name)
+        assert top_level.status == ResolutionStatus.RESOLVED
+        assert top_level.kind == ResolvedModuleKind.NAMESPACE_PACKAGE
+        assert top_level.location is not None
+        assert top_level.location.submodule_search_locations == (local_namespace,)
+        assert top_level.category == ModuleCategory.LOCAL
+
+        external_child = resolver.resolve_project_name(f"{module_name}.external_only")
+        assert external_child.status == ResolutionStatus.UNAVAILABLE
+    finally:
+        while str(external_root) in sys.path:
+            sys.path.remove(str(external_root))
+        for module in list(sys.modules):
+            if module == module_name or module.startswith(f"{module_name}."):
+                del sys.modules[module]
+        importlib.invalidate_caches()
+
+
 def test_project_resolution_preserves_mixed_namespace_portions(tmp_path: Path) -> None:
     source_root = tmp_path / "src"
     external_root = tmp_path / "site-packages"

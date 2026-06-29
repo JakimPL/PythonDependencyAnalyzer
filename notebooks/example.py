@@ -67,6 +67,7 @@ async def _():
     from pda.analyzer import ModuleImportsAnalyzer, ModulesCollector
     from pda.config import (
         ModuleImportsAnalyzerConfig,
+        ModuleResolutionConfig,
         ModuleScanConfig,
         ModulesCollectorConfig,
     )
@@ -78,6 +79,7 @@ async def _():
         MAX_DEPTH,
         ModuleImportsAnalyzer,
         ModuleImportsAnalyzerConfig,
+        ModuleResolutionConfig,
         ModuleScanConfig,
         ModulesCollector,
         ModulesCollectorConfig,
@@ -152,6 +154,7 @@ def _(MAX_COLLAPSE_LEVEL: "Final[int]", MAX_DEPTH: "Final[int]", is_restricted, 
 def _(
     ModuleImportsAnalyzer,
     ModuleImportsAnalyzerConfig,
+    ModuleResolutionConfig,
     ModuleScanConfig,
     import_collapse_level,
     import_external_depth,
@@ -175,12 +178,12 @@ def _(
         unify_nodes=import_unify_nodes.value,
         qualified_names=import_qualified_names.value,
         collapse_level=import_collapse_level.value,
+        resolution=ModuleResolutionConfig(include_sys_path=not is_restricted),
     )
     import_analyzer = ModuleImportsAnalyzer(
         config=import_config,
         project_root=project_src,
         root_module_name=root_module_name,
-        include_sys_path=not is_restricted,
     )
     import_graph = import_analyzer(project_src / root_module_name)
 
@@ -255,6 +258,7 @@ def _(collect_external_depth, collect_stdlib_depth, mo):
 @app.cell(hide_code=True)
 def _(
     ModuleScanConfig,
+    ModuleResolutionConfig,
     ModulesCollector,
     ModulesCollectorConfig,
     collect_collapse_level,
@@ -277,12 +281,12 @@ def _(
         ),
         qualified_names=collect_qualified_names.value,
         collapse_level=collect_collapse_level.value,
+        resolution=ModuleResolutionConfig(include_sys_path=not is_restricted),
     )
     collector = ModulesCollector(
         config=collect_config,
         project_root=project_src,
         root_module_name=root_module_name,
-        include_sys_path=not is_restricted,
     )
     modules_graph = collector()
 

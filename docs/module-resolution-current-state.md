@@ -37,10 +37,10 @@ Focused collaborators own the lower-level responsibilities:
 - explicit `external_roots`;
 - whether active interpreter `sys.path` should be included.
 
-The CLI and analyzer constructors expose `source_roots`, `local_boundary`,
-`external_roots`, and `include_sys_path`. The old analyzer-level `package` input
-has been replaced by
-`AnalysisTarget.root_module_name`.
+Analyzer configs expose `ModuleResolutionConfig` with `source_roots`,
+`local_boundary`, `external_roots`, and `include_sys_path`. The CLI maps the
+same options into that config. The old analyzer-level `package` input has been
+replaced by `AnalysisTarget.root_module_name`.
 
 ### Target-Constrained Analysis
 
@@ -132,10 +132,14 @@ Project contexts can build strict target environments with
 `include_sys_path=False`. This is the low-level default for deterministic
 project-context construction.
 
-Analyzer and CLI entry points expose the same option and default to
-`include_sys_path=True` for compatibility with existing application behavior:
-`external_depth` can discover active-environment third-party packages unless a
-caller disables it.
+Analyzer and CLI entry points expose the same option through
+`ModuleResolutionConfig` and default to `include_sys_path=True` for
+compatibility with existing application behavior: `external_depth` can discover
+active-environment third-party packages unless a caller disables it.
+
+Config construction emits `PDAExternalResolutionWarning` when external traversal
+is enabled but neither active `sys.path` nor explicit `external_roots` can
+provide third-party search roots.
 
 Project resolution searches configured source roots before explicit external
 roots, interpreter stdlib roots, and optional active `sys.path` roots.
@@ -151,7 +155,7 @@ workflows.
 
 ### Explicit External Roots
 
-`ProjectResolutionContext`, analyzer constructors, and the CLI now expose
+`ProjectResolutionContext`, `ModuleResolutionConfig`, and the CLI now expose
 explicit external dependency roots. `ModulesCollector` also uses the configured
 target environment for top-level package discovery, so collection and resolution
 share the same external search policy.

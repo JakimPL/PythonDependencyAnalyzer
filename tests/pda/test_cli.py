@@ -30,19 +30,11 @@ def _patch(monkeypatch: pytest.MonkeyPatch, attr: str, graph: ModuleGraph) -> Di
         config: object,
         project_root: object,
         root_module_name: object,
-        source_roots: object = None,
-        local_boundary: object = None,
-        external_roots: object = (),
-        include_sys_path: object = True,
     ) -> Callable[..., ModuleGraph]:
         captured.update(
             config=config,
             project_root=project_root,
             root_module_name=root_module_name,
-            source_roots=source_roots,
-            local_boundary=local_boundary,
-            external_roots=external_roots,
-            include_sys_path=include_sys_path,
         )
 
         def run(paths: object = None, *, refresh: bool = False) -> ModuleGraph:
@@ -73,10 +65,11 @@ class TestAnalyze:
         assert code == 0
         assert captured["project_root"] == tmp_path
         assert captured["root_module_name"] == "mypkg"
-        assert captured["source_roots"] is None
-        assert captured["local_boundary"] is None
-        assert captured["external_roots"] == ()
-        assert captured["include_sys_path"] is True
+        resolution = captured["config"].resolution
+        assert resolution.source_roots is None
+        assert resolution.local_boundary is None
+        assert resolution.external_roots == ()
+        assert resolution.include_sys_path is True
         assert captured["paths"] == [package]
 
         data = json.loads((tmp_path / "mypkg-imports.json").read_text(encoding="utf-8"))
@@ -101,7 +94,7 @@ class TestAnalyze:
         code = cli.main(["analyze", str(tmp_path), "mypkg", "--source-roots", "src"])
 
         assert code == 0
-        assert captured["source_roots"] == (Path("src"),)
+        assert captured["config"].resolution.source_roots == (Path("src"),)
         assert captured["paths"] == [package]
 
     def test_external_roots_and_sys_path_policy_are_passed_to_analyzer(
@@ -125,8 +118,9 @@ class TestAnalyze:
         )
 
         assert code == 0
-        assert captured["external_roots"] == (Path(".venv/site-packages"), Path("vendor"))
-        assert captured["include_sys_path"] is False
+        resolution = captured["config"].resolution
+        assert resolution.external_roots == (Path(".venv/site-packages"), Path("vendor"))
+        assert resolution.include_sys_path is False
 
 
 class TestCollect:
@@ -139,8 +133,9 @@ class TestCollect:
         assert code == 0
         assert captured["project_root"] == tmp_path
         assert captured["root_module_name"] == "mypkg"
-        assert captured["external_roots"] == ()
-        assert captured["include_sys_path"] is True
+        resolution = captured["config"].resolution
+        assert resolution.external_roots == ()
+        assert resolution.include_sys_path is True
         assert (tmp_path / "mypkg-modules.json").exists()
 
     def test_source_roots_are_passed_to_collector(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -163,10 +158,11 @@ class TestCollect:
         )
 
         assert code == 0
-        assert captured["source_roots"] == (Path("src"), Path("lib"))
-        assert captured["local_boundary"] == tmp_path
-        assert captured["external_roots"] == (Path(".venv/site-packages"),)
-        assert captured["include_sys_path"] is False
+        resolution = captured["config"].resolution
+        assert resolution.source_roots == (Path("src"), Path("lib"))
+        assert resolution.local_boundary == tmp_path
+        assert resolution.external_roots == (Path(".venv/site-packages"),)
+        assert resolution.include_sys_path is False
 
     def test_default_output_without_arguments(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         captured = _patch(monkeypatch, "ModulesCollector", _graph([("os", "os.path")]))
@@ -177,8 +173,9 @@ class TestCollect:
         assert code == 0
         assert captured["project_root"] is None
         assert captured["root_module_name"] is None
-        assert captured["external_roots"] == ()
-        assert captured["include_sys_path"] is True
+        resolution = captured["config"].resolution
+        assert resolution.external_roots == ()
+        assert resolution.include_sys_path is True
         assert (tmp_path / "modules.json").exists()
 
     def test_project_root_without_root_module_is_rejected(
@@ -293,10 +290,6 @@ class TestErrors:
             config: object,
             project_root: object,
             root_module_name: object,
-            source_roots: object = None,
-            local_boundary: object = None,
-            external_roots: object = (),
-            include_sys_path: object = True,
         ) -> Callable[..., ModuleGraph]:
             def run(paths: Optional[object] = None, *, refresh: bool = False) -> ModuleGraph:
                 raise ValueError("no modules found")

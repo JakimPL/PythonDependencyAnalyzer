@@ -253,10 +253,11 @@ graph object directly:
 from pathlib import Path
 
 from pda.analyzer import ModuleImportsAnalyzer
-from pda.config import ModuleImportsAnalyzerConfig, ModuleScanConfig
+from pda.config import ModuleImportsAnalyzerConfig, ModuleResolutionConfig, ModuleScanConfig
 
 config = ModuleImportsAnalyzerConfig(
     module_scan=ModuleScanConfig(stdlib_depth=0, external_depth=0, hide_private=True),
+    resolution=ModuleResolutionConfig(source_roots=(Path("src"),)),
     unify_nodes=True,
     qualified_names=True,
     collapse_level=2,
@@ -266,7 +267,6 @@ analyzer = ModuleImportsAnalyzer(
     config=config,
     project_root=Path("."),
     root_module_name="pda",
-    source_roots=(Path("src"),),
 )
 graph = analyzer(Path("src/pda"))
 

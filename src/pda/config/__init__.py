@@ -1,6 +1,7 @@
 from pda.config.analyzer.base import ModuleAnalyzerConfig
 from pda.config.analyzer.collector import ModulesCollectorConfig
 from pda.config.analyzer.imports import ModuleImportsAnalyzerConfig
+from pda.config.analyzer.resolution import ModuleResolutionConfig
 from pda.config.analyzer.scan import ModuleScanConfig
 from pda.config.analyzer.scope import ScopeAnalyzerConfig
 from pda.config.base import BaseConfig
@@ -20,6 +21,7 @@ __all__ = [
     "BaseConfig",
     # Analyzers
     "ModuleScanConfig",
+    "ModuleResolutionConfig",
     "ModuleAnalyzerConfig",
     "ModulesCollectorConfig",
     "ModuleImportsAnalyzerConfig",

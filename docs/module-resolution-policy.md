@@ -161,6 +161,9 @@ dependency source. That option is a deliberate compatibility mode for workflows
 that want to analyze "what this running environment can import." It must be
 configurable, and source roots must still be searched first so local project
 modules and namespace portions are not shadowed by unrelated ambient packages.
+Analyzer-facing source roots, local boundary, explicit external roots, and
+active-`sys.path` policy should be grouped as resolution configuration rather
+than scattered as unrelated constructor parameters.
 
 ## Policy Overview
 
@@ -1035,6 +1038,9 @@ These should be resolved before implementation:
    but production or deterministic runs should be able to disable it explicitly.
    Explicit `external_roots` are dependency roots and should remain available
    even when active `sys.path` is disabled.
+   If external traversal is enabled while both `include_sys_path` is disabled and
+   `external_roots` is empty, PDA should warn because no third-party search roots
+   are available.
 
 2. Should local filesystem collection include directories without
    `__init__.py` as namespace packages by default?

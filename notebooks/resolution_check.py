@@ -58,6 +58,7 @@ def _(mo):
     from pda.analyzer.modules.lookup import RuntimeModuleLookup
     from pda.config import (
         ModuleImportsAnalyzerConfig,
+        ModuleResolutionConfig,
         ModuleScanConfig,
         ModulesCollectorConfig,
     )
@@ -86,6 +87,7 @@ def _(mo):
         ModuleImportsAnalyzerConfig,
         ModuleResolution,
         ModuleResolutionService,
+        ModuleResolutionConfig,
         ModuleScanConfig,
         ModulesCollector,
         ModulesCollectorConfig,
@@ -384,6 +386,7 @@ def _(
     ModuleCategory,
     ModuleImportsAnalyzer,
     ModuleImportsAnalyzerConfig,
+    ModuleResolutionConfig,
     ModuleScanConfig,
     ModulesCollector,
     ModulesCollectorConfig,
@@ -406,24 +409,24 @@ def _(
     collect_config = ModulesCollectorConfig(
         module_scan=collect_scan_config,
         qualified_names=True,
+        resolution=ModuleResolutionConfig(source_roots=(fixture_src,)),
     )
     collector = ModulesCollector(
         config=collect_config,
         project_root=fixture_root,
         root_module_name="demo_pkg",
-        source_roots=(fixture_src,),
     )
     modules_graph = collector()
 
     import_config = ModuleImportsAnalyzerConfig(
         module_scan=import_scan_config,
         qualified_names=True,
+        resolution=ModuleResolutionConfig(source_roots=(fixture_src,)),
     )
     import_analyzer = ModuleImportsAnalyzer(
         config=import_config,
         project_root=fixture_root,
         root_module_name="demo_pkg",
-        source_roots=(fixture_src,),
     )
     imports_graph = import_analyzer(demo_pkg_dir)
 

@@ -19,6 +19,7 @@ from pda.exceptions.modules import (
 )
 from pda.exceptions.options import (
     PDACategoryDisabledWarning,
+    PDAExternalResolutionWarning,
     PDAGraphLayoutWarning,
     PDAOptionsWarning,
 )
@@ -56,5 +57,6 @@ __all__ = [
     # Options-related warnings
     "PDAOptionsWarning",
     "PDACategoryDisabledWarning",
+    "PDAExternalResolutionWarning",
     "PDAGraphLayoutWarning",
 ]
