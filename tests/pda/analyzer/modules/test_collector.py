@@ -7,7 +7,7 @@ import pytest
 
 from pda.analyzer import ModulesCollector
 from pda.config import ModuleScanConfig, ModulesCollectorConfig
-from pda.specification import ModuleCategory, clear_module_spec_cache
+from pda.specification import ModuleCategory
 
 PKG = "pdadepthcollector"
 
@@ -24,7 +24,7 @@ def project(tmp_path: Path) -> Path:
     (sub / "c.py").write_text("")
     (sub / "d.py").write_text("")
 
-    clear_module_spec_cache()
+    importlib.invalidate_caches()
     try:
         yield tmp_path
     finally:
@@ -33,7 +33,7 @@ def project(tmp_path: Path) -> Path:
         for module in list(sys.modules):
             if module == PKG or module.startswith(f"{PKG}."):
                 del sys.modules[module]
-        clear_module_spec_cache()
+        importlib.invalidate_caches()
 
 
 def _collect(
@@ -111,7 +111,7 @@ class TestCollectorMaxDepth:
         (project_package / "__init__.py").write_text("")
 
         sys.path.insert(0, str(external_root))
-        clear_module_spec_cache()
+        importlib.invalidate_caches()
         try:
             loaded = importlib.import_module(module_name)
             assert loaded.__spec__.origin == str(external_package / "__init__.py")
@@ -127,7 +127,7 @@ class TestCollectorMaxDepth:
             for module in list(sys.modules):
                 if module == module_name or module.startswith(f"{module_name}."):
                     del sys.modules[module]
-            clear_module_spec_cache()
+            importlib.invalidate_caches()
 
     def test_collects_local_namespace_package_portion(self, tmp_path: Path) -> None:
         project_root = tmp_path / "project"

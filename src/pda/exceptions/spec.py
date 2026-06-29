@@ -5,10 +5,6 @@ class PDAModuleSpecError(PDAException):
     """Raised when there is an issue with a module spec during import resolution."""
 
 
-class PDAFindSpecError(PDAModuleSpecError):
-    """Raised when an error occurs while finding a module spec."""
-
-
 class PDANoOriginError(PDAModuleSpecError):
     """Raised when a module spec has an empty origin."""
 

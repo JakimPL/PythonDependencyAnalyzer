@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 
 from pda.analyzer.base import register_search_path
-from pda.specification import clear_module_spec_cache
 
 
 def test_register_search_path_moves_existing_entry_to_front(tmp_path: Path) -> None:
@@ -22,5 +21,4 @@ def test_register_search_path_moves_existing_entry_to_front(tmp_path: Path) -> N
         assert sys.path.count(entry) == 1
     finally:
         sys.path[:] = original_sys_path
-        clear_module_spec_cache()
         importlib.invalidate_caches()

@@ -119,6 +119,9 @@ class ModuleResolutionService:
         if root is None:
             root = Path(source_root).resolve() if source_root is not None else self.environment.source_roots[0]
 
+        if self.environment.local_boundary is None:
+            return None
+
         return SourceModuleContext(
             identity=resolution.identity,
             location=resolution.location,

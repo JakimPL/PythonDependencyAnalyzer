@@ -3,8 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Protocol
 
-from pda.analyzer.modules.creator import ModuleCreator
-from pda.resolution import ModuleResolutionService, ProjectResolutionContext
+from pda.resolution import ModuleResolutionService, ProjectResolutionContext, TargetEnvironment
 from pda.specification import CategorizedModule, Module, ModuleCategory
 from pda.types import Pathlike
 
@@ -59,11 +58,11 @@ class ProjectModuleLookup:
 
 @dataclass(frozen=True)
 class RuntimeModuleLookup:
-    creator: ModuleCreator
+    resolver: ModuleResolutionService
 
     @classmethod
     def create(cls) -> RuntimeModuleLookup:
-        return cls(creator=ModuleCreator())
+        return cls(resolver=ModuleResolutionService(TargetEnvironment.runtime()))
 
     def filesystem_module(
         self,
@@ -77,7 +76,8 @@ class RuntimeModuleLookup:
         *,
         containing_package: Optional[str],
     ) -> CategorizedModule:
-        return self.creator.create_module(name, containing_package=containing_package)
+        resolution = self.resolver.resolve_project_name(name, containing_package=containing_package)
+        return self.resolver.to_categorized_module(resolution)
 
     def category(self, module: Module) -> ModuleCategory:
         return module.get_category(None)

@@ -1,3 +1,4 @@
+import importlib
 import sys
 from pathlib import Path
 from typing import Iterable, Optional, Set, Tuple, Union
@@ -6,7 +7,7 @@ import pytest
 
 from pda.analyzer import ModuleImportsAnalyzer
 from pda.config import ModuleImportsAnalyzerConfig, ModuleScanConfig
-from pda.specification import ModuleCategory, clear_module_spec_cache
+from pda.specification import ModuleCategory
 from pda.types import Pathlike
 
 PKG = "pdamultiroot"
@@ -28,7 +29,7 @@ def project(tmp_path: Path) -> Tuple[Path, Path]:
     (sub / "__init__.py").write_text("")
     (sub / "c.py").write_text(f"import {PKG}.shared\n")
 
-    clear_module_spec_cache()
+    importlib.invalidate_caches()
     try:
         yield tmp_path, pkg
     finally:
@@ -37,7 +38,7 @@ def project(tmp_path: Path) -> Tuple[Path, Path]:
         for module in list(sys.modules):
             if module == PKG or module.startswith(f"{PKG}."):
                 del sys.modules[module]
-        clear_module_spec_cache()
+        importlib.invalidate_caches()
 
 
 def _analyze(

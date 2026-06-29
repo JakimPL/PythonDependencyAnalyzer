@@ -37,7 +37,7 @@ class ResolvedModuleKind(StrEnum):
 @dataclass(frozen=True)
 class TargetEnvironment:
     source_roots: Tuple[Path, ...]
-    local_boundary: Path
+    local_boundary: Optional[Path]
     external_roots: Tuple[Path, ...] = ()
     include_sys_path: bool = True
 
@@ -51,16 +51,17 @@ class TargetEnvironment:
         include_sys_path: bool = True,
     ) -> TargetEnvironment:
         roots = tuple(Path(root).resolve() for root in source_roots)
-        if not roots:
-            raise ValueError("At least one source root is required")
-
-        boundary = Path(local_boundary).resolve() if local_boundary is not None else roots[0]
+        boundary = Path(local_boundary).resolve() if local_boundary is not None else roots[0] if roots else None
         return cls(
             source_roots=roots,
             local_boundary=boundary,
             external_roots=tuple(Path(root).resolve() for root in external_roots),
             include_sys_path=include_sys_path,
         )
+
+    @classmethod
+    def runtime(cls) -> TargetEnvironment:
+        return cls(source_roots=(), local_boundary=None, include_sys_path=True)
 
 
 @dataclass(frozen=True)

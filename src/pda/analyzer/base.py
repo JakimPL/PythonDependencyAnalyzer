@@ -6,7 +6,6 @@ from typing import Generic, Optional
 
 from pda.analyzer.target import AnalysisTarget
 from pda.config import ConfigT
-from pda.specification.modules.spec.spec import clear_module_spec_cache
 from pda.tools.logger import logger
 from pda.types import AnyT, Pathlike
 
@@ -25,7 +24,6 @@ def register_search_path(path: Path) -> None:
     sys.path[:] = [existing for existing in sys.path if existing != entry]
     sys.path.insert(0, entry)
     invalidate_caches()
-    clear_module_spec_cache()
 
 
 class BaseAnalyzer(ABC, Generic[ConfigT, AnyT]):

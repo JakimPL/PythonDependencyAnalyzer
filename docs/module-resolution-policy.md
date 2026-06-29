@@ -879,10 +879,10 @@ translates `ModuleSource` and parsed `ImportPath` values into central
 `ModuleResolutionService` queries. It should not grow module-resolution policy
 that belongs in the central resolution layer.
 
-`ModuleCreator` and `CategorizedModule.create` are compatibility/runtime
-creation paths. New project analysis should use `ModuleResolutionService`
-directly so source roots, local boundaries, namespace portions, and project-first
-lookup are applied consistently.
+Runtime/environment collection should also use `ModuleResolutionService`, but
+with a runtime target environment that has no source roots or local boundary and
+does include the active interpreter search path. Specification models should not
+offer factory methods that perform ambient `find_spec` lookup.
 
 Scope and symbol models should own lexical facts:
 

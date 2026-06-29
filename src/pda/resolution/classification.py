@@ -53,6 +53,9 @@ class ModuleClassifier:
         return ModuleCategory.EXTERNAL
 
     def is_local(self, location: ModuleLocation) -> bool:
+        if self._environment.local_boundary is None:
+            return False
+
         candidates = list(location.submodule_search_locations)
         if location.origin is not None:
             candidates.append(location.origin)

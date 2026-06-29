@@ -12,7 +12,7 @@ from pda.analyzer.target import AnalysisTarget
 from pda.config import ModuleImportsAnalyzerConfig
 from pda.models import ModuleNode
 from pda.resolution import ProjectResolutionContext
-from pda.specification import ImportPath, ModuleCategory, ModuleSource, clear_module_spec_cache
+from pda.specification import ImportPath, ModuleCategory, ModuleSource
 from pda.specification.modules.module.unavailable import UnavailableModule
 
 PKG = "pdaresolvercase"
@@ -34,14 +34,13 @@ def project(tmp_path: Path) -> Iterator[Tuple[Path, Path]]:
     (subpackage / "module.py").write_text("")
     (namespace / "leaf.py").write_text("")
 
-    clear_module_spec_cache()
+    importlib.invalidate_caches()
     try:
         yield source_root, package
     finally:
         for module in list(sys.modules):
             if module == PKG or module.startswith(f"{PKG}.") or module == "plugins" or module.startswith("plugins."):
                 del sys.modules[module]
-        clear_module_spec_cache()
         importlib.invalidate_caches()
 
 
@@ -225,7 +224,6 @@ class TestResolveToModule:
             for module in list(sys.modules):
                 if module == module_name or module.startswith(f"{module_name}."):
                     del sys.modules[module]
-            clear_module_spec_cache()
             importlib.invalidate_caches()
 
 

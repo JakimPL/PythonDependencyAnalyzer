@@ -4,15 +4,12 @@ from importlib.machinery import ModuleSpec
 from pathlib import Path
 from typing import Any, NamedTuple, Optional, Tuple, Union
 
-from pda.config import ValidationOptions
 from pda.exceptions.spec import PDAModuleSpecError
 from pda.specification.imports.origin import OriginType
 from pda.specification.modules.module.category import ModuleCategory
 from pda.specification.modules.module.module import Module
 from pda.specification.modules.module.type import ModuleType
 from pda.specification.modules.module.unavailable import UnavailableModule
-from pda.specification.modules.spec.spec import find_module_spec
-from pda.tools.logger import logger
 from pda.tools.paths import is_file, resolve_path
 from pda.types import Pathlike
 
@@ -134,41 +131,6 @@ class CategorizedModule(NamedTuple):
     ) -> CategorizedModule:
         category = CategorizedModule.infer_category(module, category=category, project_root=project_root)
         return CategorizedModule(module=module, category=category)
-
-    @staticmethod
-    def create(
-        name: str,
-        *,
-        project_root: Optional[Pathlike] = None,
-        containing_package: Optional[str] = None,
-        validation_options: Optional[ValidationOptions] = None,
-    ) -> CategorizedModule:
-        options: ValidationOptions = validation_options or ValidationOptions.strict()
-
-        spec: Optional[ModuleSpec] = None
-        error: Optional[PDAModuleSpecError] = None
-        try:
-            spec = find_module_spec(name, containing_package=containing_package, **options.model_dump())
-        except PDAModuleSpecError as exception:
-            error = exception
-            if options.raise_error:
-                raise exception
-
-        if not spec:
-            logger.debug("Module '%s' not found", name)
-            module = UnavailableModule(
-                name=name,
-                error=error,
-            )
-            return CategorizedModule(
-                module=module,
-                category=ModuleCategory.UNKNOWN,
-            )
-
-        return CategorizedModule.from_spec(
-            spec,
-            project_root=project_root,
-        )
 
     @staticmethod
     def infer_category(

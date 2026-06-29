@@ -25,7 +25,6 @@ from pda.exceptions.scope import (
     PDAUninitializedScopeBuilderError,
 )
 from pda.exceptions.spec import (
-    PDAFindSpecError,
     PDAInvalidOriginTypeError,
     PDAMissingModuleSpecError,
     PDAModuleSpecError,
@@ -59,7 +58,6 @@ __all__ = [
     "PDAUninitializedScopeBuilderError",
     # Spec-related exceptions
     "PDAModuleSpecError",
-    "PDAFindSpecError",
     "PDANoOriginError",
     "PDARelativeOriginError",
     "PDAOriginFileNotFoundError",

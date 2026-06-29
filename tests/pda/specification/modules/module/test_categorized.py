@@ -1,34 +1,36 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
-from pda.config import ValidationOptions
-from pda.specification import CategorizedModule, ModuleCategory
-
-_LENIENT = ValidationOptions(allow_missing_spec=True, validate_origin=True, expect_python=False, raise_error=False)
+from pda.specification import CategorizedModule, Module, ModuleCategory, UnavailableModule
+from pda.specification.imports.origin import OriginType
 
 
-def test_real_python_module_is_available_with_category() -> None:
-    result = CategorizedModule.create("pathlib")
+def test_from_module_uses_explicit_category() -> None:
+    module = Module(
+        name="pkg.module",
+        origin=Path(__file__),
+        origin_type=OriginType.PYTHON,
+    )
 
-    assert result.category == ModuleCategory.STDLIB
+    result = CategorizedModule.from_module(module, category=ModuleCategory.LOCAL)
+
+    assert result.name == "pkg.module"
+    assert result.category == ModuleCategory.LOCAL
     assert result.available is True
     assert result.availability_reason is None
 
 
-def test_builtin_module_is_available() -> None:
-    result = CategorizedModule.create("sys", validation_options=_LENIENT)
-
-    assert result.category == ModuleCategory.STDLIB
-    assert result.available is True
-
-
-def test_missing_module_is_unknown_and_unavailable() -> None:
-    result = CategorizedModule.create("definitely_not_a_real_module_xyz", validation_options=_LENIENT)
+def test_unavailable_module_is_unknown_and_unavailable() -> None:
+    result = CategorizedModule.from_module(
+        UnavailableModule(name="definitely_not_a_real_module_xyz", error=Exception("missing"))
+    )
 
     assert result.category == ModuleCategory.UNKNOWN
     assert result.available is False
-    assert result.availability_reason
+    assert result.availability_reason == "missing"
 
 
 def test_python_module_with_unreadable_source_keeps_category_but_is_unavailable(
@@ -37,9 +39,14 @@ def test_python_module_with_unreadable_source_keeps_category_but_is_unavailable(
     import pda.specification.modules.module.categorized as categorized_mod
 
     monkeypatch.setattr(categorized_mod, "is_file", lambda _path: False)
+    module = Module(
+        name="pkg.module",
+        origin=Path(__file__),
+        origin_type=OriginType.PYTHON,
+    )
 
-    result = CategorizedModule.create("pathlib")
+    result = CategorizedModule.from_module(module, category=ModuleCategory.LOCAL)
 
-    assert result.category == ModuleCategory.STDLIB
+    assert result.category == ModuleCategory.LOCAL
     assert result.available is False
     assert result.availability_reason == "source not available for analysis"

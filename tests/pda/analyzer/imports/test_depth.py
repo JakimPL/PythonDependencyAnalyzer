@@ -1,3 +1,4 @@
+import importlib
 import sys
 from pathlib import Path
 from typing import Set, Tuple
@@ -6,7 +7,7 @@ import pytest
 
 from pda.analyzer import ModuleImportsAnalyzer
 from pda.config import ModuleImportsAnalyzerConfig, ModuleScanConfig
-from pda.specification import ModuleCategory, clear_module_spec_cache
+from pda.specification import ModuleCategory
 
 PKG = "pdadepthimports"
 
@@ -19,7 +20,7 @@ def project(tmp_path: Path) -> Tuple[Path, Path]:
     (pkg_dir / "a.py").write_text(f"import json\nimport {PKG}.b\n")
     (pkg_dir / "b.py").write_text("import json\n")
 
-    clear_module_spec_cache()
+    importlib.invalidate_caches()
     try:
         yield tmp_path, pkg_dir / "a.py"
     finally:
@@ -28,7 +29,7 @@ def project(tmp_path: Path) -> Tuple[Path, Path]:
         for module in list(sys.modules):
             if module == PKG or module.startswith(f"{PKG}."):
                 del sys.modules[module]
-        clear_module_spec_cache()
+        importlib.invalidate_caches()
 
 
 def _analyze(project_root: Path, filepath: Path, **scan_kwargs: object) -> ModuleImportsAnalyzer:
