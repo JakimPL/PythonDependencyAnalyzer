@@ -10,6 +10,7 @@ from pda.resolution.conversion import CategorizedModuleBuilder
 from pda.resolution.filesystem import FilesystemModuleLocator
 from pda.resolution.imports import ImportPathCandidateBuilder
 from pda.resolution.locations import ModuleLocationFactory
+from pda.resolution.models.diagnostics import ResolutionDiagnostic, ResolutionDiagnosticCode
 from pda.resolution.models.environment import TargetEnvironment
 from pda.resolution.models.location import ModuleCoordinates
 from pda.resolution.models.resolution import ModuleResolution, ResolutionMode, ResolutionStatus
@@ -46,7 +47,11 @@ class ModuleResolutionService:
             return self._unavailable(
                 requested=name,
                 mode=ResolutionMode.PROJECT,
-                reason=f"Module spec for '{fullname}' not found",
+                diagnostic=ResolutionDiagnostic.create(
+                    ResolutionDiagnosticCode.MODULE_SPEC_NOT_FOUND,
+                    f"Module spec for '{fullname}' not found",
+                    fullname=fullname,
+                ),
             )
 
         return self._resolved(
@@ -65,7 +70,7 @@ class ModuleResolutionService:
             return self._unavailable(
                 requested=str(import_path),
                 mode=ResolutionMode.PROJECT,
-                reason=f"Import path '{import_path}' does not specify a module",
+                diagnostic=self._import_path_diagnostic(context, import_path),
             )
 
         unresolved: Optional[ModuleResolution] = None
@@ -79,7 +84,11 @@ class ModuleResolutionService:
         return unresolved or self._unavailable(
             requested=str(import_path),
             mode=ResolutionMode.PROJECT,
-            reason=f"Import path '{import_path}' does not resolve to an available module",
+            diagnostic=ResolutionDiagnostic.create(
+                ResolutionDiagnosticCode.IMPORT_PATH_UNRESOLVED,
+                f"Import path '{import_path}' does not resolve to an available module",
+                import_path=str(import_path),
+            ),
         )
 
     def resolve_filesystem_path(
@@ -93,7 +102,12 @@ class ModuleResolutionService:
             return self._unavailable(
                 requested=str(lookup.requested),
                 mode=ResolutionMode.FILESYSTEM,
-                reason=lookup.reason or f"Path '{lookup.requested}' was not resolved",
+                diagnostic=lookup.diagnostic
+                or ResolutionDiagnostic.create(
+                    ResolutionDiagnosticCode.PATH_UNRESOLVED,
+                    f"Path '{lookup.requested}' was not resolved",
+                    path=str(lookup.requested),
+                ),
             )
 
         return self._resolved(
@@ -161,11 +175,30 @@ class ModuleResolutionService:
         *,
         requested: str,
         mode: ResolutionMode,
-        reason: str,
+        diagnostic: ResolutionDiagnostic,
     ) -> ModuleResolution:
         return ModuleResolution(
             requested=requested,
             mode=mode,
             status=ResolutionStatus.UNAVAILABLE,
-            reason=reason,
+            diagnostic=diagnostic,
+        )
+
+    def _import_path_diagnostic(
+        self,
+        context: SourceModuleContext,
+        import_path: ImportPath,
+    ) -> ResolutionDiagnostic:
+        if import_path.relative:
+            return ResolutionDiagnostic.create(
+                ResolutionDiagnosticCode.RELATIVE_IMPORT_ESCAPES_PACKAGE,
+                f"Relative import path '{import_path}' escapes package '{context.containing_package}'",
+                import_path=str(import_path),
+                containing_package=context.containing_package,
+            )
+
+        return ResolutionDiagnostic.create(
+            ResolutionDiagnosticCode.IMPORT_PATH_EMPTY,
+            f"Import path '{import_path}' does not specify a module",
+            import_path=str(import_path),
         )

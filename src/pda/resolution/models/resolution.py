@@ -6,6 +6,7 @@ from typing import Optional
 
 from pda.specification import ModuleCategory
 
+from .diagnostics import ResolutionDiagnostic
 from .identity import ModuleIdentity
 from .location import ModuleLocation
 
@@ -42,8 +43,12 @@ class ModuleResolution:
     location: Optional[ModuleLocation] = None
     kind: ResolvedModuleKind = ResolvedModuleKind.UNKNOWN
     category: ModuleCategory = ModuleCategory.UNKNOWN
-    reason: Optional[str] = None
+    diagnostic: Optional[ResolutionDiagnostic] = None
 
     @property
     def resolved(self) -> bool:
         return self.status == ResolutionStatus.RESOLVED and self.identity is not None
+
+    @property
+    def reason(self) -> Optional[str]:
+        return self.diagnostic.message if self.diagnostic is not None else None

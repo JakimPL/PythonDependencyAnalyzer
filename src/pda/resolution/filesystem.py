@@ -4,6 +4,7 @@ from typing import Optional
 
 from pda.constants import DELIMITER
 from pda.resolution.classification import ModuleClassifier
+from pda.resolution.models.diagnostics import ResolutionDiagnostic, ResolutionDiagnosticCode
 from pda.resolution.models.environment import TargetEnvironment
 from pda.resolution.models.identity import ModuleIdentity
 from pda.resolution.models.location import ModuleCoordinates, ModuleLocation
@@ -18,7 +19,7 @@ from pda.types import Pathlike
 class FilesystemModuleLookup:
     requested: Path
     coordinates: Optional[ModuleCoordinates] = None
-    reason: Optional[str] = None
+    diagnostic: Optional[ResolutionDiagnostic] = None
 
     @property
     def resolved(self) -> bool:
@@ -41,14 +42,18 @@ class FilesystemModuleLocator:
         if root is None:
             return FilesystemModuleLookup(
                 requested=filepath,
-                reason=f"Path '{filepath}' is outside configured source roots",
+                diagnostic=ResolutionDiagnostic.create(
+                    ResolutionDiagnosticCode.PATH_OUTSIDE_SOURCE_ROOTS,
+                    f"Path '{filepath}' is outside configured source roots",
+                    path=str(filepath),
+                ),
             )
 
         name = self._module_name_from_path(filepath, root)
         if name is None:
             return FilesystemModuleLookup(
                 requested=filepath,
-                reason=f"Path '{filepath}' is not a Python module, package, or namespace portion",
+                diagnostic=self._unresolved_path_diagnostic(filepath),
             )
 
         return FilesystemModuleLookup(
@@ -121,3 +126,17 @@ class FilesystemModuleLocator:
             return True
 
         return has_python_file_in_tree(path)
+
+    def _unresolved_path_diagnostic(self, path: Path) -> ResolutionDiagnostic:
+        if is_dir(path) and not is_file(path / "__init__.py") and not has_python_file_in_tree(path):
+            return ResolutionDiagnostic.create(
+                ResolutionDiagnosticCode.NAMESPACE_WITHOUT_PYTHON_CHILD,
+                f"Directory '{path}' is not a namespace package portion because it contains no Python files",
+                path=str(path),
+            )
+
+        return ResolutionDiagnostic.create(
+            ResolutionDiagnosticCode.PATH_NOT_PYTHON_MODULE,
+            f"Path '{path}' is not a Python module, package, or namespace portion",
+            path=str(path),
+        )

@@ -10,6 +10,7 @@ import pytest
 from pda.resolution import (
     ModuleResolutionService,
     ProjectResolutionContext,
+    ResolutionDiagnosticCode,
     ResolutionStatus,
     ResolvedModuleKind,
     TargetEnvironment,
@@ -266,6 +267,52 @@ def test_relative_import_escaping_package_is_unavailable(tmp_path: Path) -> None
     resolution = resolver.resolve_import_path(context, ImportPath(module="outside", level=2))
 
     assert resolution.status == ResolutionStatus.UNAVAILABLE
+    assert resolution.diagnostic is not None
+    assert resolution.diagnostic.code == ResolutionDiagnosticCode.RELATIVE_IMPORT_ESCAPES_PACKAGE
+    assert resolution.diagnostic.detail("import_path") == "..outside"
+
+
+def test_missing_project_module_has_structured_diagnostic(tmp_path: Path) -> None:
+    source_root = tmp_path / "src"
+    source_root.mkdir()
+    resolver = _service(source_root)
+
+    resolution = resolver.resolve_project_name("missing_package")
+
+    assert resolution.status == ResolutionStatus.UNAVAILABLE
+    assert resolution.diagnostic is not None
+    assert resolution.diagnostic.code == ResolutionDiagnosticCode.MODULE_SPEC_NOT_FOUND
+    assert resolution.diagnostic.detail("fullname") == "missing_package"
+    assert resolution.reason == resolution.diagnostic.message
+
+
+def test_filesystem_path_outside_source_roots_has_structured_diagnostic(tmp_path: Path) -> None:
+    source_root = tmp_path / "src"
+    outside = tmp_path / "outside.py"
+    source_root.mkdir()
+    outside.write_text("")
+
+    resolver = _service(source_root)
+    resolution = resolver.resolve_filesystem_path(outside)
+
+    assert resolution.status == ResolutionStatus.UNAVAILABLE
+    assert resolution.diagnostic is not None
+    assert resolution.diagnostic.code == ResolutionDiagnosticCode.PATH_OUTSIDE_SOURCE_ROOTS
+    assert resolution.diagnostic.detail("path") == str(outside.resolve())
+
+
+def test_empty_namespace_portion_has_structured_diagnostic(tmp_path: Path) -> None:
+    source_root = tmp_path / "src"
+    empty_namespace = source_root / "empty_namespace"
+    empty_namespace.mkdir(parents=True)
+
+    resolver = _service(source_root)
+    resolution = resolver.resolve_filesystem_path(empty_namespace)
+
+    assert resolution.status == ResolutionStatus.UNAVAILABLE
+    assert resolution.diagnostic is not None
+    assert resolution.diagnostic.code == ResolutionDiagnosticCode.NAMESPACE_WITHOUT_PYTHON_CHILD
+    assert resolution.diagnostic.detail("path") == str(empty_namespace.resolve())
 
 
 def test_project_resolution_handles_builtin_modules(tmp_path: Path) -> None:

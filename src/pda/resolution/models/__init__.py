@@ -1,3 +1,4 @@
+from .diagnostics import ResolutionDiagnostic, ResolutionDiagnosticCode, ResolutionDiagnosticDetail
 from .environment import TargetEnvironment
 from .identity import ModuleIdentity
 from .location import ModuleLocation
@@ -13,6 +14,9 @@ __all__ = [
     "ModuleIdentity",
     "ModuleLocation",
     "ModuleResolution",
+    "ResolutionDiagnostic",
+    "ResolutionDiagnosticCode",
+    "ResolutionDiagnosticDetail",
     "ResolutionMode",
     "ResolutionStatus",
     "ResolvedModuleKind",

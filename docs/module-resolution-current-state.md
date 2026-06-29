@@ -62,6 +62,18 @@ Callers must provide an explicit `ModuleCategory`, and project/runtime category
 decisions flow through resolution-layer classification or analyzer lookup
 adapters.
 
+### Structured Resolution Diagnostics
+
+Unavailable `ModuleResolution` results now carry a `ResolutionDiagnostic` with a
+stable `ResolutionDiagnosticCode`, human-readable message, and keyed details.
+The compatibility `reason` property is derived from the diagnostic message
+rather than being the only stored failure fact.
+
+Initial diagnostic codes cover missing module specs, empty import paths,
+relative imports escaping their package, unresolved import paths, paths outside
+configured source roots, non-Python module paths, namespace directories without
+Python children, and generic unresolved filesystem paths.
+
 ### Namespace Package Basics
 
 Filesystem resolution and collection treat directories without `__init__.py` as
@@ -125,15 +137,6 @@ ambiguity between:
 
 This is not represented yet.
 
-### Resolution Reasons Are Mostly Strings
-
-Unavailable resolution results preserve a `reason`, but reasons are plain
-strings. The policy asks for explainable failures such as missing module,
-relative import escape, non-Python origin, namespace without scan-eligible
-portion, and ambiguous object-vs-submodule.
-
-Typed reason codes or structured diagnostics are still missing.
-
 ## Open Or Not Implemented
 
 ### Explicit External Roots
@@ -171,14 +174,10 @@ This is required before function-call dependencies can be principled.
 
 ## Recommended Next Phases
 
-1. **Structured Resolution Diagnostics**
-   Replace string-only unavailable reasons with typed reason codes and add first
-   use of `ResolutionStatus.AMBIGUOUS` for `from package import name`.
-
-2. **Expose Explicit External Roots**
+1. **Expose Explicit External Roots**
    Add project context, analyzer, and CLI configuration for dependency roots
    without falling back to ambient `sys.path`.
 
-3. **Source Context For Scope And Calls**
+2. **Source Context For Scope And Calls**
    Start a new phase that attaches parsed AST modules to `SourceModuleContext`
    and prepares lexical symbol FQNs.
