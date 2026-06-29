@@ -127,6 +127,15 @@ class TestResolveImportPath:
 
         assert result == ImportPath(module=PKG)
 
+    def test_from_module_import_object_returns_dependency_module(self, project: Tuple[Path, Path]) -> None:
+        source_root, package = project
+        resolver = _resolver(source_root)
+        source = _source(resolver, source_root, package / "app.py")
+
+        result = resolver.resolve_import_path(source, ImportPath(module="shared", level=1, name="exported_object"))
+
+        assert result == ImportPath(module=f"{PKG}.shared")
+
     def test_namespace_package_boundary_is_not_returned_as_import_path(self, project: Tuple[Path, Path]) -> None:
         source_root, package = project
         resolver = _resolver(source_root)
@@ -169,6 +178,17 @@ class TestResolveToModule:
         assert result.name == "plugins.leaf"
         assert result.category == ModuleCategory.LOCAL
         assert result.origin == source_root / "plugins" / "leaf.py"
+
+    def test_from_module_import_object_resolves_to_dependency_module(self, project: Tuple[Path, Path]) -> None:
+        source_root, package = project
+        resolver = _resolver(source_root)
+        source = _source(resolver, source_root, package / "app.py")
+
+        result = resolver.resolve_to_module(source, ImportPath(module="shared", level=1, name="exported_object"))
+
+        assert result.name == f"{PKG}.shared"
+        assert result.category == ModuleCategory.LOCAL
+        assert result.origin == package / "shared.py"
 
     def test_missing_module_becomes_unavailable_module(self, project: Tuple[Path, Path]) -> None:
         source_root, package = project

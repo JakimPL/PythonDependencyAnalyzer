@@ -6,16 +6,23 @@ from pda.specification import ImportPath
 
 
 class ImportPathCandidateBuilder:
+    def base_name(
+        self,
+        context: SourceModuleContext,
+        import_path: ImportPath,
+    ) -> Optional[str]:
+        return self._absolute_module_name(
+            context,
+            import_path.module,
+            import_path.level,
+        )
+
     def candidates(
         self,
         context: SourceModuleContext,
         import_path: ImportPath,
     ) -> tuple[str, ...]:
-        base_name = self._absolute_module_name(
-            context,
-            import_path.module,
-            import_path.level,
-        )
+        base_name = self.base_name(context, import_path)
         if import_path.relative and base_name is None:
             return ()
 

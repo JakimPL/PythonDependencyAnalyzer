@@ -7,8 +7,11 @@ from pda.analyzer.target import AnalysisTarget
 from pda.config import ModuleImportsAnalyzerConfig
 from pda.models import ModuleNode
 from pda.resolution import (
+    ModuleResolution,
     ModuleResolutionService,
     ProjectResolutionContext,
+    ResolutionAlternativeKind,
+    ResolutionStatus,
     ResolvedModuleKind,
     SourceModuleContext,
 )
@@ -51,6 +54,7 @@ class ImportResolver:
             return import_path
 
         resolution = self._resolution.resolve_import_path(context, import_path)
+        resolution = self._module_dependency_resolution(resolution)
         if not resolution.resolved or resolution.identity is None:
             logger.debug("Module spec not found for import path '%s'; keeping it for categorization", import_path)
             return import_path
@@ -75,6 +79,7 @@ class ImportResolver:
         else:
             resolution = self._resolution.resolve_import_path(context, import_path)
 
+        resolution = self._module_dependency_resolution(resolution)
         return self._resolution.to_categorized_module(resolution)
 
     def resolve_batch(
@@ -91,3 +96,20 @@ class ImportResolver:
 
     def _source_context(self, module_source: ModuleSource) -> Optional[SourceModuleContext]:
         return self._resolution.source_context(module_source.origin)
+
+    def _module_dependency_resolution(
+        self,
+        resolution: ModuleResolution,
+    ) -> ModuleResolution:
+        if resolution.status != ResolutionStatus.AMBIGUOUS:
+            return resolution
+
+        for kind in (
+            ResolutionAlternativeKind.SUBMODULE,
+            ResolutionAlternativeKind.EXPORTED_OBJECT,
+        ):
+            for alternative in resolution.alternatives:
+                if alternative.kind == kind and alternative.resolution.resolved:
+                    return alternative.resolution
+
+        return resolution

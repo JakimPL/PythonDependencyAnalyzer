@@ -26,7 +26,7 @@ def _(mo):
     between modules, labels each one by where it comes from (local, standard library,
     third-party, or unresolved), and produces a dependency graph you can explore or export.
 
-    This notebook runs **PDA against its own source tree** (`src/pda`, package `pda`).
+    This notebook runs **PDA against its own source tree** (`src/pda`, root module `pda`).
 
     Move the controls to reshape the import graph live; the module inventory sits
     directly below it. The raw node-link JSON export is collected at the very end.
@@ -72,7 +72,7 @@ async def _():
     )
     from pda.models import module_pyvis_converter
 
-    package = "pda"
+    root_module_name = "pda"
     return (
         MAX_COLLAPSE_LEVEL,
         MAX_DEPTH,
@@ -84,8 +84,8 @@ async def _():
         is_restricted,
         mo,
         module_pyvis_converter,
-        package,
         project_src,
+        root_module_name,
     )
 
 
@@ -160,9 +160,9 @@ def _(
     import_qualified_names,
     import_stdlib_depth,
     import_unify_nodes,
-    package,
     project_src,
     render_graph,
+    root_module_name,
 ):
     import_config = ModuleImportsAnalyzerConfig(
         module_scan=ModuleScanConfig(
@@ -175,8 +175,12 @@ def _(
         qualified_names=import_qualified_names.value,
         collapse_level=import_collapse_level.value,
     )
-    import_analyzer = ModuleImportsAnalyzer(config=import_config, project_root=project_src, package=package)
-    import_graph = import_analyzer(project_src / package)
+    import_analyzer = ModuleImportsAnalyzer(
+        config=import_config,
+        project_root=project_src,
+        root_module_name=root_module_name,
+    )
+    import_graph = import_analyzer(project_src / root_module_name)
 
     render_graph(import_graph)
     return (import_graph,)
@@ -257,9 +261,9 @@ def _(
     collect_hide_unavailable,
     collect_qualified_names,
     collect_stdlib_depth,
-    package,
     project_src,
     render_graph,
+    root_module_name,
 ):
     collect_config = ModulesCollectorConfig(
         module_scan=ModuleScanConfig(
@@ -271,7 +275,11 @@ def _(
         qualified_names=collect_qualified_names.value,
         collapse_level=collect_collapse_level.value,
     )
-    collector = ModulesCollector(config=collect_config, project_root=project_src, package=package)
+    collector = ModulesCollector(
+        config=collect_config,
+        project_root=project_src,
+        root_module_name=root_module_name,
+    )
     modules_graph = collector()
 
     render_graph(modules_graph)
@@ -294,14 +302,14 @@ def _(
     import_stdlib_depth,
     import_unify_nodes,
     mo,
-    package,
+    root_module_name,
 ):
     def _flag(name, enabled):
         return f"--{name}" if enabled else f"--no-{name}"
 
     analyze_command = "\n".join(
         [
-            f"pda analyze src {package}",
+            f"pda analyze src {root_module_name}",
             f"--collapse-level {import_collapse_level.value}",
             f"--stdlib-depth {import_stdlib_depth.value}",
             f"--external-depth {import_external_depth.value}",
@@ -309,20 +317,20 @@ def _(
             _flag("hide-unavailable", import_hide_unavailable.value),
             _flag("unify-nodes", import_unify_nodes.value),
             _flag("qualified-names", import_qualified_names.value),
-            f"-o {package}-imports.json",
+            f"-o {root_module_name}-imports.json",
         ]
     )
 
     collect_command = "\n".join(
         [
-            f"pda collect src {package}",
+            f"pda collect src {root_module_name}",
             f"--collapse-level {collect_collapse_level.value}",
             f"--stdlib-depth {collect_stdlib_depth.value}",
             f"--external-depth {collect_external_depth.value}",
             _flag("hide-private", collect_hide_private.value),
             _flag("hide-unavailable", collect_hide_unavailable.value),
             _flag("qualified-names", collect_qualified_names.value),
-            f"-o {package}-modules.json",
+            f"-o {root_module_name}-modules.json",
         ]
     )
 

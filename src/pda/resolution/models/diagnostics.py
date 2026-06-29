@@ -10,6 +10,7 @@ class ResolutionDiagnosticCode(StrEnum):
     IMPORT_PATH_EMPTY = "import_path_empty"
     IMPORT_PATH_UNRESOLVED = "import_path_unresolved"
     RELATIVE_IMPORT_ESCAPES_PACKAGE = "relative_import_escapes_package"
+    AMBIGUOUS_FROM_IMPORT = "ambiguous_from_import"
     PATH_OUTSIDE_SOURCE_ROOTS = "path_outside_source_roots"
     PATH_NOT_PYTHON_MODULE = "path_not_python_module"
     NAMESPACE_WITHOUT_PYTHON_CHILD = "namespace_without_python_child"

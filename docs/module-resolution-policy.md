@@ -304,6 +304,8 @@ Rules:
    reason.
 3. Ambiguous results should be representable without pretending they are fully
    resolved.
+4. Ambiguous results should preserve typed alternatives, such as a submodule
+   candidate and an exported-object container candidate for `from` imports.
 
 ### Source Module Context
 

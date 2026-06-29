@@ -24,6 +24,11 @@ class ResolutionStatus(StrEnum):
     AMBIGUOUS = "ambiguous"
 
 
+class ResolutionAlternativeKind(StrEnum):
+    SUBMODULE = "submodule"
+    EXPORTED_OBJECT = "exported_object"
+
+
 class ResolvedModuleKind(StrEnum):
     SOURCE_MODULE = "source_module"
     REGULAR_PACKAGE = "regular_package"
@@ -32,6 +37,12 @@ class ResolvedModuleKind(StrEnum):
     FROZEN = "frozen"
     EXTENSION = "extension"
     UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True)
+class ResolutionAlternative:
+    kind: ResolutionAlternativeKind
+    resolution: ModuleResolution
 
 
 @dataclass(frozen=True)
@@ -44,6 +55,7 @@ class ModuleResolution:
     kind: ResolvedModuleKind = ResolvedModuleKind.UNKNOWN
     category: ModuleCategory = ModuleCategory.UNKNOWN
     diagnostic: Optional[ResolutionDiagnostic] = None
+    alternatives: tuple[ResolutionAlternative, ...] = ()
 
     @property
     def resolved(self) -> bool:

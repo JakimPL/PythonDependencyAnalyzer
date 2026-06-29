@@ -10,7 +10,9 @@ import pytest
 from pda.resolution import (
     ModuleResolutionService,
     ProjectResolutionContext,
+    ResolutionAlternativeKind,
     ResolutionDiagnosticCode,
+    ResolutionMode,
     ResolutionStatus,
     ResolvedModuleKind,
     TargetEnvironment,
@@ -227,7 +229,7 @@ def test_relative_import_resolution_uses_source_module_context(tmp_path: Path) -
     assert resolution.location.origin == package / "shared.py"
 
 
-def test_from_import_name_prefers_submodule_then_falls_back_to_package(tmp_path: Path) -> None:
+def test_from_import_name_preserves_regular_package_submodule_ambiguity(tmp_path: Path) -> None:
     source_root = tmp_path / "src"
     package = source_root / "pkg"
     package.mkdir(parents=True)
@@ -240,17 +242,76 @@ def test_from_import_name_prefers_submodule_then_falls_back_to_package(tmp_path:
     assert context is not None
 
     submodule = resolver.resolve_import_path(context, ImportPath(module=None, level=1, name="shared"))
-    assert submodule.status == ResolutionStatus.RESOLVED
-    assert submodule.identity is not None
-    assert submodule.identity.public_fqn == "pkg.shared"
-    assert submodule.location is not None
-    assert submodule.location.origin == package / "shared.py"
+    assert submodule.status == ResolutionStatus.AMBIGUOUS
+    assert submodule.diagnostic is not None
+    assert submodule.diagnostic.code == ResolutionDiagnosticCode.AMBIGUOUS_FROM_IMPORT
+    assert [
+        (alternative.kind, alternative.resolution.identity.public_fqn) for alternative in submodule.alternatives
+    ] == [
+        (ResolutionAlternativeKind.SUBMODULE, "pkg.shared"),
+        (ResolutionAlternativeKind.EXPORTED_OBJECT, "pkg"),
+    ]
 
     exported_object = resolver.resolve_import_path(context, ImportPath(module=None, level=1, name="missing_symbol"))
-    assert exported_object.status == ResolutionStatus.RESOLVED
-    assert exported_object.identity is not None
-    assert exported_object.identity.public_fqn == "pkg"
-    assert exported_object.kind == ResolvedModuleKind.REGULAR_PACKAGE
+    assert exported_object.status == ResolutionStatus.AMBIGUOUS
+    assert exported_object.diagnostic is not None
+    assert exported_object.diagnostic.code == ResolutionDiagnosticCode.AMBIGUOUS_FROM_IMPORT
+    assert [(alternative.kind, alternative.resolution.status) for alternative in exported_object.alternatives] == [
+        (ResolutionAlternativeKind.SUBMODULE, ResolutionStatus.UNAVAILABLE),
+        (ResolutionAlternativeKind.EXPORTED_OBJECT, ResolutionStatus.RESOLVED),
+    ]
+    exported_object_target = exported_object.alternatives[1].resolution
+    assert exported_object_target.identity is not None
+    assert exported_object_target.identity.public_fqn == "pkg"
+    assert exported_object_target.kind == ResolvedModuleKind.REGULAR_PACKAGE
+
+
+def test_from_module_import_name_preserves_exported_object_ambiguity(tmp_path: Path) -> None:
+    source_root = tmp_path / "src"
+    package = source_root / "pkg"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+    (package / "consumer.py").write_text("")
+    (package / "helper.py").write_text("def util():\n    return None\n")
+
+    resolver = _service(source_root)
+    context = resolver.source_context(package / "consumer.py")
+    assert context is not None
+
+    resolution = resolver.resolve_import_path(context, ImportPath(module="helper", level=1, name="util"))
+
+    assert resolution.status == ResolutionStatus.AMBIGUOUS
+    assert [(alternative.kind, alternative.resolution.status) for alternative in resolution.alternatives] == [
+        (ResolutionAlternativeKind.SUBMODULE, ResolutionStatus.UNAVAILABLE),
+        (ResolutionAlternativeKind.EXPORTED_OBJECT, ResolutionStatus.RESOLVED),
+    ]
+    exported_object_target = resolution.alternatives[1].resolution
+    assert exported_object_target.identity is not None
+    assert exported_object_target.identity.public_fqn == "pkg.helper"
+    assert exported_object_target.kind == ResolvedModuleKind.SOURCE_MODULE
+
+
+def test_from_namespace_import_submodule_resolves_without_export_ambiguity(tmp_path: Path) -> None:
+    source_root = tmp_path / "src"
+    namespace = source_root / "plugins"
+    namespace.mkdir(parents=True)
+    (namespace / "leaf.py").write_text("")
+
+    package = source_root / "pkg"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    (package / "consumer.py").write_text("")
+
+    resolver = _service(source_root)
+    context = resolver.source_context(package / "consumer.py")
+    assert context is not None
+
+    resolution = resolver.resolve_import_path(context, ImportPath(module="plugins", name="leaf"))
+
+    assert resolution.status == ResolutionStatus.RESOLVED
+    assert resolution.identity is not None
+    assert resolution.identity.public_fqn == "plugins.leaf"
+    assert resolution.alternatives == ()
 
 
 def test_relative_import_escaping_package_is_unavailable(tmp_path: Path) -> None:
@@ -327,6 +388,38 @@ def test_project_resolution_handles_builtin_modules(tmp_path: Path) -> None:
     assert resolution.identity.public_fqn == "sys"
     assert resolution.kind == ResolvedModuleKind.BUILTIN
     assert resolution.category == ModuleCategory.STDLIB
+
+
+def test_runtime_resolution_preserves_runtime_mode() -> None:
+    resolver = ModuleResolutionService(TargetEnvironment.runtime())
+
+    resolution = resolver.resolve_runtime_name("sys")
+
+    assert resolution.status == ResolutionStatus.RESOLVED
+    assert resolution.mode == ResolutionMode.RUNTIME
+    assert resolution.identity is not None
+    assert resolution.identity.public_fqn == "sys"
+    assert resolution.kind == ResolvedModuleKind.BUILTIN
+    assert resolution.category == ModuleCategory.STDLIB
+
+
+def test_environment_resolution_preserves_environment_mode(tmp_path: Path) -> None:
+    source_root = tmp_path / "src"
+    package = source_root / "pkg"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+
+    resolver = _service(source_root)
+
+    resolution = resolver.resolve_environment_name("pkg")
+
+    assert resolution.status == ResolutionStatus.RESOLVED
+    assert resolution.mode == ResolutionMode.ENVIRONMENT
+    assert resolution.identity is not None
+    assert resolution.identity.public_fqn == "pkg"
+    assert resolution.location is not None
+    assert resolution.location.origin == package / "__init__.py"
+    assert resolution.category == ModuleCategory.LOCAL
 
 
 def test_project_resolution_handles_stdlib_packages_without_ambient_sys_path(tmp_path: Path) -> None:

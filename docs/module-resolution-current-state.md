@@ -70,9 +70,10 @@ The compatibility `reason` property is derived from the diagnostic message
 rather than being the only stored failure fact.
 
 Initial diagnostic codes cover missing module specs, empty import paths,
-relative imports escaping their package, unresolved import paths, paths outside
-configured source roots, non-Python module paths, namespace directories without
-Python children, and generic unresolved filesystem paths.
+relative imports escaping their package, unresolved import paths, ambiguous
+from-imports, paths outside configured source roots, non-Python module paths,
+namespace directories without Python children, and generic unresolved filesystem
+paths.
 
 ### Namespace Package Basics
 
@@ -95,6 +96,33 @@ local/external namespace information.
 Bare runtime/environment collection no longer uses `ModuleCreator`.
 `RuntimeModuleLookup` uses `ModuleResolutionService(TargetEnvironment.runtime())`.
 
+### Explicit Resolution Modes
+
+Name-based resolution has explicit project, runtime, and environment entry
+points. `ModuleResolution.mode` now records the query mode selected by the
+caller instead of always reporting `PROJECT`.
+
+Runtime module lookup uses runtime name resolution, so runtime/environment
+collection preserves `ResolutionMode.RUNTIME` in resolver results instead of
+passing through the project-resolution path.
+
+### From-Import Ambiguity
+
+Central import-path resolution preserves `from package import name` ambiguity in
+`ModuleResolution` results. Ambiguous results carry typed alternatives for the
+submodule candidate and the exported-object container candidate, including
+whether each alternative resolved.
+
+Regular packages and modules can export names dynamically, so PDA does not
+pretend that a `from` import is only a submodule dependency. Namespace packages
+without `__init__.py` cannot define exported objects through package code, so a
+resolved namespace submodule can still resolve directly.
+
+The current import dependency analyzer adapts ambiguous results back to a module
+dependency by preferring a resolved submodule alternative and then a resolved
+exported-object container. This is compatibility behavior for module graphs, not
+the final symbol-binding model.
+
 ### Strict Project Search Paths
 
 Project contexts now build target environments with `include_sys_path=False`.
@@ -110,32 +138,6 @@ Project analyzers also no longer call `register_search_path`, so constructing
 or running an analyzer does not mutate the interpreter search path. The
 `register_search_path` helper remains only for explicit runtime-compatible
 workflows.
-
-## Partially Implemented
-
-### Resolution Modes Are Not Fully Reflected In Results
-
-`ResolutionMode.RUNTIME` and `ResolutionMode.ENVIRONMENT` exist, but runtime
-lookup currently calls `resolve_project_name`, so resulting `ModuleResolution`
-objects still report `mode=PROJECT`.
-
-The service needs explicit methods or parameters for runtime/environment
-resolution if mode is meant to be a reliable fact.
-
-### Ambiguity Is Modeled But Not Used
-
-`ResolutionStatus.AMBIGUOUS` exists, but no resolver path creates ambiguous
-results yet.
-
-`from package import name` is still resolved by trying a submodule candidate and
-then falling back to the containing package. The policy calls for preserving the
-ambiguity between:
-
-- `name` as a submodule;
-- `name` as an exported object;
-- `name` as unavailable.
-
-This is not represented yet.
 
 ## Open Or Not Implemented
 
