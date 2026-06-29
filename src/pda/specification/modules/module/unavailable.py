@@ -27,10 +27,6 @@ class UnavailableModule(BaseModule):
         return self
 
     @property
-    def spec(self) -> None:
-        return None
-
-    @property
     def base_path(self) -> None:
         return None
 

@@ -1,5 +1,4 @@
 import warnings
-from importlib.machinery import ModuleSpec
 from pathlib import Path
 from typing import Optional, Tuple, Union, overload
 
@@ -167,18 +166,13 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
 
     def get_category(
         self,
-        module: Union[str, ModuleSpec, Module, CategorizedModule],
+        module: Union[str, Module, CategorizedModule],
     ) -> ModuleCategory:
-        if isinstance(module, ModuleSpec):
-            module = module.name
-
         if isinstance(module, str):
             module = self[module]
 
         elif not isinstance(module, (Module, CategorizedModule)):
-            raise TypeError(
-                f"Unsupported module type: {type(module)}, expected str, ModuleSpec, Module, or CategorizedModule"
-            )
+            raise TypeError(f"Unsupported module type: {type(module)}, expected str, Module, or CategorizedModule")
 
         if isinstance(module, CategorizedModule):
             return module.category

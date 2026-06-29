@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from importlib.machinery import ModuleSpec
 from pathlib import Path
 from typing import Any, NamedTuple, Optional, Tuple, Union
 
-from pda.exceptions.spec import PDAModuleSpecError
 from pda.specification.imports.origin import OriginType
 from pda.specification.modules.module.category import ModuleCategory
 from pda.specification.modules.module.module import Module
@@ -32,10 +30,6 @@ class CategorizedModule(NamedTuple):
     @property
     def qualified_name(self) -> str:
         return self.module.qualified_name
-
-    @property
-    def spec(self) -> Optional[ModuleSpec]:
-        return self.module.spec
 
     @property
     def origin(self) -> Optional[Path]:
@@ -103,24 +97,6 @@ class CategorizedModule(NamedTuple):
             return "source not available for analysis"
 
         return None
-
-    @staticmethod
-    def from_spec(
-        spec: ModuleSpec,
-        *,
-        category: Optional[ModuleCategory] = None,
-        project_root: Optional[Pathlike] = None,
-    ) -> CategorizedModule:
-        module: Union[Module, UnavailableModule]
-        try:
-            module = Module.from_spec(spec)
-        except PDAModuleSpecError as error:
-            module = UnavailableModule(name=spec.name, error=error)
-        return CategorizedModule.from_module(
-            module,
-            category=category,
-            project_root=project_root,
-        )
 
     @staticmethod
     def from_module(

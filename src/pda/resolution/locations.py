@@ -12,7 +12,7 @@ class ModuleLocationFactory:
         self._classifier = classifier
 
     def from_spec(self, spec: ModuleSpec) -> ModuleCoordinates:
-        origin_type = OriginType.from_spec(spec)
+        origin_type = OriginType.from_origin(spec.origin)
         origin = self._origin_from_spec(spec, origin_type)
         locations: tuple[Path, ...] = tuple(
             resolved_location

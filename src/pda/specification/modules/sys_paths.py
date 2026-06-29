@@ -1,12 +1,9 @@
 import sysconfig
-from importlib.machinery import ModuleSpec
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
-from pda.config import ValidationOptions
 from pda.exceptions import PDAPathResolutionError, PDARelativeBasePathError
 from pda.specification.imports import ImportPath
-from pda.specification.modules.spec.spec import validate_spec_origin
 from pda.tools.logger import logger
 from pda.tools.singleton import Singleton
 from pda.types import Pathlike
@@ -39,29 +36,18 @@ class SysPaths(metaclass=Singleton):
     @classmethod
     def resolve(
         cls,
-        spec_or_origin: Optional[Union[Pathlike, ModuleSpec]],
+        origin: Optional[Pathlike],
         base_path: Optional[Pathlike] = None,
-        validation_options: Optional[ValidationOptions] = None,
     ) -> Optional[ImportPath]:
-        origin: Optional[Path] = None
-        options: ValidationOptions = validation_options or ValidationOptions.strict()
-        if isinstance(spec_or_origin, ModuleSpec):
-            if options.validate_origin:
-                origin = validate_spec_origin(
-                    spec_or_origin,
-                    expect_python=options.expect_python,
-                )
+        if origin is None:
+            raise TypeError("Expected path-like object, got: None")
 
-        elif isinstance(spec_or_origin, (str, Path)):
-            origin = Path(spec_or_origin)
+        origin_path = Path(origin)
 
-        else:
-            raise TypeError(f"Expected ModuleSpec or path-like object, got: {type(spec_or_origin)}")
-
-        if origin is None or not origin.is_absolute():
+        if not origin_path.is_absolute():
             return None
 
-        return cls.resolve_import_path(origin, base_path)
+        return cls.resolve_import_path(origin_path, base_path)
 
     @classmethod
     def resolve_import_path(cls, origin: Path, base_path: Optional[Pathlike]) -> Optional[ImportPath]:

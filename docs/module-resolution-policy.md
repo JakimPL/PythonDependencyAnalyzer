@@ -862,11 +862,8 @@ present the answers.
 - global import discovery;
 - mutation of `sys.path`;
 - categorization against a changing project root;
-- lazy recomputation of `spec` from ambient interpreter state.
-
-If a compatibility `spec` property remains, it should either return the stored
-facts reconstructed as a `ModuleSpec` or `None`; it should not call ambient
-`find_spec`.
+- `ModuleSpec` reconstruction or lazy recomputation from ambient interpreter
+  state.
 
 `ModuleSource` should describe the source file and source root context only. It
 may derive path-based names such as the relative import path or top-level source
@@ -1018,6 +1015,9 @@ These should be resolved before implementation:
 
 5. Should `ModuleSpec` be stored directly in PDA models, or should PDA store a
    serializable import descriptor derived from the spec?
+   - Decision: `ModuleSpec` stays inside the resolution layer as transient
+     import-system evidence. PDA models store serializable facts: identity,
+     origin, origin type, submodule search locations, kind, and category.
 
 6. What is the exact symbol FQN policy for function-local assignments,
    comprehensions, lambdas, and exception aliases?

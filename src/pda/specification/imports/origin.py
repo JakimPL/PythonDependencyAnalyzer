@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from importlib.machinery import ModuleSpec
 from pathlib import Path
-from typing import Union
 
 
 class OriginType(StrEnum):
@@ -14,8 +12,7 @@ class OriginType(StrEnum):
     BUILT_IN = "built-in"
 
     @classmethod
-    def from_spec(cls, spec: Union[str, ModuleSpec]) -> OriginType:
-        origin = spec.origin if isinstance(spec, ModuleSpec) else spec
+    def from_origin(cls, origin: str | None) -> OriginType:
         match origin:
             case None:
                 return cls.NONE

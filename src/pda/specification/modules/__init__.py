@@ -6,13 +6,6 @@ from pda.specification.modules.module.category import ModuleCategory
 from pda.specification.modules.module.module import Module
 from pda.specification.modules.module.type import ModuleType
 from pda.specification.modules.module.unavailable import UnavailableModule
-from pda.specification.modules.spec.spec import (
-    is_module,
-    is_namespace_package,
-    is_package,
-    validate_spec,
-    validate_spec_origin,
-)
 from pda.specification.modules.sys_paths import SysPaths
 from pda.specification.modules.types import CategorizedModuleDict, ModuleDict
 
@@ -28,9 +21,4 @@ __all__ = [
     "Module",
     "UnavailableModule",
     "CategorizedModule",
-    "is_module",
-    "is_package",
-    "is_namespace_package",
-    "validate_spec_origin",
-    "validate_spec",
 ]

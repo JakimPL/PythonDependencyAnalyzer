@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from importlib.machinery import ModuleSpec
 from pathlib import Path
 from typing import Optional, Self, Tuple
 
@@ -66,10 +65,6 @@ class BaseModule(Specification, ABC):
     @property
     @abstractmethod
     def base_path(self) -> Optional[Path]: ...
-
-    @property
-    @abstractmethod
-    def spec(self) -> Optional[ModuleSpec]: ...
 
     @abstractmethod
     def get_category(self, base_path: Optional[Path] = None) -> ModuleCategory: ...

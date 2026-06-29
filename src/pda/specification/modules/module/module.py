@@ -1,19 +1,17 @@
 from __future__ import annotations
 
 import sys
-from importlib.machinery import BuiltinImporter, FrozenImporter, ModuleSpec
-from importlib.util import spec_from_file_location
 from pathlib import Path
 from typing import Any, Dict, Optional, Self, Tuple
 
 from pydantic import Field, model_validator
 
-from pda.exceptions import PDAInvalidOriginTypeError, PDAMissingModuleNameError
+from pda.exceptions import PDAInvalidModuleOriginError, PDAMissingModuleNameError
 from pda.specification.imports.origin import OriginType
 from pda.specification.modules.module.base import BaseModule
 from pda.specification.modules.module.category import ModuleCategory
 from pda.specification.modules.module.type import ModuleType
-from pda.tools.paths import is_file, is_python_file, resolve_path
+from pda.tools.paths import is_python_file
 
 
 class Module(BaseModule):
@@ -43,10 +41,10 @@ class Module(BaseModule):
 
         if self.origin_type == OriginType.PYTHON:
             if self.origin is None:
-                raise PDAInvalidOriginTypeError(f"Module '{self.name}' has file origin type but no origin path")
+                raise PDAInvalidModuleOriginError(f"Module '{self.name}' has file origin type but no origin path")
 
             if not is_python_file(self.origin):
-                raise PDAInvalidOriginTypeError(f"Module '{self.name}' has non-Python origin file: '{self.origin}'")
+                raise PDAInvalidModuleOriginError(f"Module '{self.name}' has non-Python origin file: '{self.origin}'")
 
         return self
 
@@ -111,66 +109,6 @@ class Module(BaseModule):
             return None
 
         return path.parents[index]
-
-    @staticmethod
-    def retrieve_submodule_search_locations(spec: ModuleSpec) -> Tuple[Path, ...]:
-        locations = spec.submodule_search_locations or []
-        return tuple(path for location in locations if (path := resolve_path(location)) is not None)
-
-    @classmethod
-    def from_spec(
-        cls,
-        spec: ModuleSpec,
-    ) -> Module:
-        """
-        Create a Module instance from a ModuleSpec and category.
-        """
-        origin_type = OriginType.from_spec(spec)
-        origin = (
-            None
-            if origin_type in {OriginType.BUILT_IN, OriginType.FROZEN, OriginType.NONE}
-            else resolve_path(spec.origin)
-        )
-        submodule_search_locations = cls.retrieve_submodule_search_locations(spec)
-
-        return cls(
-            name=spec.name,
-            origin=origin,
-            origin_type=origin_type,
-            submodule_search_locations=submodule_search_locations,
-        )
-
-    @property
-    def spec(self) -> Optional[ModuleSpec]:
-        """
-        Convert the Module instance back to a ModuleSpec for compatibility with importlib.
-        """
-        return self._spec_from_stored_location()
-
-    def _spec_from_stored_location(self) -> Optional[ModuleSpec]:
-        if self.is_namespace_package:
-            spec = ModuleSpec(self.name, loader=None, origin=None, is_package=True)
-            spec.submodule_search_locations = [str(path) for path in self.submodule_search_locations or ()]
-            return spec
-
-        if self.origin_type == OriginType.BUILT_IN:
-            return BuiltinImporter.find_spec(self.name)
-
-        if self.origin_type == OriginType.FROZEN:
-            return FrozenImporter.find_spec(self.name)
-
-        if self.origin is None or not is_file(self.origin):
-            return None
-
-        submodule_search_locations = None
-        if self.submodule_search_locations is not None:
-            submodule_search_locations = [str(path) for path in self.submodule_search_locations]
-
-        return spec_from_file_location(
-            self.name,
-            self.origin,
-            submodule_search_locations=submodule_search_locations,
-        )
 
     def get_category(self, base_path: Optional[Path] = None) -> ModuleCategory:
         """

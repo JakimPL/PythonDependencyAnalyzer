@@ -11,26 +11,22 @@ from pda.exceptions.imports import (
     PDARelativeBasePathError,
     PDASourceFileOutsideProjectError,
 )
-from pda.exceptions.modules import PDAMissingModuleNameError, PDAMissingTopLevelModuleError, PDAModuleError
+from pda.exceptions.modules import (
+    PDAInvalidModuleOriginError,
+    PDAMissingModuleNameError,
+    PDAMissingTopLevelModuleError,
+    PDAModuleError,
+)
 from pda.exceptions.options import (
     PDACategoryDisabledWarning,
     PDAGraphLayoutWarning,
     PDAOptionsWarning,
-    PDAValidationOptionsWarning,
 )
 from pda.exceptions.scope import (
     PDAEmptyScopeError,
     PDAMissingScopeOriginError,
     PDAScopeException,
     PDAUninitializedScopeBuilderError,
-)
-from pda.exceptions.spec import (
-    PDAInvalidOriginTypeError,
-    PDAMissingModuleSpecError,
-    PDAModuleSpecError,
-    PDANoOriginError,
-    PDAOriginFileNotFoundError,
-    PDARelativeOriginError,
 )
 
 __all__ = [
@@ -44,6 +40,7 @@ __all__ = [
     "PDADependencyCycleError",
     # Module-related exceptions
     "PDAModuleError",
+    "PDAInvalidModuleOriginError",
     "PDAMissingModuleNameError",
     "PDAMissingTopLevelModuleError",
     # Import-related exceptions
@@ -56,16 +53,8 @@ __all__ = [
     "PDAMissingScopeOriginError",
     "PDAEmptyScopeError",
     "PDAUninitializedScopeBuilderError",
-    # Spec-related exceptions
-    "PDAModuleSpecError",
-    "PDANoOriginError",
-    "PDARelativeOriginError",
-    "PDAOriginFileNotFoundError",
-    "PDAInvalidOriginTypeError",
-    "PDAMissingModuleSpecError",
     # Options-related warnings
     "PDAOptionsWarning",
-    "PDAValidationOptionsWarning",
     "PDACategoryDisabledWarning",
     "PDAGraphLayoutWarning",
 ]

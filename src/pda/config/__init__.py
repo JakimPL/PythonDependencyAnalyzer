@@ -14,12 +14,10 @@ from pda.config.pyvis.layout import (
 from pda.config.pyvis.theme import Theme
 from pda.config.structures.graph import GraphSortMethod
 from pda.config.types import ConfigT
-from pda.config.validation import ValidationOptions
 
 __all__ = [
     "ConfigT",
     "BaseConfig",
-    "ValidationOptions",
     # Analyzers
     "ModuleScanConfig",
     "ModuleAnalyzerConfig",
