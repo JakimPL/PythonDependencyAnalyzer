@@ -6,13 +6,12 @@ from typing import Optional, Tuple, Union, overload
 from pda.analyzer.base import BaseAnalyzer
 from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
 from pda.analyzer.lazy import lazy_execution
-from pda.analyzer.modules.creator import ModuleCreator
+from pda.analyzer.modules.lookup import ModuleLookup, ProjectModuleLookup, RuntimeModuleLookup
 from pda.analyzer.modules.pkg import PkgModuleScanner
 from pda.analyzer.modules.scanner import FileSystemScanner
 from pda.config import ModulesCollectorConfig
 from pda.exceptions import PDACategoryDisabledWarning
 from pda.models import ModuleGraph, ModuleNode
-from pda.resolution import ModuleResolutionService, TargetEnvironment
 from pda.specification import (
     CategorizedModule,
     CategorizedModuleDict,
@@ -40,18 +39,19 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         self._collection: ModulesCollection = ModulesCollection(allow_unavailable=False)
         self._graph: ModuleGraph = ModuleGraph()
 
-        self._creator: ModuleCreator = ModuleCreator(project_root=self._project_root)
+        self._module_lookup: ModuleLookup = self._create_module_lookup()
         self._pkg_scanner: PkgModuleScanner = PkgModuleScanner(config=self.config.module_scan)
         self._fs_scanner: FileSystemScanner = FileSystemScanner(project_root=self._project_root)
-        self._resolver: Optional[ModuleResolutionService] = (
-            ModuleResolutionService(TargetEnvironment.create((self._project_root,)))
-            if self._project_root is not None
-            else None
-        )
         self._depth_policy: CategoryDepthPolicy = CategoryDepthPolicy(
             self.config.stdlib_depth,
             self.config.external_depth,
         )
+
+    def _create_module_lookup(self) -> ModuleLookup:
+        if self._project_root is not None:
+            return ProjectModuleLookup.create(self._project_root)
+
+        return RuntimeModuleLookup.create()
 
     def __bool__(self) -> bool:
         return bool(self._collection)
@@ -287,11 +287,10 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         if name in self._collection:
             return None
 
-        if origin is not None and self._resolver is not None:
-            resolution = self._resolver.resolve_filesystem_path(origin, source_root=self._project_root)
-            module = self._resolver.to_categorized_module(resolution, package=package)
+        if origin is not None:
+            module = self._module_lookup.filesystem_module(origin, package=package)
         else:
-            module = self._creator.create_module(name, package=package)
+            module = self._module_lookup.discovered_module(name, package=package)
 
         category = module.category
         if name in self._collection[category]:

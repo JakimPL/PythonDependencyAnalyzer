@@ -7,7 +7,7 @@ from typing import Iterator, Tuple
 
 import pytest
 
-from pda.analyzer.imports.resolver import ModuleResolver
+from pda.analyzer.imports.resolver import ImportResolver
 from pda.config import ModuleImportsAnalyzerConfig
 from pda.models import ModuleNode
 from pda.specification import ImportPath, ModuleCategory, ModuleSource, clear_module_spec_cache
@@ -48,13 +48,13 @@ def _resolver(
     *,
     qualified_names: bool = False,
     package: str = PKG,
-) -> ModuleResolver:
+) -> ImportResolver:
     config = ModuleImportsAnalyzerConfig(qualified_names=qualified_names)
-    return ModuleResolver(project_root=source_root, package=package, config=config)
+    return ImportResolver(project_root=source_root, package=package, config=config)
 
 
 def _source(
-    resolver: ModuleResolver,
+    resolver: ImportResolver,
     source_root: Path,
     origin: Path,
     *,
@@ -64,23 +64,14 @@ def _source(
         origin=origin,
         base_path=source_root,
         package=package,
-        validation_options=resolver.module_validation_options,
     )
 
 
-class TestModuleResolverInit:
+class TestImportResolverInit:
     def test_project_root_is_resolved(self, tmp_path: Path) -> None:
         resolver = _resolver(tmp_path)
 
         assert resolver._project_root == tmp_path.resolve()
-
-    def test_module_validation_options_allow_missing_dependency_specs(self, tmp_path: Path) -> None:
-        options = _resolver(tmp_path).module_validation_options
-
-        assert options.allow_missing_spec is True
-        assert options.validate_origin is True
-        assert options.expect_python is False
-        assert options.raise_error is False
 
 
 class TestCreateRoot:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional
 
-from pda.config import ModuleImportsAnalyzerConfig, ValidationOptions
+from pda.config import ModuleImportsAnalyzerConfig
 from pda.models import ModuleNode
 from pda.resolution import (
     ModuleResolutionService,
@@ -20,15 +20,7 @@ from pda.specification import (
 from pda.tools.logger import logger
 
 
-class ModuleResolver:
-    _ROOT_VALIDATION_OPTIONS = ValidationOptions.strict()
-    _MODULE_VALIDATION_OPTIONS = ValidationOptions(
-        allow_missing_spec=True,
-        validate_origin=True,
-        expect_python=False,
-        raise_error=False,
-    )
-
+class ImportResolver:
     def __init__(
         self,
         project_root: Path,
@@ -39,10 +31,6 @@ class ModuleResolver:
         self._package = package
         self._config = config
         self._resolution = ModuleResolutionService(TargetEnvironment.create((self._project_root,)))
-
-    @property
-    def module_validation_options(self) -> ValidationOptions:
-        return self._MODULE_VALIDATION_OPTIONS
 
     def create_root(self, filepath: Path) -> ModuleNode:
         resolution = self._resolution.resolve_filesystem_path(filepath, source_root=self._project_root)

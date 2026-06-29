@@ -1,7 +1,7 @@
 from pda.analyzer.base import BaseAnalyzer
 from pda.analyzer.imports import ModuleImportsAnalyzer
 from pda.analyzer.imports.parser import ImportStatementParser
-from pda.analyzer.imports.resolver import ModuleResolver
+from pda.analyzer.imports.resolver import ImportResolver
 from pda.analyzer.modules.collector import ModulesCollector
 from pda.analyzer.modules.creator import ModuleCreator
 from pda.analyzer.modules.pkg import PkgModuleScanner
@@ -18,7 +18,7 @@ __all__ = [
     "FileSystemScanner",
     "ModulesCollector",
     # Imports analyzer
-    "ModuleResolver",
+    "ImportResolver",
     "ImportStatementParser",
     "ModuleImportsAnalyzer",
     # Scope analyzer

@@ -13,8 +13,7 @@ from pda.specification.imports.origin import OriginType
 from pda.specification.modules.module.base import BaseModule
 from pda.specification.modules.module.category import ModuleCategory
 from pda.specification.modules.module.type import ModuleType
-from pda.specification.modules.spec.spec import find_module_spec, validate_spec
-from pda.tools.paths import resolve_path
+from pda.tools.paths import is_file, is_python_file, resolve_path
 
 
 class Module(BaseModule):
@@ -45,14 +44,13 @@ class Module(BaseModule):
         if self.package is not None and not self.package:
             raise PDAMissingModuleNameError("Package name cannot be empty if provided")
 
-        if self.origin is not None:
-            validate_spec(self.spec, validate_origin=False, expect_python=self.origin_type == OriginType.PYTHON)
+        if self.origin_type == OriginType.PYTHON:
+            if self.origin is None:
+                raise PDAInvalidOriginTypeError(f"Module '{self.name}' has file origin type but no origin path")
 
-        elif self.origin_type == OriginType.PYTHON:
-            raise PDAInvalidOriginTypeError(f"Module '{self.name}' has file origin type but no origin path")
+            if not is_python_file(self.origin):
+                raise PDAInvalidOriginTypeError(f"Module '{self.name}' has non-Python origin file: '{self.origin}'")
 
-        _ = self.base_path
-        _ = self.spec
         return self
 
     @property
@@ -92,28 +90,10 @@ class Module(BaseModule):
     @property
     def base_path(self) -> Optional[Path]:
         base_location = self._base_location
-        if base_location is not None:
-            base_path = self._base_path_from_location(base_location)
-            if base_path is not None:
-                return base_path
-
-        spec = find_module_spec(
-            self.top_level_module,
-            validate_origin=False,
-            expect_python=False,
-        )
-
-        path: Optional[Path] = None
-        if spec and spec.origin:
-            if spec.submodule_search_locations:
-                path = resolve_path(spec.submodule_search_locations[0])
-            else:
-                path = resolve_path(spec.origin)
-
-        if path is None:
+        if base_location is None:
             return None
 
-        return path.parent
+        return self._base_path_from_location(base_location)
 
     @property
     def _base_location(self) -> Optional[Path]:
@@ -166,22 +146,11 @@ class Module(BaseModule):
         )
 
     @property
-    def spec(self) -> ModuleSpec:
+    def spec(self) -> Optional[ModuleSpec]:
         """
         Convert the Module instance back to a ModuleSpec for compatibility with importlib.
         """
-        spec = self._spec_from_stored_location()
-        if spec is not None:
-            return spec
-
-        return find_module_spec(
-            self.name,
-            package=self.package,
-            allow_missing_spec=False,
-            raise_error=True,
-            validate_origin=False,
-            expect_python=False,
-        )
+        return self._spec_from_stored_location()
 
     def _spec_from_stored_location(self) -> Optional[ModuleSpec]:
         if self.is_namespace_package:
@@ -195,7 +164,7 @@ class Module(BaseModule):
         if self.origin_type == OriginType.FROZEN:
             return FrozenImporter.find_spec(self.name)
 
-        if self.origin is None or self.origin_type != OriginType.PYTHON:
+        if self.origin is None or not is_file(self.origin):
             return None
 
         submodule_search_locations = None

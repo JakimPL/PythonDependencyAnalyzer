@@ -19,7 +19,7 @@ from pda.analyzer.base import BaseAnalyzer
 from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
 from pda.analyzer.imports.parser import ImportStatementParser
 from pda.analyzer.imports.report import build_cycle_report, format_cycle_report
-from pda.analyzer.imports.resolver import ModuleResolver
+from pda.analyzer.imports.resolver import ImportResolver
 from pda.analyzer.lazy import lazy_execution
 from pda.config import ModuleImportsAnalyzerConfig
 from pda.exceptions import PDADependencyCycleError
@@ -74,7 +74,7 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self._collection: ModulesCollection = ModulesCollection(allow_unavailable=True)
         self._graph: ModuleGraph = ModuleGraph()
         self._parser: ImportStatementParser = ImportStatementParser()
-        self._resolver: ModuleResolver = ModuleResolver(
+        self._resolver: ImportResolver = ImportResolver(
             project_root=self._project_root,
             package=self._package,
             config=config,
@@ -228,7 +228,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             origin=filepath,
             base_path=base_path,
             package=package,
-            validation_options=self._resolver.module_validation_options,
         )
 
         import_paths = self._collect_imports(module_source, is_root=is_root)

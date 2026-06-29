@@ -859,8 +859,24 @@ present the answers.
 - lazy recomputation of `spec` from ambient interpreter state.
 
 If a compatibility `spec` property remains, it should either return the stored
-spec or construct a spec from stored facts without changing the chosen module
-identity.
+facts reconstructed as a `ModuleSpec` or `None`; it should not call ambient
+`find_spec`.
+
+`ModuleSource` should describe the source file and source root context only. It
+may derive path-based names such as the relative import path or top-level source
+name, but it should not expose `get_spec`, `get_package_spec`, or `module`
+helpers that perform resolution. Source files become resolved modules through a
+`SourceModuleContext` created by the resolution layer.
+
+`ImportResolver` is an analyzer adapter for import dependency analysis. It
+translates `ModuleSource` and parsed `ImportPath` values into central
+`ModuleResolutionService` queries. It should not grow module-resolution policy
+that belongs in the central resolution layer.
+
+`ModuleCreator` and `CategorizedModule.create` are compatibility/runtime
+creation paths. New project analysis should use `ModuleResolutionService`
+directly so source roots, local boundaries, namespace portions, and project-first
+lookup are applied consistently.
 
 Scope and symbol models should own lexical facts:
 

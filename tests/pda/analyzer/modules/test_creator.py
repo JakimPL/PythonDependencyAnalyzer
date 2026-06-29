@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import pytest
+from pathlib import Path
 
 from pda.analyzer.modules.creator import ModuleCreator
-from pda.exceptions import PDAPathResolutionError
 from pda.specification import ModuleCategory
-from pda.specification.modules.module.module import Module
 
 
-def test_create_module_returns_available_module_for_real_module() -> None:
+def test_create_module_returns_available_module_for_runtime_module_without_project_root() -> None:
     creator = ModuleCreator()
 
     result = creator.create_module("pathlib")
@@ -18,17 +16,23 @@ def test_create_module_returns_available_module_for_real_module() -> None:
     assert result.available is True
 
 
-def test_create_module_marks_unknown_and_unavailable_when_base_path_unresolvable(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def _raise(_self: Module) -> None:
-        raise PDAPathResolutionError("simulated base path failure")
+def test_create_module_uses_project_resolution_when_project_root_is_available(tmp_path: Path) -> None:
+    package = tmp_path / "pkg"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
 
-    monkeypatch.setattr(Module, "base_path", property(_raise))
+    creator = ModuleCreator(project_root=tmp_path)
+    result = creator.create_module("pkg")
 
+    assert result.name == "pkg"
+    assert result.category == ModuleCategory.LOCAL
+    assert result.origin == package / "__init__.py"
+
+
+def test_create_module_marks_missing_module_unknown_and_unavailable() -> None:
     creator = ModuleCreator()
-    result = creator.create_module("pathlib")
+    result = creator.create_module("definitely_not_a_real_module_xyz")
 
-    assert result.name == "pathlib"
+    assert result.name == "definitely_not_a_real_module_xyz"
     assert result.category == ModuleCategory.UNKNOWN
     assert result.available is False
