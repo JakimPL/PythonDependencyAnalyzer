@@ -804,18 +804,29 @@ Open point: exact CLI names can change, but internally the model should use
 
 ## Expected Resolver Responsibilities
 
-The central resolver should own:
+The public resolver should be a facade over focused resolution services. It
+should coordinate the following use cases:
 
 - module-name resolution;
-- import-path absolutization;
 - import-path resolution from source context;
-- import binding target resolution;
 - filesystem-path-to-module identity;
-- package context lookup;
-- category assignment;
+- source module context lookup;
 - unavailable result creation;
-- namespace portion representation;
-- cache invalidation scoped to resolver configuration.
+- namespace portion representation.
+
+Focused collaborators should own the repeated lower-level responsibilities:
+
+- target search path construction;
+- Python `ModuleSpec` lookup;
+- import-path absolutization and candidate module names;
+- filesystem source-root identity;
+- module kind and dependency category classification;
+- conversion to compatibility models such as `Module` and `CategorizedModule`.
+
+Recursive filesystem pruning is a scanner responsibility. PDA can keep using
+tree-oriented structures such as `PathForest`/`PathNode` when collecting files,
+while single-path resolution may use lighter path helpers that implement the
+same package-like directory rule.
 
 The resolver should not own:
 

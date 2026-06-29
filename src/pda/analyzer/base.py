@@ -1,5 +1,6 @@
 import sys
 from abc import ABC, abstractmethod
+from importlib import invalidate_caches
 from pathlib import Path
 from typing import Generic, Optional
 
@@ -14,15 +15,16 @@ def register_search_path(path: Path) -> None:
     Ensure ``path`` is on ``sys.path`` so module resolution can locate a project
     that is not installed in the current interpreter.
 
-    pda resolves modules via ``importlib.util.find_spec``, which only searches the
-    interpreter running pda. Adding the project root lets a project be analyzed
-    without being installed. The spec cache is cleared whenever a new path is added
-    so previously failed lookups are retried against the updated search path.
+    Runtime-compatible resolution paths still use importlib machinery, which
+    searches the interpreter running pda. The project root must be the first
+    path entry so an analyzed checkout wins over same-named modules elsewhere
+    on ``sys.path``.
     """
     entry = str(path)
-    if entry not in sys.path:
-        sys.path.insert(0, entry)
-        clear_module_spec_cache()
+    sys.path[:] = [existing for existing in sys.path if existing != entry]
+    sys.path.insert(0, entry)
+    invalidate_caches()
+    clear_module_spec_cache()
 
 
 class BaseAnalyzer(ABC, Generic[ConfigT, AnyT]):

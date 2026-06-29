@@ -28,9 +28,9 @@ class ModuleSource(Specification):
     Allows to provide fully qualified module names based on file paths,
     base path, and Python module naming conventions.
 
-    Assumes that the project follows standard Python packaging structure,
-    here the top-level project directory contains a package directory,
-    and modules are organized in subdirectories with __init__.py files.
+    This object stores filesystem context for a source file. Import-system
+    resolution is handled by the module resolver, not by this model's
+    validation.
     """
 
     origin: Path = Field(description="Absolute file path to the module")
@@ -53,7 +53,6 @@ class ModuleSource(Specification):
 
         _ = self.relative
         _ = self.top_level
-        _ = self.module
         return self
 
     @cached_property

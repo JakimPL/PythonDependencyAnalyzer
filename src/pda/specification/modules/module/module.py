@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import sys
-from importlib.machinery import ModuleSpec
+from importlib.machinery import BuiltinImporter, FrozenImporter, ModuleSpec
+from importlib.util import spec_from_file_location
 from pathlib import Path
 from typing import Any, Dict, Optional, Self, Tuple
 
 from pydantic import Field, model_validator
 
-from pda.exceptions import PDAInvalidOriginTypeError, PDAMissingModuleNameError, PDAPathResolutionError
+from pda.exceptions import PDAInvalidOriginTypeError, PDAMissingModuleNameError
 from pda.specification.imports.origin import OriginType
 from pda.specification.modules.module.base import BaseModule
 from pda.specification.modules.module.category import ModuleCategory
@@ -89,7 +90,13 @@ class Module(BaseModule):
         return None
 
     @property
-    def base_path(self) -> Path:
+    def base_path(self) -> Optional[Path]:
+        base_location = self._base_location
+        if base_location is not None:
+            base_path = self._base_path_from_location(base_location)
+            if base_path is not None:
+                return base_path
+
         spec = find_module_spec(
             self.top_level_module,
             validate_origin=False,
@@ -104,11 +111,29 @@ class Module(BaseModule):
                 path = resolve_path(spec.origin)
 
         if path is None:
-            raise PDAPathResolutionError(
-                f"Cannot determine base path for module '{self.name}' with top-level '{self.top_level_module}'"
-            )
+            return None
 
         return path.parent
+
+    @property
+    def _base_location(self) -> Optional[Path]:
+        if self.submodule_search_locations:
+            return self.submodule_search_locations[0]
+
+        if self.origin is None:
+            return None
+
+        if self.origin_type not in {OriginType.PYTHON, OriginType.NO_PYTHON}:
+            return None
+
+        return self.origin.with_suffix("") if self.origin.suffix else self.origin
+
+    def _base_path_from_location(self, path: Path) -> Optional[Path]:
+        index = len(self.parts) - 1
+        if index >= len(path.parents):
+            return None
+
+        return path.parents[index]
 
     @staticmethod
     def retrieve_submodule_search_locations(spec: ModuleSpec) -> Tuple[Path, ...]:
@@ -125,7 +150,11 @@ class Module(BaseModule):
         Create a Module instance from a ModuleSpec and category.
         """
         origin_type = OriginType.from_spec(spec)
-        origin = resolve_path(spec.origin)
+        origin = (
+            None
+            if origin_type in {OriginType.BUILT_IN, OriginType.FROZEN, OriginType.NONE}
+            else resolve_path(spec.origin)
+        )
         submodule_search_locations = cls.retrieve_submodule_search_locations(spec)
 
         return cls(
@@ -141,6 +170,10 @@ class Module(BaseModule):
         """
         Convert the Module instance back to a ModuleSpec for compatibility with importlib.
         """
+        spec = self._spec_from_stored_location()
+        if spec is not None:
+            return spec
+
         return find_module_spec(
             self.name,
             package=self.package,
@@ -148,6 +181,31 @@ class Module(BaseModule):
             raise_error=True,
             validate_origin=False,
             expect_python=False,
+        )
+
+    def _spec_from_stored_location(self) -> Optional[ModuleSpec]:
+        if self.is_namespace_package:
+            spec = ModuleSpec(self.name, loader=None, origin=None, is_package=True)
+            spec.submodule_search_locations = [str(path) for path in self.submodule_search_locations or ()]
+            return spec
+
+        if self.origin_type == OriginType.BUILT_IN:
+            return BuiltinImporter.find_spec(self.name)
+
+        if self.origin_type == OriginType.FROZEN:
+            return FrozenImporter.find_spec(self.name)
+
+        if self.origin is None or self.origin_type != OriginType.PYTHON:
+            return None
+
+        submodule_search_locations = None
+        if self.submodule_search_locations is not None:
+            submodule_search_locations = [str(path) for path in self.submodule_search_locations]
+
+        return spec_from_file_location(
+            self.name,
+            self.origin,
+            submodule_search_locations=submodule_search_locations,
         )
 
     def get_category(self, base_path: Optional[Path] = None) -> ModuleCategory:
@@ -160,8 +218,9 @@ class Module(BaseModule):
         are categorized as EXTERNAL.
         """
         if base_path is not None:
-            parents = self.path.parents if self.path else []
-            if base_path in parents:
+            path = self.path
+            parents = path.parents if path else []
+            if path == base_path or base_path in parents:
                 return ModuleCategory.LOCAL
 
         if self.top_level_module in sys.stdlib_module_names:

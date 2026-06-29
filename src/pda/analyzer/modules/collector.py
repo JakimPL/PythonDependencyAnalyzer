@@ -12,6 +12,7 @@ from pda.analyzer.modules.scanner import FileSystemScanner
 from pda.config import ModulesCollectorConfig
 from pda.exceptions import PDACategoryDisabledWarning
 from pda.models import ModuleGraph, ModuleNode
+from pda.resolution import ModuleResolutionService, TargetEnvironment
 from pda.specification import (
     CategorizedModule,
     CategorizedModuleDict,
@@ -42,6 +43,11 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         self._creator: ModuleCreator = ModuleCreator(project_root=self._project_root)
         self._pkg_scanner: PkgModuleScanner = PkgModuleScanner(config=self.config.module_scan)
         self._fs_scanner: FileSystemScanner = FileSystemScanner(project_root=self._project_root)
+        self._resolver: Optional[ModuleResolutionService] = (
+            ModuleResolutionService(TargetEnvironment.create((self._project_root,)))
+            if self._project_root is not None
+            else None
+        )
         self._depth_policy: CategoryDepthPolicy = CategoryDepthPolicy(
             self.config.stdlib_depth,
             self.config.external_depth,
@@ -140,8 +146,8 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
 
     def _collect_modules(self) -> None:
         self.clear()
-        self._collect_external_modules()
         self._collect_local_modules()
+        self._collect_external_modules()
         if self.config.collapse_level is not None:
             self._graph = self._graph.simplify(
                 self.config.collapse_level,
@@ -190,12 +196,15 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         if not origin:
             return
 
-        files = self._fs_scanner.get_submodule_paths(origin)
-        import_paths = self._fs_scanner.paths_to_import_paths(files, base_path)
-        for import_path in import_paths:
+        for filepath in self._fs_scanner.get_submodule_paths(origin):
+            import_path = self._fs_scanner.path_to_import_path(filepath, base_path)
+            if import_path is None:
+                continue
+
             self._add_module(
                 import_path,
                 base_path,
+                origin=filepath,
                 package=package,
                 parent=parent,
                 level=level,
@@ -210,10 +219,11 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         package: Optional[str] = None,
         parent: Optional[ModuleNode] = None,
         level: int = 0,
+        origin: Optional[Pathlike] = None,
         parent_context: CategoryContext,
     ) -> None:
         name = str(name)
-        module = self._get_module(name, package=package)
+        module = self._get_module(name, package=package, origin=origin)
 
         if not module:
             return
@@ -272,8 +282,17 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         self,
         name: str,
         package: Optional[str] = None,
+        origin: Optional[Pathlike] = None,
     ) -> Optional[CategorizedModule]:
-        module = self._creator.create_module(name, package=package)
+        if name in self._collection:
+            return None
+
+        if origin is not None and self._resolver is not None:
+            resolution = self._resolver.resolve_filesystem_path(origin, source_root=self._project_root)
+            module = self._resolver.to_categorized_module(resolution, package=package)
+        else:
+            module = self._creator.create_module(name, package=package)
+
         category = module.category
         if name in self._collection[category]:
             return None
