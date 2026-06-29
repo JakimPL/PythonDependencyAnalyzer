@@ -1,8 +1,3 @@
-# Coding Guidelines
-
-These guidelines describe how PDA code should evolve. They are intentionally
-stricter around module resolution because that area defines the facts used by
-import graphs, scope analysis, and future call graphs.
 
 ## General
 

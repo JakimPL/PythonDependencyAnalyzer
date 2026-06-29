@@ -1,11 +1,9 @@
-from pathlib import Path
 from typing import Optional, Self
 
 from pydantic import Field, model_validator
 
 from pda.exceptions import PDAMissingModuleNameError
 from pda.specification.modules.module.base import BaseModule
-from pda.specification.modules.module.category import ModuleCategory
 
 
 class UnavailableModule(BaseModule):
@@ -29,6 +27,3 @@ class UnavailableModule(BaseModule):
     @property
     def base_path(self) -> None:
         return None
-
-    def get_category(self, base_path: Optional[Path] = None) -> ModuleCategory:
-        return ModuleCategory.UNKNOWN

@@ -53,7 +53,16 @@ class ProjectModuleLookup:
         return self.resolver.to_categorized_module(resolution)
 
     def category(self, module: Module) -> ModuleCategory:
-        return module.get_category(self.context.local_boundary)
+        resolution = self.resolver.resolve_project_name(module.name)
+        if resolution.resolved:
+            return resolution.category
+
+        if module.origin is not None:
+            resolution = self.resolver.resolve_filesystem_path(module.origin)
+            if resolution.resolved:
+                return resolution.category
+
+        return ModuleCategory.UNKNOWN
 
 
 @dataclass(frozen=True)
@@ -80,4 +89,8 @@ class RuntimeModuleLookup:
         return self.resolver.to_categorized_module(resolution)
 
     def category(self, module: Module) -> ModuleCategory:
-        return module.get_category(None)
+        resolution = self.resolver.resolve_project_name(module.name)
+        if resolution.resolved:
+            return resolution.category
+
+        return ModuleCategory.UNKNOWN

@@ -57,6 +57,11 @@ perform ambient module resolution.
 The model layer no longer exposes or reconstructs `ModuleSpec`. `ModuleSpec`
 usage is limited to the resolution layer as transient import-system evidence.
 
+`Module` and `CategorizedModule` also no longer infer dependency categories.
+Callers must provide an explicit `ModuleCategory`, and project/runtime category
+decisions flow through resolution-layer classification or analyzer lookup
+adapters.
+
 ### Namespace Package Basics
 
 Filesystem resolution and collection treat directories without `__init__.py` as
@@ -129,15 +134,6 @@ portion, and ambiguous object-vs-submodule.
 
 Typed reason codes or structured diagnostics are still missing.
 
-### Module Models Still Own Compatibility Categorization
-
-Project resolution uses `ModuleClassifier`, but `Module.get_category(...)` and
-`CategorizedModule.infer_category(...)` still exist for compatibility paths.
-
-This keeps some category policy in the specification model layer, contrary to
-the policy direction. It is less dangerous now because project analyzers use the
-central resolver, but it remains an architectural inconsistency.
-
 ## Open Or Not Implemented
 
 ### Explicit External Roots
@@ -183,10 +179,6 @@ This is required before function-call dependencies can be principled.
    Add project context, analyzer, and CLI configuration for dependency roots
    without falling back to ambient `sys.path`.
 
-3. **Remove Remaining Category Policy From Module Models**
-   Migrate `Module.get_category` and `CategorizedModule.infer_category` callers
-   to resolver/classifier paths, then remove those compatibility methods.
-
-4. **Source Context For Scope And Calls**
+3. **Source Context For Scope And Calls**
    Start a new phase that attaches parsed AST modules to `SourceModuleContext`
    and prepares lexical symbol FQNs.

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Self, Tuple
 
@@ -9,7 +8,6 @@ from pydantic import Field, model_validator
 from pda.exceptions import PDAInvalidModuleOriginError, PDAMissingModuleNameError
 from pda.specification.imports.origin import OriginType
 from pda.specification.modules.module.base import BaseModule
-from pda.specification.modules.module.category import ModuleCategory
 from pda.specification.modules.module.namespace import NamespacePortion
 from pda.specification.modules.module.type import ModuleType
 from pda.tools.paths import is_python_file
@@ -114,23 +112,3 @@ class Module(BaseModule):
             return None
 
         return path.parents[index]
-
-    def get_category(self, base_path: Optional[Path] = None) -> ModuleCategory:
-        """
-        Determine module category based on its origin path and top-level module name.
-        If base_path is provided, modules with origins under that path
-        are categorized as LOCAL.
-
-        Standard library modules are categorized as STDLIB, and all others
-        are categorized as EXTERNAL.
-        """
-        if base_path is not None:
-            path = self.path
-            parents = path.parents if path else []
-            if path == base_path or base_path in parents:
-                return ModuleCategory.LOCAL
-
-        if self.top_level_module in sys.stdlib_module_names:
-            return ModuleCategory.STDLIB
-
-        return ModuleCategory.EXTERNAL

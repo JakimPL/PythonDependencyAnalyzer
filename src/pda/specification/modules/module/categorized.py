@@ -9,8 +9,7 @@ from pda.specification.modules.module.module import Module
 from pda.specification.modules.module.namespace import NamespacePortion
 from pda.specification.modules.module.type import ModuleType
 from pda.specification.modules.module.unavailable import UnavailableModule
-from pda.tools.paths import is_file, resolve_path
-from pda.types import Pathlike
+from pda.tools.paths import is_file
 
 
 class CategorizedModule(NamedTuple):
@@ -107,24 +106,6 @@ class CategorizedModule(NamedTuple):
     def from_module(
         module: Union[Module, UnavailableModule],
         *,
-        category: Optional[ModuleCategory] = None,
-        project_root: Optional[Pathlike] = None,
+        category: ModuleCategory,
     ) -> CategorizedModule:
-        category = CategorizedModule.infer_category(module, category=category, project_root=project_root)
         return CategorizedModule(module=module, category=category)
-
-    @staticmethod
-    def infer_category(
-        module: Union[Module, UnavailableModule],
-        *,
-        category: Optional[ModuleCategory] = None,
-        project_root: Optional[Pathlike] = None,
-    ) -> ModuleCategory:
-        if isinstance(module, UnavailableModule):
-            return ModuleCategory.UNKNOWN
-
-        if category is None:
-            base_path = resolve_path(project_root)
-            return module.get_category(base_path)
-
-        return category

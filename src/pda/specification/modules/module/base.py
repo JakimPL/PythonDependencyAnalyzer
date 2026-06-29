@@ -9,7 +9,6 @@ from pydantic import Field, model_validator
 from pda.constants import DELIMITER
 from pda.specification.base import Specification
 from pda.specification.imports.path import ImportPath
-from pda.specification.modules.module.category import ModuleCategory
 
 
 class BaseModule(Specification, ABC):
@@ -65,6 +64,3 @@ class BaseModule(Specification, ABC):
     @property
     @abstractmethod
     def base_path(self) -> Optional[Path]: ...
-
-    @abstractmethod
-    def get_category(self, base_path: Optional[Path] = None) -> ModuleCategory: ...

@@ -25,7 +25,8 @@ def test_from_module_uses_explicit_category() -> None:
 
 def test_unavailable_module_is_unknown_and_unavailable() -> None:
     result = CategorizedModule.from_module(
-        UnavailableModule(name="definitely_not_a_real_module_xyz", error=Exception("missing"))
+        UnavailableModule(name="definitely_not_a_real_module_xyz", error=Exception("missing")),
+        category=ModuleCategory.UNKNOWN,
     )
 
     assert result.category == ModuleCategory.UNKNOWN
@@ -50,3 +51,14 @@ def test_python_module_with_unreadable_source_keeps_category_but_is_unavailable(
     assert result.category == ModuleCategory.LOCAL
     assert result.available is False
     assert result.availability_reason == "source not available for analysis"
+
+
+def test_from_module_requires_explicit_category() -> None:
+    module = Module(
+        name="pkg.module",
+        origin=Path(__file__),
+        origin_type=OriginType.PYTHON,
+    )
+
+    with pytest.raises(TypeError):
+        CategorizedModule.from_module(module)  # type: ignore[call-arg]
