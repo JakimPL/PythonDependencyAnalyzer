@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 from pda.resolution.models.environment import TargetEnvironment
@@ -16,7 +15,6 @@ class TargetSearchPath:
         paths.extend(self._environment.source_roots)
         paths.extend(self._environment.external_roots)
         paths.extend(self._environment.stdlib_roots)
-        if self._environment.include_sys_path:
-            paths.extend(Path(entry).resolve() for entry in sys.path if entry)
+        paths.extend(self._environment.sys_path_roots)
 
         return unique_path_entries(paths)

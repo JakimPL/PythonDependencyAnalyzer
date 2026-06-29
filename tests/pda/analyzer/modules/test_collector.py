@@ -41,6 +41,8 @@ def _collect(
     root_module_name: str = PKG,
     *,
     source_roots: Optional[Tuple[Path, ...]] = None,
+    external_roots: Tuple[Path, ...] = (),
+    include_sys_path: bool = True,
     **config_kwargs: object,
 ) -> ModulesCollector:
     # stdlib_depth/external_depth = 0 keeps the collector to local modules only (fast).
@@ -56,6 +58,8 @@ def _collect(
         project_root=project_root,
         root_module_name=root_module_name,
         source_roots=source_roots,
+        external_roots=external_roots,
+        include_sys_path=include_sys_path,
     )
     collector()
     return collector
@@ -224,6 +228,92 @@ class TestCollectorMaxDepth:
         names = _qualified_names(collector)
         assert {PKG, f"{PKG}.a"} <= names
         assert all(not name.startswith("src.") for name in names)
+
+    def test_project_collection_discovers_sys_path_external_modules_when_enabled(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        module_name = "collector_ambient_dep"
+        project_root = tmp_path / "project"
+        package = project_root / "app_pkg"
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("")
+
+        external_root = tmp_path / "site-packages"
+        external_package = external_root / module_name
+        external_package.mkdir(parents=True)
+        (external_package / "__init__.py").write_text("")
+        monkeypatch.syspath_prepend(str(external_root))
+        importlib.invalidate_caches()
+
+        module_scan = ModuleScanConfig(stdlib_depth=0, external_depth=1, hide_unavailable=False)
+        config = ModulesCollectorConfig(module_scan=module_scan)
+        collector = ModulesCollector(
+            config,
+            project_root=project_root,
+            root_module_name="app_pkg",
+            include_sys_path=True,
+        )
+        collector()
+
+        assert collector.modules[module_name].category == ModuleCategory.EXTERNAL
+
+    def test_project_collection_does_not_discover_sys_path_external_modules_when_disabled(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        module_name = "collector_strict_ambient_dep"
+        project_root = tmp_path / "project"
+        package = project_root / "app_pkg"
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("")
+
+        external_root = tmp_path / "site-packages"
+        external_package = external_root / module_name
+        external_package.mkdir(parents=True)
+        (external_package / "__init__.py").write_text("")
+        monkeypatch.syspath_prepend(str(external_root))
+        importlib.invalidate_caches()
+
+        module_scan = ModuleScanConfig(stdlib_depth=0, external_depth=1, hide_unavailable=False)
+        config = ModulesCollectorConfig(module_scan=module_scan)
+        collector = ModulesCollector(
+            config,
+            project_root=project_root,
+            root_module_name="app_pkg",
+            include_sys_path=False,
+        )
+        collector()
+
+        assert module_name not in collector.modules
+
+    def test_project_collection_discovers_explicit_external_roots_when_sys_path_disabled(self, tmp_path: Path) -> None:
+        module_name = "collector_explicit_external_dep"
+        project_root = tmp_path / "project"
+        package = project_root / "app_pkg"
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("")
+
+        external_root = tmp_path / "site-packages"
+        external_package = external_root / module_name
+        external_package.mkdir(parents=True)
+        (external_package / "__init__.py").write_text("")
+        importlib.invalidate_caches()
+
+        module_scan = ModuleScanConfig(stdlib_depth=0, external_depth=1, hide_unavailable=False)
+        config = ModulesCollectorConfig(module_scan=module_scan)
+        collector = ModulesCollector(
+            config,
+            project_root=project_root,
+            root_module_name="app_pkg",
+            external_roots=(external_root,),
+            include_sys_path=False,
+        )
+        collector()
+
+        assert collector.modules[module_name].category == ModuleCategory.EXTERNAL
 
 
 class TestCollectorCollapse:

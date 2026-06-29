@@ -17,7 +17,7 @@ from pda.config import ModulesCollectorConfig
 from pda.exceptions import PDACategoryDisabledWarning
 from pda.models import ModuleGraph, ModuleNode
 from pda.resolution import ProjectResolutionContext
-from pda.resolution.paths import longest_containing_root, module_base_path_from_search_location
+from pda.resolution.paths import is_relative_to, longest_containing_root, module_base_path_from_search_location
 from pda.specification import (
     CategorizedModule,
     CategorizedModuleDict,
@@ -42,6 +42,8 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         *,
         source_roots: Optional[Tuple[Pathlike, ...]] = None,
         local_boundary: Optional[Pathlike] = None,
+        external_roots: Tuple[Pathlike, ...] = (),
+        include_sys_path: bool = True,
     ) -> None:
         analysis_target = AnalysisTarget(root_module_name=root_module_name) if root_module_name is not None else None
         super().__init__(config=config, project_root=project_root, analysis_target=analysis_target)
@@ -53,8 +55,13 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         self._source_roots, self._module_lookup = self._create_source_roots_and_lookup(
             source_roots=source_roots,
             local_boundary=local_boundary,
+            external_roots=external_roots,
+            include_sys_path=include_sys_path,
         )
-        self._pkg_scanner: PkgModuleScanner = PkgModuleScanner(config=self.config.module_scan)
+        self._pkg_scanner: PkgModuleScanner = PkgModuleScanner(
+            config=self.config.module_scan,
+            paths=self._package_discovery_paths(),
+        )
         self._fs_scanner: FileSystemScanner = FileSystemScanner(
             project_root=self._project_root,
             source_roots=self._source_roots or None,
@@ -69,10 +76,12 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         *,
         source_roots: Optional[Tuple[Pathlike, ...]],
         local_boundary: Optional[Pathlike],
+        external_roots: Tuple[Pathlike, ...],
+        include_sys_path: bool,
     ) -> Tuple[Tuple[Path, ...], ModuleLookup]:
         if self._project_root is None:
-            if source_roots is not None or local_boundary is not None:
-                raise ValueError("source_roots and local_boundary require a project_root")
+            if source_roots is not None or local_boundary is not None or external_roots:
+                raise ValueError("source_roots, local_boundary, and external_roots require a project_root")
 
             return (), RuntimeModuleLookup.create()
 
@@ -83,10 +92,32 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
             self._project_root,
             source_roots=source_roots,
             local_boundary=local_boundary,
+            external_roots=external_roots,
+            include_sys_path=include_sys_path,
         )
         self._project_context = context
 
         return context.source_roots, ProjectModuleLookup.create(context)
+
+    def _package_discovery_paths(self) -> Optional[Tuple[Path, ...]]:
+        if self._project_context is None:
+            return None
+
+        environment = self._project_context.environment
+        paths = [
+            *environment.external_roots,
+            *environment.stdlib_roots,
+            *environment.sys_path_roots,
+        ]
+        return tuple(path for path in paths if not self._is_local_discovery_path(path))
+
+    def _is_local_discovery_path(self, path: Path) -> bool:
+        if self._project_context is None:
+            return False
+
+        return is_relative_to(path, self._project_context.local_boundary) and not any(
+            is_relative_to(path, external_root) for external_root in self._project_context.external_roots
+        )
 
     def __bool__(self) -> bool:
         return bool(self._collection)

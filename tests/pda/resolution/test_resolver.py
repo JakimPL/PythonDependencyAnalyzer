@@ -168,6 +168,86 @@ def test_project_context_resolution_ignores_sys_path_regular_package_over_local_
         importlib.invalidate_caches()
 
 
+def test_project_context_can_use_sys_path_for_external_dependencies_without_shadowing_local(tmp_path: Path) -> None:
+    external_name = "ambient_external_dep"
+    shadowed_name = "ambient_shadowed_dep"
+    project_root = tmp_path / "project"
+    source_root = project_root / "src"
+    external_root = tmp_path / "site-packages"
+
+    external_package = external_root / external_name
+    external_shadow = external_root / shadowed_name
+    local_shadow = source_root / shadowed_name
+    external_package.mkdir(parents=True)
+    external_shadow.mkdir(parents=True)
+    local_shadow.mkdir(parents=True)
+    (external_package / "__init__.py").write_text("")
+    (external_shadow / "__init__.py").write_text("")
+    (local_shadow / "__init__.py").write_text("")
+
+    sys.path.insert(0, str(external_root))
+    importlib.invalidate_caches()
+    try:
+        context = ProjectResolutionContext.create(
+            project_root,
+            source_roots=(Path("src"),),
+            include_sys_path=True,
+        )
+        resolver = ModuleResolutionService(context.environment)
+
+        external_resolution = resolver.resolve_project_name(external_name)
+        assert external_resolution.status == ResolutionStatus.RESOLVED
+        assert external_resolution.location is not None
+        assert external_resolution.location.origin == external_package / "__init__.py"
+        assert external_resolution.category == ModuleCategory.EXTERNAL
+
+        shadowed_resolution = resolver.resolve_project_name(shadowed_name)
+        assert shadowed_resolution.status == ResolutionStatus.RESOLVED
+        assert shadowed_resolution.location is not None
+        assert shadowed_resolution.location.origin == local_shadow / "__init__.py"
+        assert shadowed_resolution.category == ModuleCategory.LOCAL
+    finally:
+        while str(external_root) in sys.path:
+            sys.path.remove(str(external_root))
+        for module in list(sys.modules):
+            if module in {external_name, shadowed_name} or module.startswith(
+                (f"{external_name}.", f"{shadowed_name}.")
+            ):
+                del sys.modules[module]
+        importlib.invalidate_caches()
+
+
+def test_project_context_can_disable_sys_path_external_dependencies(tmp_path: Path) -> None:
+    module_name = "strict_external_dep"
+    project_root = tmp_path / "project"
+    source_root = project_root / "src"
+    external_root = tmp_path / "site-packages"
+    external_package = external_root / module_name
+    external_package.mkdir(parents=True)
+    (external_package / "__init__.py").write_text("")
+
+    sys.path.insert(0, str(external_root))
+    importlib.invalidate_caches()
+    try:
+        context = ProjectResolutionContext.create(
+            project_root,
+            source_roots=(source_root,),
+            include_sys_path=False,
+        )
+        resolver = ModuleResolutionService(context.environment)
+
+        resolution = resolver.resolve_project_name(module_name)
+        assert resolution.status == ResolutionStatus.UNAVAILABLE
+        assert resolution.category == ModuleCategory.UNKNOWN
+    finally:
+        while str(external_root) in sys.path:
+            sys.path.remove(str(external_root))
+        for module in list(sys.modules):
+            if module == module_name or module.startswith(f"{module_name}."):
+                del sys.modules[module]
+        importlib.invalidate_caches()
+
+
 def test_project_resolution_preserves_mixed_namespace_portions(tmp_path: Path) -> None:
     source_root = tmp_path / "src"
     external_root = tmp_path / "site-packages"

@@ -60,14 +60,11 @@ class ModuleClassifier:
         if location.namespace_portions:
             return any(portion.category == ModuleCategory.LOCAL for portion in location.namespace_portions)
 
-        if self._environment.local_boundary is None:
-            return False
-
         candidates = list(location.submodule_search_locations)
         if location.origin is not None:
             candidates.append(location.origin)
 
-        return any(is_relative_to(candidate, self._environment.local_boundary) for candidate in candidates)
+        return any(self.category_for_path(candidate) == ModuleCategory.LOCAL for candidate in candidates)
 
     def matched_root(
         self,
@@ -97,6 +94,7 @@ class ModuleClassifier:
             *self._environment.source_roots,
             *self._environment.external_roots,
             *self._environment.stdlib_roots,
+            *self._environment.sys_path_roots,
         ):
             if is_relative_to(path, root):
                 return root
@@ -107,16 +105,19 @@ class ModuleClassifier:
         return None
 
     def category_for_path(self, path: Path) -> ModuleCategory:
-        if self._environment.local_boundary is not None and is_relative_to(path, self._environment.local_boundary):
+        if any(is_relative_to(path, root) for root in self._environment.source_roots):
             return ModuleCategory.LOCAL
 
-        if any(is_relative_to(path, root) for root in self._environment.source_roots):
+        if any(is_relative_to(path, root) for root in self._environment.external_roots):
+            return ModuleCategory.EXTERNAL
+
+        if self._environment.local_boundary is not None and is_relative_to(path, self._environment.local_boundary):
             return ModuleCategory.LOCAL
 
         if any(is_relative_to(path, root) for root in self._environment.stdlib_roots):
             return ModuleCategory.STDLIB
 
-        if any(is_relative_to(path, root) for root in self._environment.external_roots):
+        if any(is_relative_to(path, root) for root in self._environment.sys_path_roots):
             return ModuleCategory.EXTERNAL
 
         return ModuleCategory.UNKNOWN

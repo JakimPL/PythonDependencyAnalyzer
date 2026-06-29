@@ -37,6 +37,21 @@ def _add_output_format_flags(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_resolution_environment_flags(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--external-roots",
+        type=_split_paths,
+        default=None,
+        help="Comma-separated dependency search roots, resolved relative to the project root when relative.",
+    )
+    parser.add_argument(
+        "--include-sys-path",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Use the active interpreter sys.path for external dependency resolution. Enabled by default.",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pda",
@@ -75,6 +90,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Filesystem boundary for local module categorization. Defaults to the project root.",
     )
+    _add_resolution_environment_flags(analyze)
     analyze.add_argument(
         "-o",
         "--output",
@@ -121,6 +137,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Filesystem boundary for local module categorization. Defaults to the project root.",
     )
+    _add_resolution_environment_flags(collect)
     collect.add_argument(
         "-o",
         "--output",

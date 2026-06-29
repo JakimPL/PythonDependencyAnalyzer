@@ -23,6 +23,13 @@ def _source_roots_arg(args: argparse.Namespace) -> Optional[Tuple[Path, ...]]:
     return tuple(args.source_roots)
 
 
+def _external_roots_arg(args: argparse.Namespace) -> Tuple[Path, ...]:
+    if args.external_roots is None:
+        return ()
+
+    return tuple(args.external_roots)
+
+
 def _append_suffix(name: Optional[str], suffix: str) -> str:
     return suffix if name is None else f"{name}-{suffix}"
 
@@ -45,6 +52,7 @@ def run_analyze(args: argparse.Namespace) -> int:
     project_root: Path = args.project_root
     root_module_name: str = args.root_module
     source_roots = _source_roots_arg(args)
+    external_roots = _external_roots_arg(args)
     paths: List[Path] = (
         args.paths
         if args.paths is not None
@@ -70,6 +78,8 @@ def run_analyze(args: argparse.Namespace) -> int:
         root_module_name=root_module_name,
         source_roots=source_roots,
         local_boundary=args.local_boundary,
+        external_roots=external_roots,
+        include_sys_path=args.include_sys_path,
     )
     graph = analyzer(paths)
     if args.cycles_output is not None:
@@ -93,12 +103,13 @@ def run_collect(args: argparse.Namespace) -> int:
     project_root: Optional[Path] = args.project_root
     root_module_name: Optional[str] = args.root_module
     source_roots = _source_roots_arg(args)
+    external_roots = _external_roots_arg(args)
     if project_root is not None and root_module_name is None:
         logger.error("A root module name is required when a project root is provided.")
         return 2
 
-    if project_root is None and (source_roots is not None or args.local_boundary is not None):
-        logger.error("source roots and local boundary require a project root.")
+    if project_root is None and (source_roots is not None or args.local_boundary is not None or external_roots):
+        logger.error("source roots, local boundary, and external roots require a project root.")
         return 2
 
     stem = _append_suffix(root_module_name, SUFFIX_MODULES)
@@ -111,6 +122,8 @@ def run_collect(args: argparse.Namespace) -> int:
         root_module_name=root_module_name,
         source_roots=source_roots,
         local_boundary=args.local_boundary,
+        external_roots=external_roots,
+        include_sys_path=args.include_sys_path,
     )
     return export(
         collector(),

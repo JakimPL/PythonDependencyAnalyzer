@@ -3,18 +3,20 @@ from __future__ import annotations
 import pkgutil
 import sys
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Iterable, List, Optional
 
 from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
 from pda.config import ModuleScanConfig
 from pda.specification import ModuleCategory, PKGModuleInfo
+from pda.types import Pathlike
 
 
 class PkgModuleScanner:
     """Scans and filters external modules using pkgutil."""
 
-    def __init__(self, config: ModuleScanConfig) -> None:
-        self._pkg_modules = {module.name: module for module in pkgutil.iter_modules()}
+    def __init__(self, config: ModuleScanConfig, paths: Optional[Iterable[Pathlike]] = None) -> None:
+        search_paths = None if paths is None else [str(Path(path)) for path in paths]
+        self._pkg_modules = {module.name: module for module in pkgutil.iter_modules(search_paths)}
         self._policy = CategoryDepthPolicy(config.stdlib_depth, config.external_depth)
 
     def discover(self) -> List[PKGModuleInfo]:

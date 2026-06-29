@@ -156,6 +156,12 @@ configured source roots first, then configured or discovered external roots,
 then standard-library roots as appropriate. It is not simply the current
 process's ambient `sys.path`.
 
+PDA may optionally include the active interpreter `sys.path` as an external
+dependency source. That option is a deliberate compatibility mode for workflows
+that want to analyze "what this running environment can import." It must be
+configurable, and source roots must still be searched first so local project
+modules and namespace portions are not shadowed by unrelated ambient packages.
+
 ## Policy Overview
 
 PDA should resolve modules through one central resolution service. That service
@@ -457,6 +463,9 @@ Rules:
 6. Preserve namespace package portions instead of collapsing them to a fake
    single origin.
 7. Fall back to built-in/frozen recognition where appropriate.
+8. Treat active `sys.path` as external search input only when the caller enables
+   it. This can preserve application-level environment discovery while keeping
+   low-level project contexts strict by default.
 
 This should be the default mode for import dependency analysis.
 
@@ -928,6 +937,8 @@ environment:
 - ordered source roots;
 - local boundary;
 - external roots, if configured;
+- whether active `sys.path` was included, and the effective `sys.path` roots if
+  cached results are reused across interpreter mutations;
 - Python executable or stdlib identity when stdlib detection matters;
 - resolution mode;
 - validation options.
@@ -1018,6 +1029,12 @@ These should be resolved before implementation:
    - Add `local_boundary` API/CLI configuration for classification.
    - Layout inference such as `src/` may be added later, but explicit
      configuration takes precedence.
+
+   Active-environment external discovery is separately controlled by
+   `include_sys_path`. Analyzer and CLI defaults may enable it for compatibility,
+   but production or deterministic runs should be able to disable it explicitly.
+   Explicit `external_roots` are dependency roots and should remain available
+   even when active `sys.path` is disabled.
 
 2. Should local filesystem collection include directories without
    `__init__.py` as namespace packages by default?

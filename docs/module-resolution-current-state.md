@@ -34,9 +34,12 @@ Focused collaborators own the lower-level responsibilities:
 - `project_root`;
 - one or more `source_roots`;
 - `local_boundary`.
+- explicit `external_roots`;
+- whether active interpreter `sys.path` should be included.
 
-The CLI and analyzer constructors expose `source_roots` and `local_boundary`.
-The old analyzer-level `package` input has been replaced by
+The CLI and analyzer constructors expose `source_roots`, `local_boundary`,
+`external_roots`, and `include_sys_path`. The old analyzer-level `package` input
+has been replaced by
 `AnalysisTarget.root_module_name`.
 
 ### Target-Constrained Analysis
@@ -123,12 +126,19 @@ dependency by preferring a resolved submodule alternative and then a resolved
 exported-object container. This is compatibility behavior for module graphs, not
 the final symbol-binding model.
 
-### Strict Project Search Paths
+### Configurable Project Search Paths
 
-Project contexts now build target environments with `include_sys_path=False`.
-Project resolution searches configured source roots, explicit external roots,
-and interpreter stdlib roots, but it does not append the process's ambient
-`sys.path`.
+Project contexts can build strict target environments with
+`include_sys_path=False`. This is the low-level default for deterministic
+project-context construction.
+
+Analyzer and CLI entry points expose the same option and default to
+`include_sys_path=True` for compatibility with existing application behavior:
+`external_depth` can discover active-environment third-party packages unless a
+caller disables it.
+
+Project resolution searches configured source roots before explicit external
+roots, interpreter stdlib roots, and optional active `sys.path` roots.
 
 This keeps local project packages and namespace portions source-root bounded.
 For example, a local namespace package named `tests` is still resolved from the
@@ -139,13 +149,14 @@ or running an analyzer does not mutate the interpreter search path. The
 `register_search_path` helper remains only for explicit runtime-compatible
 workflows.
 
-## Open Or Not Implemented
-
 ### Explicit External Roots
 
-`TargetEnvironment` supports `external_roots`, but project context, CLI, and
-analyzer constructors do not expose them. External resolution currently requires
-manual construction of a target environment or the runtime compatibility path.
+`ProjectResolutionContext`, analyzer constructors, and the CLI now expose
+explicit external dependency roots. `ModulesCollector` also uses the configured
+target environment for top-level package discovery, so collection and resolution
+share the same external search policy.
+
+## Open Or Not Implemented
 
 ### Cache Policy
 
@@ -176,10 +187,6 @@ This is required before function-call dependencies can be principled.
 
 ## Recommended Next Phases
 
-1. **Expose Explicit External Roots**
-   Add project context, analyzer, and CLI configuration for dependency roots
-   without falling back to ambient `sys.path`.
-
-2. **Source Context For Scope And Calls**
+1. **Source Context For Scope And Calls**
    Start a new phase that attaches parsed AST modules to `SourceModuleContext`
    and prepares lexical symbol FQNs.

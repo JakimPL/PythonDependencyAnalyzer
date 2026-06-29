@@ -160,6 +160,7 @@ def _(
     import_qualified_names,
     import_stdlib_depth,
     import_unify_nodes,
+    is_restricted,
     project_src,
     render_graph,
     root_module_name,
@@ -179,6 +180,7 @@ def _(
         config=import_config,
         project_root=project_src,
         root_module_name=root_module_name,
+        include_sys_path=not is_restricted,
     )
     import_graph = import_analyzer(project_src / root_module_name)
 
@@ -261,6 +263,7 @@ def _(
     collect_hide_unavailable,
     collect_qualified_names,
     collect_stdlib_depth,
+    is_restricted,
     project_src,
     render_graph,
     root_module_name,
@@ -279,6 +282,7 @@ def _(
         config=collect_config,
         project_root=project_src,
         root_module_name=root_module_name,
+        include_sys_path=not is_restricted,
     )
     modules_graph = collector()
 

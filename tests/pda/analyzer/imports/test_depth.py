@@ -43,6 +43,69 @@ def _names(analyzer: ModuleImportsAnalyzer, category: ModuleCategory) -> Set[str
     return {node.module.qualified_name for node in analyzer.graph if node.module.category == category}
 
 
+class TestExternalEnvironmentSearch:
+    def test_external_depth_uses_active_sys_path_when_enabled(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        project_root = tmp_path / "project"
+        package = project_root / "app_pkg"
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("")
+        (package / "main.py").write_text("import ambient_dep\n")
+
+        external_root = tmp_path / "site-packages"
+        external_package = external_root / "ambient_dep"
+        external_package.mkdir(parents=True)
+        (external_package / "__init__.py").write_text("")
+        monkeypatch.syspath_prepend(str(external_root))
+        importlib.invalidate_caches()
+
+        config = ModuleImportsAnalyzerConfig(module_scan=ModuleScanConfig(stdlib_depth=0, external_depth=1))
+        analyzer = ModuleImportsAnalyzer(
+            config,
+            project_root=project_root,
+            root_module_name="app_pkg",
+            include_sys_path=True,
+        )
+        analyzer(package / "main.py")
+
+        assert "ambient_dep" in _names(analyzer, ModuleCategory.EXTERNAL)
+
+    def test_external_depth_does_not_use_sys_path_when_disabled(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        project_root = tmp_path / "project"
+        package = project_root / "strict_app_pkg"
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("")
+        (package / "main.py").write_text("import strict_ambient_dep\n")
+
+        external_root = tmp_path / "site-packages"
+        external_package = external_root / "strict_ambient_dep"
+        external_package.mkdir(parents=True)
+        (external_package / "__init__.py").write_text("")
+        monkeypatch.syspath_prepend(str(external_root))
+        importlib.invalidate_caches()
+
+        config = ModuleImportsAnalyzerConfig(
+            module_scan=ModuleScanConfig(stdlib_depth=0, external_depth=1, hide_unavailable=False)
+        )
+        analyzer = ModuleImportsAnalyzer(
+            config,
+            project_root=project_root,
+            root_module_name="strict_app_pkg",
+            include_sys_path=False,
+        )
+        analyzer(package / "main.py")
+
+        assert "strict_ambient_dep" not in _names(analyzer, ModuleCategory.EXTERNAL)
+        assert "strict_ambient_dep" in _names(analyzer, ModuleCategory.UNKNOWN)
+
+
 class TestStdlibDepth:
     def test_depth_zero_hides_stdlib(self, project: Tuple[Path, Path]) -> None:
         root, filepath = project

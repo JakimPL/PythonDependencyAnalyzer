@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import sys
 import sysconfig
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Iterable, Optional, Tuple
 
 from pda.types import Pathlike
 
@@ -43,6 +44,13 @@ class TargetEnvironment:
             include_sys_path=True,
         )
 
+    @property
+    def sys_path_roots(self) -> Tuple[Path, ...]:
+        if not self.include_sys_path:
+            return ()
+
+        return unique_resolved_paths(Path(entry) for entry in sys.path if entry)
+
 
 def default_stdlib_roots() -> Tuple[Path, ...]:
     roots: list[Path] = []
@@ -56,6 +64,20 @@ def default_stdlib_roots() -> Tuple[Path, ...]:
             roots.append(root)
 
     return tuple(roots)
+
+
+def unique_resolved_paths(paths: Iterable[Pathlike]) -> Tuple[Path, ...]:
+    unique: list[Path] = []
+    seen: set[Path] = set()
+    for path in paths:
+        resolved = Path(path).resolve()
+        if resolved in seen:
+            continue
+
+        seen.add(resolved)
+        unique.append(resolved)
+
+    return tuple(unique)
 
 
 def resolve_local_boundary(
