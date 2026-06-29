@@ -12,13 +12,10 @@ from pda.types import AnyT, Pathlike
 
 def register_search_path(path: Path) -> None:
     """
-    Ensure ``path`` is on ``sys.path`` so module resolution can locate a project
-    that is not installed in the current interpreter.
+    Ensure ``path`` is on ``sys.path`` for explicit runtime-compatible workflows.
 
-    Runtime-compatible resolution paths still use importlib machinery, which
-    searches the interpreter running pda. The project root must be the first
-    path entry so an analyzed checkout wins over same-named modules elsewhere
-    on ``sys.path``.
+    Project analyzers should use ``ProjectResolutionContext`` instead of mutating
+    the interpreter search path.
     """
     entry = str(path)
     sys.path[:] = [existing for existing in sys.path if existing != entry]
@@ -35,9 +32,6 @@ class BaseAnalyzer(ABC, Generic[ConfigT, AnyT]):
     ) -> None:
         self.config = config or self.default_config()
         self._project_root = Path(project_root).resolve() if project_root is not None else None
-        if self._project_root is not None:
-            register_search_path(self._project_root)
-
         self._analysis_target = analysis_target
 
     @abstractmethod
@@ -62,9 +56,6 @@ class BaseAnalyzer(ABC, Generic[ConfigT, AnyT]):
     @project_root.setter
     def project_root(self, value: Optional[Pathlike]) -> None:
         self._project_root = Path(value).resolve() if value is not None else None
-        if self._project_root is not None:
-            register_search_path(self._project_root)
-
         if self:
             logger.info("Project root changed. Clearing the graph and modules")
 

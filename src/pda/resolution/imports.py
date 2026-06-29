@@ -1,7 +1,7 @@
 from typing import Optional
 
 from pda.constants import DELIMITER
-from pda.resolution.models import SourceModuleContext
+from pda.resolution.models.source import SourceModuleContext
 from pda.specification import ImportPath
 
 

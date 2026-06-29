@@ -15,6 +15,13 @@ def test_project_resolution_context_defaults_source_root_and_boundary_to_project
     assert context.local_boundary == tmp_path.resolve()
 
 
+def test_project_resolution_context_environment_excludes_ambient_sys_path(tmp_path: Path) -> None:
+    context = ProjectResolutionContext.create(tmp_path)
+
+    assert context.environment.include_sys_path is False
+    assert context.environment.stdlib_roots
+
+
 def test_project_resolution_context_resolves_relative_source_roots_and_boundary(tmp_path: Path) -> None:
     context = ProjectResolutionContext.create(
         tmp_path,

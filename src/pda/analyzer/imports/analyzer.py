@@ -16,7 +16,7 @@ from typing import (
     override,
 )
 
-from pda.analyzer.base import BaseAnalyzer, register_search_path
+from pda.analyzer.base import BaseAnalyzer
 from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
 from pda.analyzer.imports.parser import ImportStatementParser
 from pda.analyzer.imports.report import build_cycle_report, format_cycle_report
@@ -78,9 +78,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
             source_roots=source_roots,
             local_boundary=local_boundary,
         )
-        for source_root in self._project_context.source_roots:
-            register_search_path(source_root)
-
         self._files: Optional[List[Path]] = None
         self._root_origins: FrozenSet[Optional[Path]] = frozenset()
         self._collection: ModulesCollection = ModulesCollection(allow_unavailable=True)

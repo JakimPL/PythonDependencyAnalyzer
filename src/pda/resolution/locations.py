@@ -2,7 +2,8 @@ from importlib.machinery import ModuleSpec
 from pathlib import Path
 
 from pda.resolution.classification import ModuleClassifier
-from pda.resolution.models import ModuleCoordinates, ModuleIdentity, ModuleLocation
+from pda.resolution.models.identity import ModuleIdentity
+from pda.resolution.models.location import ModuleCoordinates, ModuleLocation
 from pda.specification.imports.origin import OriginType
 from pda.tools.paths import resolve_path
 

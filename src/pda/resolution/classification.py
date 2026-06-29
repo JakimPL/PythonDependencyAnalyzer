@@ -5,7 +5,10 @@ from importlib.machinery import EXTENSION_SUFFIXES
 from pathlib import Path
 from typing import Optional
 
-from pda.resolution.models import ModuleIdentity, ModuleLocation, ResolvedModuleKind, TargetEnvironment
+from pda.resolution.models.environment import TargetEnvironment
+from pda.resolution.models.identity import ModuleIdentity
+from pda.resolution.models.location import ModuleLocation
+from pda.resolution.models.resolution import ResolvedModuleKind
 from pda.resolution.paths import is_relative_to
 from pda.specification import ModuleCategory
 from pda.specification.imports.origin import OriginType

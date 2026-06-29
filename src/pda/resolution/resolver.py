@@ -10,15 +10,12 @@ from pda.resolution.conversion import CategorizedModuleBuilder
 from pda.resolution.filesystem import FilesystemModuleLocator
 from pda.resolution.imports import ImportPathCandidateBuilder
 from pda.resolution.locations import ModuleLocationFactory
-from pda.resolution.models import (
-    ModuleCoordinates,
-    ModuleResolution,
-    ResolutionMode,
-    ResolutionStatus,
-    SourceModuleContext,
-    TargetEnvironment,
-)
-from pda.resolution.search import ModuleSpecResolver, TargetSearchPath
+from pda.resolution.models.environment import TargetEnvironment
+from pda.resolution.models.location import ModuleCoordinates
+from pda.resolution.models.resolution import ModuleResolution, ResolutionMode, ResolutionStatus
+from pda.resolution.models.source import SourceModuleContext
+from pda.resolution.search.paths import TargetSearchPath
+from pda.resolution.search.specs import ModuleSpecResolver
 from pda.specification import CategorizedModule, ImportPath
 from pda.types import Pathlike
 

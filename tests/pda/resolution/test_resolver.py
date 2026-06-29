@@ -7,7 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from pda.resolution import ModuleResolutionService, ResolutionStatus, ResolvedModuleKind, TargetEnvironment
+from pda.resolution import (
+    ModuleResolutionService,
+    ProjectResolutionContext,
+    ResolutionStatus,
+    ResolvedModuleKind,
+    TargetEnvironment,
+)
 from pda.specification import ImportPath, ModuleCategory
 from pda.specification.imports.origin import OriginType
 
@@ -122,6 +128,40 @@ def test_project_resolution_prefers_source_root_over_loaded_shadow_module(tmp_pa
                 del sys.modules[module]
 
 
+def test_project_context_resolution_ignores_sys_path_regular_package_over_local_namespace(tmp_path: Path) -> None:
+    module_name = "shadowed_namespace"
+    project_root = tmp_path / "project"
+    external_root = tmp_path / "external"
+
+    local_namespace = project_root / module_name
+    external_package = external_root / module_name
+    local_namespace.mkdir(parents=True)
+    external_package.mkdir(parents=True)
+    (local_namespace / "test_app.py").write_text("")
+    (external_package / "__init__.py").write_text("")
+
+    sys.path.insert(0, str(external_root))
+    importlib.invalidate_caches()
+    try:
+        context = ProjectResolutionContext.create(project_root)
+        resolver = ModuleResolutionService(context.environment)
+        resolution = resolver.resolve_project_name(module_name)
+
+        assert resolution.status == ResolutionStatus.RESOLVED
+        assert resolution.kind == ResolvedModuleKind.NAMESPACE_PACKAGE
+        assert resolution.location is not None
+        assert resolution.location.origin is None
+        assert resolution.location.submodule_search_locations == (local_namespace,)
+        assert resolution.category == ModuleCategory.LOCAL
+    finally:
+        while str(external_root) in sys.path:
+            sys.path.remove(str(external_root))
+        for module in list(sys.modules):
+            if module == module_name or module.startswith(f"{module_name}."):
+                del sys.modules[module]
+        importlib.invalidate_caches()
+
+
 def test_project_resolution_preserves_mixed_namespace_portions(tmp_path: Path) -> None:
     source_root = tmp_path / "src"
     external_root = tmp_path / "site-packages"
@@ -229,6 +269,21 @@ def test_project_resolution_handles_builtin_modules(tmp_path: Path) -> None:
     assert resolution.identity is not None
     assert resolution.identity.public_fqn == "sys"
     assert resolution.kind == ResolvedModuleKind.BUILTIN
+    assert resolution.category == ModuleCategory.STDLIB
+
+
+def test_project_resolution_handles_stdlib_packages_without_ambient_sys_path(tmp_path: Path) -> None:
+    source_root = tmp_path / "src"
+    source_root.mkdir()
+
+    resolver = _service(source_root)
+    resolution = resolver.resolve_project_name("json")
+
+    assert resolution.status == ResolutionStatus.RESOLVED
+    assert resolution.identity is not None
+    assert resolution.identity.public_fqn == "json"
+    assert resolution.location is not None
+    assert resolution.location.origin is not None
     assert resolution.category == ModuleCategory.STDLIB
 
 

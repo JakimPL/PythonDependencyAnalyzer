@@ -129,6 +129,19 @@ class TestCollectorMaxDepth:
                     del sys.modules[module]
             importlib.invalidate_caches()
 
+    def test_project_collection_does_not_register_project_root_on_sys_path(self, project: Path) -> None:
+        original_sys_path = list(sys.path)
+        entry = str(project.resolve())
+        try:
+            while entry in sys.path:
+                sys.path.remove(entry)
+
+            _collect(project)
+
+            assert entry not in sys.path
+        finally:
+            sys.path[:] = original_sys_path
+
     def test_collects_local_namespace_package_portion(self, tmp_path: Path) -> None:
         project_root = tmp_path / "project"
         namespace = project_root / "namespace_pkg"
@@ -143,6 +156,37 @@ class TestCollectorMaxDepth:
         assert module.origin is None
         assert module.submodule_search_locations == (namespace,)
         assert "namespace_pkg.leaf" in collector.modules
+
+    def test_collects_local_namespace_package_when_sys_path_has_regular_package(self, tmp_path: Path) -> None:
+        module_name = "shadowed_namespace_pkg"
+        project_root = tmp_path / "project"
+        namespace = project_root / module_name
+        namespace.mkdir(parents=True)
+        (namespace / "leaf.py").write_text("")
+
+        external_root = tmp_path / "external"
+        external_package = external_root / module_name
+        external_package.mkdir(parents=True)
+        (external_package / "__init__.py").write_text("")
+
+        sys.path.insert(0, str(external_root))
+        importlib.invalidate_caches()
+        try:
+            collector = _collect(project_root, root_module_name=module_name)
+
+            module = collector.modules[module_name]
+            assert module.category == ModuleCategory.LOCAL
+            assert module.is_namespace_package is True
+            assert module.origin is None
+            assert module.submodule_search_locations == (namespace,)
+            assert f"{module_name}.leaf" in collector.modules
+        finally:
+            while str(external_root) in sys.path:
+                sys.path.remove(str(external_root))
+            for module in list(sys.modules):
+                if module == module_name or module.startswith(f"{module_name}."):
+                    del sys.modules[module]
+            importlib.invalidate_caches()
 
     def test_collects_multiple_local_namespace_package_portions(self, tmp_path: Path) -> None:
         project_root = tmp_path / "repo"

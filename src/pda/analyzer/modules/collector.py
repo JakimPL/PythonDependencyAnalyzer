@@ -2,7 +2,7 @@ import warnings
 from pathlib import Path
 from typing import Optional, Tuple, Union, overload
 
-from pda.analyzer.base import BaseAnalyzer, register_search_path
+from pda.analyzer.base import BaseAnalyzer
 from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
 from pda.analyzer.lazy import lazy_execution
 from pda.analyzer.modules.lookup import (
@@ -85,8 +85,6 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
             local_boundary=local_boundary,
         )
         self._project_context = context
-        for source_root in context.source_roots:
-            register_search_path(source_root)
 
         return context.source_roots, ProjectModuleLookup.create(context)
 

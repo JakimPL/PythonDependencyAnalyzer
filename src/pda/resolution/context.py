@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional
 
-from pda.resolution.models import TargetEnvironment
+from pda.resolution.models.environment import TargetEnvironment
 from pda.types import Pathlike
 
 

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from pda.constants import DELIMITER
 from pda.resolution import ModuleResolution, ModuleResolutionService, ProjectResolutionContext
-from pda.resolution.models import ModuleLocation
+from pda.resolution.models.location import ModuleLocation
 from pda.resolution.paths import longest_containing_root
 
 

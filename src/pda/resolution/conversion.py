@@ -1,4 +1,4 @@
-from pda.resolution.models import ModuleResolution
+from pda.resolution.models.resolution import ModuleResolution
 from pda.specification import ModuleCategory
 from pda.specification.modules.module.categorized import CategorizedModule
 from pda.specification.modules.module.module import Module
