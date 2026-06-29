@@ -1,8 +1,7 @@
-from __future__ import annotations
-
 from pathlib import Path
 from typing import Iterable, Optional
 
+from pda.constants import DELIMITER
 from pda.tools.paths import is_python_file
 
 
@@ -41,3 +40,15 @@ def has_python_file_in_tree(path: Path) -> bool:
         return any(is_python_file(child) for child in path.rglob("*"))
     except OSError:
         return False
+
+
+def module_base_path_from_search_location(module_name: str, location: Path) -> Optional[Path]:
+    parts = tuple(part for part in module_name.split(DELIMITER) if part)
+    if not parts:
+        return None
+
+    parent_index = len(parts) - 1
+    if parent_index >= len(location.parents):
+        return None
+
+    return location.parents[parent_index]

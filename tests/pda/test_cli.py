@@ -51,9 +51,17 @@ def _patch(monkeypatch: pytest.MonkeyPatch, attr: str, graph: ModuleGraph) -> Di
     return captured
 
 
+def _write_package_root(source_root: Path, name: str = "mypkg") -> Path:
+    package = source_root / name
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+    return package
+
+
 class TestAnalyze:
     def test_default_output_and_paths(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         captured = _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("mypkg.a", "mypkg.b")]))
+        package = _write_package_root(tmp_path)
         monkeypatch.chdir(tmp_path)
 
         code = cli.main(["analyze", str(tmp_path), "mypkg"])
@@ -63,7 +71,7 @@ class TestAnalyze:
         assert captured["root_module_name"] == "mypkg"
         assert captured["source_roots"] is None
         assert captured["local_boundary"] is None
-        assert captured["paths"] == [tmp_path]
+        assert captured["paths"] == [package]
 
         data = json.loads((tmp_path / "mypkg-imports.json").read_text(encoding="utf-8"))
         assert {node["id"] for node in data["nodes"]} == {"mypkg.a", "mypkg.b"}
@@ -81,13 +89,14 @@ class TestAnalyze:
     def test_source_roots_become_default_paths(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         captured = _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("mypkg.a", "mypkg.b")]))
         source_root = tmp_path / "src"
+        package = _write_package_root(source_root)
         monkeypatch.chdir(tmp_path)
 
         code = cli.main(["analyze", str(tmp_path), "mypkg", "--source-roots", "src"])
 
         assert code == 0
         assert captured["source_roots"] == (Path("src"),)
-        assert captured["paths"] == [source_root]
+        assert captured["paths"] == [package]
 
 
 class TestCollect:
@@ -149,6 +158,7 @@ class TestCollect:
 class TestConfigFlags:
     def test_analyze_defaults_when_no_flags(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         captured = _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("a", "b")]))
+        _write_package_root(tmp_path)
         monkeypatch.chdir(tmp_path)
 
         cli.main(["analyze", str(tmp_path), "mypkg"])
@@ -163,6 +173,7 @@ class TestConfigFlags:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         captured = _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("a", "b")]))
+        _write_package_root(tmp_path)
         monkeypatch.chdir(tmp_path)
 
         cli.main(
@@ -207,12 +218,18 @@ class TestConfigFlags:
 
     def test_invalid_collapse_level_returns_one(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("a", "b")]))
+        _write_package_root(tmp_path)
         monkeypatch.chdir(tmp_path)
 
         assert cli.main(["analyze", str(tmp_path), "mypkg", "--collapse-level", "-1"]) == 1
 
 
 class TestErrors:
+    def test_missing_default_analysis_target_returns_one(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("a", "b")]))
+
+        assert cli.main(["analyze", str(tmp_path), "missing_pkg"]) == 1
+
     def test_runtime_error_returns_one(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         def action(
             *,
@@ -228,6 +245,7 @@ class TestErrors:
             return run
 
         monkeypatch.setattr(commands, "ModuleImportsAnalyzer", action)
+        _write_package_root(tmp_path)
 
         assert cli.main(["analyze", str(tmp_path), "mypkg"]) == 1
 
@@ -265,6 +283,7 @@ class TestFormatResolution:
 class TestHtmlOutput:
     def test_analyze_writes_self_contained_html(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("mypkg.a", "mypkg.b")]))
+        _write_package_root(tmp_path)
         output = tmp_path / "graph.html"
 
         code = cli.main(["analyze", str(tmp_path), "mypkg", "--output", str(output)])
@@ -277,6 +296,7 @@ class TestHtmlOutput:
 
     def test_format_html_overrides_json_extension(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("mypkg.a", "mypkg.b")]))
+        _write_package_root(tmp_path)
         output = tmp_path / "graph.json"
 
         code = cli.main(["analyze", str(tmp_path), "mypkg", "--output", str(output), "--format", "html"])
@@ -286,6 +306,7 @@ class TestHtmlOutput:
 
     def test_unsupported_extension_returns_one(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("mypkg.a", "mypkg.b")]))
+        _write_package_root(tmp_path)
 
         assert cli.main(["analyze", str(tmp_path), "mypkg", "--output", str(tmp_path / "graph.txt")]) == 1
 

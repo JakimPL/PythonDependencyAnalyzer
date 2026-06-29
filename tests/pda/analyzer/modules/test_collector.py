@@ -75,6 +75,22 @@ class TestCollectorMaxDepth:
 
         assert {PKG, f"{PKG}.a", f"{PKG}.sub", f"{PKG}.sub.c", f"{PKG}.sub.d"} <= names
 
+    def test_collects_only_analysis_target_local_tree(self, tmp_path: Path) -> None:
+        target = tmp_path / "target_pkg"
+        sibling = tmp_path / "sibling_pkg"
+        target.mkdir()
+        sibling.mkdir()
+        (target / "__init__.py").write_text("")
+        (target / "a.py").write_text("")
+        (sibling / "__init__.py").write_text("")
+        (sibling / "b.py").write_text("")
+
+        names = _qualified_names(_collect(tmp_path, root_module_name="target_pkg"))
+
+        assert {"target_pkg", "target_pkg.a"} <= names
+        assert "sibling_pkg" not in names
+        assert "sibling_pkg.b" not in names
+
     def test_max_depth_bounds_recursion(self, project: Path) -> None:
         names = _qualified_names(_collect(project, max_depth=1))
 
@@ -127,6 +143,26 @@ class TestCollectorMaxDepth:
         assert module.origin is None
         assert module.submodule_search_locations == (namespace,)
         assert "namespace_pkg.leaf" in collector.modules
+
+    def test_collects_multiple_local_namespace_package_portions(self, tmp_path: Path) -> None:
+        project_root = tmp_path / "repo"
+        first_root = project_root / "src_one"
+        second_root = project_root / "src_two"
+        first_namespace = first_root / "namespace_pkg"
+        second_namespace = second_root / "namespace_pkg"
+        first_namespace.mkdir(parents=True)
+        second_namespace.mkdir(parents=True)
+        (first_namespace / "one.py").write_text("")
+        (second_namespace / "two.py").write_text("")
+
+        collector = _collect(
+            project_root,
+            root_module_name="namespace_pkg",
+            source_roots=(Path("src_one"), Path("src_two")),
+        )
+
+        names = _qualified_names(collector)
+        assert {"namespace_pkg", "namespace_pkg.one", "namespace_pkg.two"} <= names
 
     def test_explicit_source_root_controls_module_fqns(self, tmp_path: Path) -> None:
         project_root = tmp_path / "repo"

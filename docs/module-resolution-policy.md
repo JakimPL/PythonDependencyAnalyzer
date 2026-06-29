@@ -167,7 +167,7 @@ include at least:
 
 - requested name or import path;
 - resolved module name;
-- package context, if any;
+- containing package context, if any;
 - origin, if any;
 - origin type;
 - submodule search locations;
@@ -490,7 +490,7 @@ context must provide:
 
 - source module FQN;
 - source module origin;
-- source module package context;
+- source module containing package context;
 - source root;
 - local boundary;
 - target import environment.
@@ -804,6 +804,11 @@ pda analyze . pda --source-roots src
 from the project root. Explicit `source_roots` take precedence over any future
 layout inference.
 
+When an analyzer has an `AnalysisTarget`, omitted entry paths should be derived
+from that target rather than from the whole source root. A target may resolve to
+a source module file, a regular package directory, or one or more local
+namespace package portions.
+
 ## Expected Resolver Responsibilities
 
 The public resolver should be a facade over focused resolution services. It
@@ -847,7 +852,6 @@ present the answers.
 `Module` should own:
 
 - resolved module name;
-- package context;
 - origin and origin type;
 - submodule search locations;
 - module type;

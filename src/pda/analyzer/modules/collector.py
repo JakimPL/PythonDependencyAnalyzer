@@ -13,11 +13,12 @@ from pda.analyzer.modules.lookup import (
 )
 from pda.analyzer.modules.pkg import PkgModuleScanner
 from pda.analyzer.modules.scanner import FileSystemScanner
-from pda.analyzer.target import AnalysisTarget
+from pda.analyzer.target import AnalysisTarget, AnalysisTargetResolver
 from pda.config import ModulesCollectorConfig
 from pda.exceptions import PDACategoryDisabledWarning
 from pda.models import ModuleGraph, ModuleNode
 from pda.resolution import ProjectResolutionContext
+from pda.resolution.paths import longest_containing_root, module_base_path_from_search_location
 from pda.specification import (
     CategorizedModule,
     CategorizedModuleDict,
@@ -48,6 +49,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
 
         self._collection: ModulesCollection = ModulesCollection(allow_unavailable=False)
         self._graph: ModuleGraph = ModuleGraph()
+        self._project_context: Optional[ProjectResolutionContext] = None
 
         self._source_roots, self._module_lookup = self._create_source_roots_and_lookup(
             source_roots=source_roots,
@@ -83,6 +85,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
             source_roots=source_roots,
             local_boundary=local_boundary,
         )
+        self._project_context = context
         for source_root in context.source_roots:
             register_search_path(source_root)
 
@@ -209,13 +212,15 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         if not self._source_roots:
             return
 
-        for source_root in self._source_roots:
-            self._add_submodules_from_files(
-                location=source_root,
-                base_path=source_root,
-                containing_package=None,
-                parent_context=CategoryContext.root(),
-            )
+        assert self._analysis_target is not None
+        assert self._project_context is not None
+        resolved_target = AnalysisTargetResolver(self._project_context).resolve(self._analysis_target)
+        self._add_module(
+            name=resolved_target.target.root_module_name,
+            base_path=None,
+            containing_package=None,
+            parent_context=CategoryContext.root(),
+        )
 
     def _add_submodules_from_files(
         self,
@@ -256,7 +261,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
     def _add_module(
         self,
         name: Union[str, ImportPath],
-        base_path: Path,
+        base_path: Optional[Path],
         *,
         containing_package: Optional[str] = None,
         parent: Optional[ModuleNode] = None,
@@ -291,9 +296,13 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         )
         self._add(node, parent)
         if self._depth_policy.should_recurse(context):
+            module_base_path = base_path or module.base_path
+            if module_base_path is None:
+                return
+
             self._add_submodules(
                 node,
-                base_path,
+                fallback_base_path=module_base_path,
                 containing_package=name,
                 level=level + 1,
                 parent_context=context,
@@ -312,17 +321,21 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
     def _add_submodules(
         self,
         node: ModuleNode,
-        base_path: Path,
         *,
+        fallback_base_path: Path,
         containing_package: Optional[str] = None,
         level: int = 0,
         parent_context: CategoryContext,
     ) -> None:
-        spec = node.module.spec
-        if not spec or not spec.submodule_search_locations:
+        locations = node.module.submodule_search_locations
+        if not locations:
             return
 
-        for location in spec.submodule_search_locations:
+        for location in locations:
+            if not self._should_scan_package_location(node.module, location):
+                continue
+
+            base_path = module_base_path_from_search_location(node.module.name, location) or fallback_base_path
             self._add_submodules_from_files(
                 location,
                 base_path=base_path,
@@ -354,6 +367,16 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
             return None
 
         return module
+
+    def _should_scan_package_location(
+        self,
+        module: CategorizedModule,
+        location: Path,
+    ) -> bool:
+        if module.category != ModuleCategory.LOCAL:
+            return True
+
+        return longest_containing_root(location, self._source_roots) is not None
 
     @classmethod
     def default_config(cls) -> ModulesCollectorConfig:

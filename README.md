@@ -68,7 +68,7 @@ pda analyze src pda
 
 The project root is added to the import search path, so the module does not need to be
 installed. `--paths` chooses the entry points to start from (comma-separated files or
-directories) and defaults to the whole project root.
+directories) and defaults to the resolved local path for the root module.
 
 For a repository-root invocation with a `src/` layout, keep the repository as the local
 boundary and set the import source root explicitly:
@@ -77,8 +77,9 @@ boundary and set the import source root explicitly:
 pda analyze . pda --source-roots src
 ```
 
-When `--source-roots` is provided and `--paths` is omitted, PDA starts from the normalized
-source roots. Multiple roots can be provided as a comma-separated list:
+When `--source-roots` is provided and `--paths` is omitted, PDA resolves the root module
+against those source roots and starts from the matching local package, namespace portion,
+or module file. Multiple roots can be provided as a comma-separated list:
 
 ```bash
 pda analyze . pda --source-roots packages/app,packages/lib

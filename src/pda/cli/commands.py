@@ -4,6 +4,7 @@ from typing import Final, List, Optional, Tuple
 
 from pda.analyzer import ModuleImportsAnalyzer, ModulesCollector
 from pda.analyzer.imports.report import build_cycle_report
+from pda.analyzer.target import AnalysisTarget, AnalysisTargetResolver
 from pda.cli.flags import build_config
 from pda.cli.output import export, resolve_output
 from pda.config import ModuleImportsAnalyzerConfig, ModulesCollectorConfig
@@ -28,17 +29,16 @@ def _append_suffix(name: Optional[str], suffix: str) -> str:
 
 def _default_analyze_paths(
     project_root: Path,
+    root_module_name: str,
     source_roots: Optional[Tuple[Path, ...]],
 ) -> List[Path]:
-    if source_roots is None:
-        return [project_root]
-
-    return list(
-        ProjectResolutionContext.create(
-            project_root,
-            source_roots=source_roots,
-        ).source_roots,
+    project_context = ProjectResolutionContext.create(
+        project_root,
+        source_roots=source_roots,
     )
+    target = AnalysisTarget(root_module_name=root_module_name)
+    resolved_target = AnalysisTargetResolver(project_context).resolve(target)
+    return list(resolved_target.local_entry_paths)
 
 
 def run_analyze(args: argparse.Namespace) -> int:
@@ -50,6 +50,7 @@ def run_analyze(args: argparse.Namespace) -> int:
         if args.paths is not None
         else _default_analyze_paths(
             project_root,
+            root_module_name,
             source_roots,
         )
     )
