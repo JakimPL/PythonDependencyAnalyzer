@@ -40,7 +40,8 @@ import graphs, scope analysis, and future call graphs.
 4. If new code duplicates existing logic, extract the shared rule first and make both call sites use it.
 5. `__init__.py` files may expose stable public API for their package, but internal code should import implementation modules directly.
 6. Prefer subpackages over a flat directory when a concept has multiple focused collaborators.
-7. Do not overload one module with unrelated responsibilities.
+7. Prefer a package over a single `.py` module when the concept contains multiple primitive types, utility functions, and collaborators. Keep the public import surface in `__init__.py` and move implementation details into focused modules.
+8. Do not overload one module with unrelated responsibilities.
 
 ## Type Hints
 

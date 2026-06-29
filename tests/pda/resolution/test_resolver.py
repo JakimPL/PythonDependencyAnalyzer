@@ -9,6 +9,7 @@ import pytest
 
 from pda.resolution import (
     ModuleResolutionService,
+    NamespacePortion,
     ProjectResolutionContext,
     ResolutionStatus,
     ResolvedModuleKind,
@@ -73,6 +74,9 @@ def test_filesystem_resolution_derives_modules_packages_and_namespace_portions(t
     assert namespace_resolution.location.origin is None
     assert namespace_resolution.location.origin_type == OriginType.NONE
     assert namespace_resolution.location.submodule_search_locations == (namespace,)
+    assert namespace_resolution.location.namespace_portions == (
+        NamespacePortion(path=namespace, matched_root=source_root, category=ModuleCategory.LOCAL),
+    )
     assert namespace_resolution.kind == ResolvedModuleKind.NAMESPACE_PACKAGE
     assert namespace_resolution.category == ModuleCategory.LOCAL
 
@@ -180,7 +184,15 @@ def test_project_resolution_preserves_mixed_namespace_portions(tmp_path: Path) -
     assert namespace_resolution.location is not None
     assert namespace_resolution.location.origin is None
     assert namespace_resolution.location.submodule_search_locations == (local_namespace, external_namespace)
+    assert namespace_resolution.location.namespace_portions == (
+        NamespacePortion(path=local_namespace, matched_root=source_root, category=ModuleCategory.LOCAL),
+        NamespacePortion(path=external_namespace, matched_root=external_root, category=ModuleCategory.EXTERNAL),
+    )
     assert namespace_resolution.category == ModuleCategory.LOCAL
+
+    module = resolver.to_categorized_module(namespace_resolution)
+    assert module.metadata is not None
+    assert module.metadata["namespace_portions"] == namespace_resolution.location.namespace_portions
 
     local_resolution = resolver.resolve_project_name("acme.local_mod")
     assert local_resolution.location is not None

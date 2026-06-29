@@ -1,6 +1,6 @@
 from .environment import TargetEnvironment
 from .identity import ModuleIdentity
-from .location import ModuleCoordinates, ModuleLocation
+from .location import ModuleCoordinates, ModuleLocation, NamespacePortion
 from .resolution import (
     ModuleResolution,
     ResolutionMode,
@@ -14,6 +14,7 @@ __all__ = [
     "ModuleIdentity",
     "ModuleLocation",
     "ModuleResolution",
+    "NamespacePortion",
     "ResolutionMode",
     "ResolutionStatus",
     "ResolvedModuleKind",

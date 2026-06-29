@@ -1,3 +1,5 @@
+from typing import Any
+
 from pda.resolution.models.resolution import ModuleResolution
 from pda.specification import ModuleCategory
 from pda.specification.modules.module.categorized import CategorizedModule
@@ -24,8 +26,18 @@ class CategorizedModuleBuilder:
             origin=resolution.location.origin,
             origin_type=resolution.location.origin_type,
             submodule_search_locations=resolution.location.submodule_search_locations,
+            metadata=self._metadata(resolution),
         )
         return CategorizedModule.from_module(
             module,
             category=resolution.category,
         )
+
+    def _metadata(
+        self,
+        resolution: ModuleResolution,
+    ) -> dict[str, Any] | None:
+        if resolution.location is None or not resolution.location.namespace_portions:
+            return None
+
+        return {"namespace_portions": resolution.location.namespace_portions}

@@ -3,9 +3,10 @@ from pathlib import Path
 from typing import Optional
 
 from pda.constants import DELIMITER
+from pda.resolution.classification import ModuleClassifier
 from pda.resolution.models.environment import TargetEnvironment
 from pda.resolution.models.identity import ModuleIdentity
-from pda.resolution.models.location import ModuleCoordinates, ModuleLocation
+from pda.resolution.models.location import ModuleCoordinates, ModuleLocation, NamespacePortion
 from pda.resolution.paths import has_python_file_in_tree, longest_containing_root
 from pda.specification.imports.origin import OriginType
 from pda.tools.paths import is_dir, is_file, is_python_file
@@ -26,6 +27,7 @@ class FilesystemModuleLookup:
 class FilesystemModuleLocator:
     def __init__(self, environment: TargetEnvironment) -> None:
         self._environment = environment
+        self._classifier = ModuleClassifier(environment)
 
     def locate(
         self,
@@ -100,7 +102,18 @@ class FilesystemModuleLocator:
             origin_type=origin_type,
             submodule_search_locations=locations,
             matched_root=root,
+            namespace_portions=self._namespace_portions(origin, locations),
         )
+
+    def _namespace_portions(
+        self,
+        origin: Path | None,
+        locations: tuple[Path, ...],
+    ) -> tuple[NamespacePortion, ...]:
+        if origin is not None or not locations:
+            return ()
+
+        return self._classifier.namespace_portions(locations)
 
     def _is_package_like_directory(self, path: Path) -> bool:
         if is_file(path / "__init__.py"):

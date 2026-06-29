@@ -7,7 +7,7 @@ from typing import Optional
 
 from pda.resolution.models.environment import TargetEnvironment
 from pda.resolution.models.identity import ModuleIdentity
-from pda.resolution.models.location import ModuleLocation
+from pda.resolution.models.location import ModuleLocation, NamespacePortion
 from pda.resolution.models.resolution import ResolvedModuleKind
 from pda.resolution.paths import is_relative_to
 from pda.specification import ModuleCategory
@@ -56,6 +56,9 @@ class ModuleClassifier:
         return ModuleCategory.EXTERNAL
 
     def is_local(self, location: ModuleLocation) -> bool:
+        if location.namespace_portions:
+            return any(portion.category == ModuleCategory.LOCAL for portion in location.namespace_portions)
+
         if self._environment.local_boundary is None:
             return False
 
@@ -71,8 +74,48 @@ class ModuleClassifier:
         locations: tuple[Path, ...],
     ) -> Optional[Path]:
         candidates = [candidate for candidate in (origin, *locations) if candidate is not None]
-        for root in (*self._environment.source_roots, *self._environment.external_roots):
-            if any(is_relative_to(candidate, root) for candidate in candidates):
+        for candidate in candidates:
+            root = self.matched_root_for_path(candidate)
+            if root is not None:
                 return root
 
         return None
+
+    def namespace_portions(self, locations: tuple[Path, ...]) -> tuple[NamespacePortion, ...]:
+        return tuple(
+            NamespacePortion(
+                path=location,
+                matched_root=self.matched_root_for_path(location),
+                category=self.category_for_path(location),
+            )
+            for location in locations
+        )
+
+    def matched_root_for_path(self, path: Path) -> Optional[Path]:
+        for root in (
+            *self._environment.source_roots,
+            *self._environment.external_roots,
+            *self._environment.stdlib_roots,
+        ):
+            if is_relative_to(path, root):
+                return root
+
+        if self._environment.local_boundary is not None and is_relative_to(path, self._environment.local_boundary):
+            return self._environment.local_boundary
+
+        return None
+
+    def category_for_path(self, path: Path) -> ModuleCategory:
+        if self._environment.local_boundary is not None and is_relative_to(path, self._environment.local_boundary):
+            return ModuleCategory.LOCAL
+
+        if any(is_relative_to(path, root) for root in self._environment.source_roots):
+            return ModuleCategory.LOCAL
+
+        if any(is_relative_to(path, root) for root in self._environment.stdlib_roots):
+            return ModuleCategory.STDLIB
+
+        if any(is_relative_to(path, root) for root in self._environment.external_roots):
+            return ModuleCategory.EXTERNAL
+
+        return ModuleCategory.UNKNOWN

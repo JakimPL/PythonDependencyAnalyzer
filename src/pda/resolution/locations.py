@@ -3,7 +3,7 @@ from pathlib import Path
 
 from pda.resolution.classification import ModuleClassifier
 from pda.resolution.models.identity import ModuleIdentity
-from pda.resolution.models.location import ModuleCoordinates, ModuleLocation
+from pda.resolution.models.location import ModuleCoordinates, ModuleLocation, NamespacePortion
 from pda.specification.imports.origin import OriginType
 from pda.tools.paths import resolve_path
 
@@ -25,6 +25,7 @@ class ModuleLocationFactory:
             origin_type=origin_type,
             submodule_search_locations=locations,
             matched_root=self._classifier.matched_root(origin, locations),
+            namespace_portions=self._namespace_portions(origin, locations),
         )
         return ModuleCoordinates(
             identity=ModuleIdentity(spec.name),
@@ -44,3 +45,13 @@ class ModuleLocationFactory:
             return None
 
         return resolve_path(spec.origin)
+
+    def _namespace_portions(
+        self,
+        origin: Path | None,
+        locations: tuple[Path, ...],
+    ) -> tuple[NamespacePortion, ...]:
+        if origin is not None or not locations:
+            return ()
+
+        return self._classifier.namespace_portions(locations)
