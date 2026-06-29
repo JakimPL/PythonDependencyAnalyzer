@@ -4,17 +4,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
 
-from pda.specification import ModuleCategory
 from pda.specification.imports.origin import OriginType
+from pda.specification.modules.module.namespace import NamespacePortion
 
 from .identity import ModuleIdentity
-
-
-@dataclass(frozen=True)
-class NamespacePortion:
-    path: Path
-    matched_root: Optional[Path]
-    category: ModuleCategory
 
 
 @dataclass(frozen=True)

@@ -10,6 +10,7 @@ from pda.exceptions import PDAInvalidModuleOriginError, PDAMissingModuleNameErro
 from pda.specification.imports.origin import OriginType
 from pda.specification.modules.module.base import BaseModule
 from pda.specification.modules.module.category import ModuleCategory
+from pda.specification.modules.module.namespace import NamespacePortion
 from pda.specification.modules.module.type import ModuleType
 from pda.tools.paths import is_python_file
 
@@ -32,6 +33,10 @@ class Module(BaseModule):
     metadata: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Additional metadata about the module",
+    )
+    namespace_portions: Tuple[NamespacePortion, ...] = Field(
+        default=(),
+        description="Namespace package portions with their root and category facts.",
     )
 
     @model_validator(mode="after")

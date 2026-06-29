@@ -67,10 +67,11 @@ Multi-root local namespace portions are collected with per-portion base-path
 derivation, so `namespace_pkg.one` and `namespace_pkg.two` can be collected from
 different source roots.
 
-`ModuleLocation` now preserves `NamespacePortion` facts for namespace packages.
-Each portion records the portion path, the matched configured root, and the
-portion category. Conversion to `Module` keeps those facts in metadata so graph
-models do not lose mixed local/external namespace information.
+`ModuleLocation` now preserves `NamespacePortion` specification facts for
+namespace packages. Each portion records the portion path, the matched
+configured root, and the portion category. Conversion to `Module` keeps those
+facts as explicit module fields so graph models do not lose mixed
+local/external namespace information.
 
 ### Runtime Collection Through Resolution
 

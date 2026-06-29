@@ -6,6 +6,7 @@ from typing import Any, NamedTuple, Optional, Tuple, Union
 from pda.specification.imports.origin import OriginType
 from pda.specification.modules.module.category import ModuleCategory
 from pda.specification.modules.module.module import Module
+from pda.specification.modules.module.namespace import NamespacePortion
 from pda.specification.modules.module.type import ModuleType
 from pda.specification.modules.module.unavailable import UnavailableModule
 from pda.tools.paths import is_file, resolve_path
@@ -42,6 +43,10 @@ class CategorizedModule(NamedTuple):
     @property
     def submodule_search_locations(self) -> Optional[Tuple[Path, ...]]:
         return self.module.submodule_search_locations if isinstance(self.module, Module) else None
+
+    @property
+    def namespace_portions(self) -> Tuple[NamespacePortion, ...]:
+        return self.module.namespace_portions if isinstance(self.module, Module) else ()
 
     @property
     def base_path(self) -> Optional[Path]:

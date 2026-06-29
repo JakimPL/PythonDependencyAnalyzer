@@ -6,9 +6,10 @@ from pda.constants import DELIMITER
 from pda.resolution.classification import ModuleClassifier
 from pda.resolution.models.environment import TargetEnvironment
 from pda.resolution.models.identity import ModuleIdentity
-from pda.resolution.models.location import ModuleCoordinates, ModuleLocation, NamespacePortion
+from pda.resolution.models.location import ModuleCoordinates, ModuleLocation
 from pda.resolution.paths import has_python_file_in_tree, longest_containing_root
 from pda.specification.imports.origin import OriginType
+from pda.specification.modules.module.namespace import NamespacePortion
 from pda.tools.paths import is_dir, is_file, is_python_file
 from pda.types import Pathlike
 

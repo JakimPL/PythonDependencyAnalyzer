@@ -9,13 +9,12 @@ import pytest
 
 from pda.resolution import (
     ModuleResolutionService,
-    NamespacePortion,
     ProjectResolutionContext,
     ResolutionStatus,
     ResolvedModuleKind,
     TargetEnvironment,
 )
-from pda.specification import ImportPath, ModuleCategory
+from pda.specification import ImportPath, ModuleCategory, NamespacePortion
 from pda.specification.imports.origin import OriginType
 
 
@@ -191,8 +190,7 @@ def test_project_resolution_preserves_mixed_namespace_portions(tmp_path: Path) -
     assert namespace_resolution.category == ModuleCategory.LOCAL
 
     module = resolver.to_categorized_module(namespace_resolution)
-    assert module.metadata is not None
-    assert module.metadata["namespace_portions"] == namespace_resolution.location.namespace_portions
+    assert module.namespace_portions == namespace_resolution.location.namespace_portions
 
     local_resolution = resolver.resolve_project_name("acme.local_mod")
     assert local_resolution.location is not None

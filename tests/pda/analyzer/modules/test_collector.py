@@ -7,8 +7,7 @@ import pytest
 
 from pda.analyzer import ModulesCollector
 from pda.config import ModuleScanConfig, ModulesCollectorConfig
-from pda.resolution import NamespacePortion
-from pda.specification import ModuleCategory
+from pda.specification import ModuleCategory, NamespacePortion
 
 PKG = "pdadepthcollector"
 
@@ -156,8 +155,7 @@ class TestCollectorMaxDepth:
         assert module.is_namespace_package is True
         assert module.origin is None
         assert module.submodule_search_locations == (namespace,)
-        assert module.metadata is not None
-        assert module.metadata["namespace_portions"] == (
+        assert module.namespace_portions == (
             NamespacePortion(path=namespace, matched_root=project_root, category=ModuleCategory.LOCAL),
         )
         assert "namespace_pkg.leaf" in collector.modules

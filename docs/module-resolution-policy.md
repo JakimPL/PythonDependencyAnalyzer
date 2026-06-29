@@ -181,6 +181,32 @@ global module searches from properties such as `spec` or `base_path`. If a spec
 or base path is needed later, it should come from the resolution result or be
 derived deterministically from stored facts.
 
+### Specification Versus Helper Types
+
+PDA should distinguish durable domain facts from implementation helpers.
+
+A type belongs in `pda.specification` when it is a stable PDA fact that may cross
+analyzer boundaries, be stored in graph-facing models, appear in output, or be
+consumed by later analysis phases. Specification types should describe facts
+already known to PDA. They should not perform ambient resolution, mutate runtime
+state, or depend on the current interpreter beyond values captured at creation
+time.
+
+A type belongs outside `pda.specification` when it is transient machinery for a
+specific subsystem: candidate state, lookup results, factories, traversal
+state, parser helpers, or DTOs used only to move data between collaborators.
+These helper types may be public within their subsystem, but they should not be
+presented as stable PDA facts.
+
+Examples:
+
+- `Module`, `ImportPath`, `ImportStatement`, `SourceSpan`, and
+  `NamespacePortion` are specification facts.
+- `ModuleLocation`, `ModuleResolution`, `SourceModuleContext`, and
+  `TargetEnvironment` are resolution-layer facts or query context.
+- `ModuleCoordinates`, `FilesystemModuleLookup`, `PendingNode`, parser scope
+  helpers, and builder/factory classes are implementation helpers.
+
 ## Essential Primitive Types
 
 The following primitive concepts should be specified before implementation. The
@@ -693,10 +719,10 @@ may be made from multiple portions.
 Rules:
 
 1. A namespace package may have multiple search locations.
-2. Each location should retain its relationship to local, external, or stdlib
-   roots.
+2. Each location should be represented as a `NamespacePortion` specification
+   fact that retains its relationship to local, external, or stdlib roots.
 3. If any portion is local, PDA may categorize the namespace package as local
-   for local scanning, but it should preserve non-local portions in metadata.
+   for local scanning, but it should preserve non-local portions explicitly.
 4. Scanning local modules should recurse into local namespace portions.
 5. Import dependency analysis should resolve submodules using all portions that
    participate in the target environment, ordered by the target environment.

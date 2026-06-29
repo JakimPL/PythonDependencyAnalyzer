@@ -1,10 +1,8 @@
 from pda.resolution.context import ProjectResolutionContext
 from pda.resolution.models import (
-    ModuleCoordinates,
     ModuleIdentity,
     ModuleLocation,
     ModuleResolution,
-    NamespacePortion,
     ResolutionMode,
     ResolutionStatus,
     ResolvedModuleKind,
@@ -14,12 +12,10 @@ from pda.resolution.models import (
 from pda.resolution.resolver import ModuleResolutionService
 
 __all__ = [
-    "ModuleCoordinates",
     "ModuleIdentity",
     "ModuleLocation",
     "ModuleResolution",
     "ModuleResolutionService",
-    "NamespacePortion",
     "ProjectResolutionContext",
     "ResolutionMode",
     "ResolutionStatus",
