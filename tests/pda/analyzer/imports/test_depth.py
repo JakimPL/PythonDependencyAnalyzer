@@ -33,7 +33,7 @@ def project(tmp_path: Path) -> Tuple[Path, Path]:
 
 def _analyze(project_root: Path, filepath: Path, **scan_kwargs: object) -> ModuleImportsAnalyzer:
     config = ModuleImportsAnalyzerConfig(module_scan=ModuleScanConfig(**scan_kwargs))
-    analyzer = ModuleImportsAnalyzer(config, project_root=project_root, package=PKG)
+    analyzer = ModuleImportsAnalyzer(config, project_root=project_root, root_module_name=PKG)
     analyzer(filepath)
     return analyzer
 

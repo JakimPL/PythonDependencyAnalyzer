@@ -7,4 +7,4 @@ class PKGModuleInfo(NamedTuple):
 
     name: str
     base_path: Path
-    package: Optional[str]
+    containing_package: Optional[str]

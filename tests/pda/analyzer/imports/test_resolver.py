@@ -8,6 +8,7 @@ from typing import Iterator, Tuple
 import pytest
 
 from pda.analyzer.imports.resolver import ImportResolver
+from pda.analyzer.target import AnalysisTarget
 from pda.config import ModuleImportsAnalyzerConfig
 from pda.models import ModuleNode
 from pda.resolution import ProjectResolutionContext
@@ -48,24 +49,25 @@ def _resolver(
     source_root: Path,
     *,
     qualified_names: bool = False,
-    package: str = PKG,
+    root_module_name: str = PKG,
 ) -> ImportResolver:
     config = ModuleImportsAnalyzerConfig(qualified_names=qualified_names)
     context = ProjectResolutionContext.create(source_root)
-    return ImportResolver(project_context=context, package=package, config=config)
+    return ImportResolver(
+        project_context=context,
+        analysis_target=AnalysisTarget(root_module_name=root_module_name),
+        config=config,
+    )
 
 
 def _source(
     resolver: ImportResolver,
     source_root: Path,
     origin: Path,
-    *,
-    package: str = PKG,
 ) -> ModuleSource:
     return ModuleSource(
         origin=origin,
         base_path=source_root,
-        package=package,
     )
 
 
@@ -209,8 +211,8 @@ class TestResolveToModule:
             assert loaded.__spec__ is not None
             assert loaded.__spec__.origin == str(external_package / "__init__.py")
 
-            resolver = _resolver(source_root, package=module_name)
-            source = _source(resolver, source_root, source_package / "consumer.py", package=module_name)
+            resolver = _resolver(source_root, root_module_name=module_name)
+            source = _source(resolver, source_root, source_package / "consumer.py")
 
             result = resolver.resolve_to_module(source, ImportPath(module=module_name))
 

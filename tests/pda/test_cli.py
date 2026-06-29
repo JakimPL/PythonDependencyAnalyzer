@@ -29,14 +29,14 @@ def _patch(monkeypatch: pytest.MonkeyPatch, attr: str, graph: ModuleGraph) -> Di
         *,
         config: object,
         project_root: object,
-        package: object,
+        root_module_name: object,
         source_roots: object = None,
         local_boundary: object = None,
     ) -> Callable[..., ModuleGraph]:
         captured.update(
             config=config,
             project_root=project_root,
-            package=package,
+            root_module_name=root_module_name,
             source_roots=source_roots,
             local_boundary=local_boundary,
         )
@@ -60,7 +60,7 @@ class TestAnalyze:
 
         assert code == 0
         assert captured["project_root"] == tmp_path
-        assert captured["package"] == "mypkg"
+        assert captured["root_module_name"] == "mypkg"
         assert captured["source_roots"] is None
         assert captured["local_boundary"] is None
         assert captured["paths"] == [tmp_path]
@@ -91,7 +91,7 @@ class TestAnalyze:
 
 
 class TestCollect:
-    def test_default_output_with_package(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_default_output_with_root_module(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         captured = _patch(monkeypatch, "ModulesCollector", _graph([("mypkg", "mypkg.sub")]))
         monkeypatch.chdir(tmp_path)
 
@@ -99,7 +99,7 @@ class TestCollect:
 
         assert code == 0
         assert captured["project_root"] == tmp_path
-        assert captured["package"] == "mypkg"
+        assert captured["root_module_name"] == "mypkg"
         assert (tmp_path / "mypkg-modules.json").exists()
 
     def test_source_roots_are_passed_to_collector(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -122,10 +122,12 @@ class TestCollect:
 
         assert code == 0
         assert captured["project_root"] is None
-        assert captured["package"] is None
+        assert captured["root_module_name"] is None
         assert (tmp_path / "modules.json").exists()
 
-    def test_project_root_without_package_is_rejected(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_project_root_without_root_module_is_rejected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.chdir(tmp_path)
 
         code = cli.main(["collect", str(tmp_path)])
@@ -216,7 +218,7 @@ class TestErrors:
             *,
             config: object,
             project_root: object,
-            package: object,
+            root_module_name: object,
             source_roots: object = None,
             local_boundary: object = None,
         ) -> Callable[..., ModuleGraph]:

@@ -73,7 +73,7 @@ def validate_spec(
 @lru_cache(maxsize=None)
 def _find_module_spec(
     name: str,
-    package: Optional[str] = None,
+    containing_package: Optional[str] = None,
     *,
     allow_missing_spec: bool = False,
     raise_error: bool = True,
@@ -82,12 +82,12 @@ def _find_module_spec(
 ) -> Optional[ModuleSpec]:
     spec: Optional[ModuleSpec] = None
     try:
-        spec = find_spec(name, package=package)
+        spec = find_spec(name, package=containing_package)
     except (ImportError, ModuleNotFoundError, ValueError) as error:
         logger.debug("Error finding spec for module '%s': %s", name, error)
     except Exception as error:
         error_message = f"{error.__class__.__name__}: {error}"
-        message = f"An error occurred while finding spec for module '{name}' of package '{package}'"
+        message = f"An error occurred while finding spec for module '{name}' of package '{containing_package}'"
         if raise_error:
             raise PDAFindSpecError(message) from error
 
@@ -108,7 +108,7 @@ def _find_module_spec(
 @overload
 def find_module_spec(
     name: str,
-    package: Optional[str] = None,
+    containing_package: Optional[str] = None,
     *,
     allow_missing_spec: Literal[False] = False,
     raise_error: bool = True,
@@ -120,7 +120,7 @@ def find_module_spec(
 @overload
 def find_module_spec(
     name: str,
-    package: Optional[str] = None,
+    containing_package: Optional[str] = None,
     *,
     allow_missing_spec: Literal[True],
     raise_error: bool = True,
@@ -131,7 +131,7 @@ def find_module_spec(
 
 def find_module_spec(
     name: str,
-    package: Optional[str] = None,
+    containing_package: Optional[str] = None,
     *,
     allow_missing_spec: bool = False,
     raise_error: bool = True,
@@ -140,7 +140,7 @@ def find_module_spec(
 ) -> Optional[ModuleSpec]:
     return _find_module_spec(
         name,
-        package,
+        containing_package,
         allow_missing_spec=allow_missing_spec,
         raise_error=raise_error,
         validate_origin=validate_origin,

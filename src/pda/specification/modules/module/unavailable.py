@@ -24,9 +24,6 @@ class UnavailableModule(BaseModule):
         if not self.name:
             raise PDAMissingModuleNameError("Module name cannot be empty")
 
-        if self.package is not None and not self.package:
-            raise PDAMissingModuleNameError("Package name cannot be empty if provided")
-
         return self
 
     @property

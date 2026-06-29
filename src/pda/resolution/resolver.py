@@ -41,9 +41,9 @@ class ModuleResolutionService:
         self,
         name: str,
         *,
-        package: Optional[str] = None,
+        containing_package: Optional[str] = None,
     ) -> ModuleResolution:
-        fullname = self._resolve_name(name, package)
+        fullname = self._resolve_name(name, containing_package)
         spec = self._specs.find(fullname)
         if spec is None:
             return self._unavailable(
@@ -130,14 +130,12 @@ class ModuleResolutionService:
     def to_categorized_module(
         self,
         resolution: ModuleResolution,
-        *,
-        package: Optional[str] = None,
     ) -> CategorizedModule:
-        return self._modules.from_resolution(resolution, package=package)
+        return self._modules.from_resolution(resolution)
 
-    def _resolve_name(self, name: str, package: Optional[str]) -> str:
+    def _resolve_name(self, name: str, containing_package: Optional[str]) -> str:
         if name.startswith(DELIMITER):
-            return resolve_name(name, package)
+            return resolve_name(name, containing_package)
 
         return name
 

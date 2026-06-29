@@ -59,14 +59,14 @@ This installs the library and the `pda` command-line tool.
 
 ### Import dependency graph — `pda analyze`
 
-The minimal form analyses the `pda` package rooted at `src/` and writes
+The minimal form analyses the `pda` root module under `src/` and writes
 `pda-imports.json`:
 
 ```bash
 pda analyze src pda
 ```
 
-The project root is added to the import search path, so the package does not need to be
+The project root is added to the import search path, so the module does not need to be
 installed. `--paths` chooses the entry points to start from (comma-separated files or
 directories) and defaults to the whole project root.
 
@@ -103,10 +103,10 @@ pda analyze src pda \
 
 `pda collect` lists the modules that exist rather than following imports between them.
 Standard-library and external modules are included according to `--stdlib-depth` /
-`--external-depth`; a project root and package add that package's own modules.
+`--external-depth`; a project root and root module name add that root's own modules.
 
 ```bash
-# A package's own modules only (both category depths set to 0).
+# A root module's own modules only (both category depths set to 0).
 pda collect src pda \
     --stdlib-depth 0 \
     --external-depth 0
@@ -133,10 +133,10 @@ pda collect \
     --output environment-modules.json
 ```
 
-A `package` is required when a `project-root` is given. Output defaults to
-`<package>-imports.json` for `analyze`, and `<package>-modules.json` (or `modules.json`)
-for `collect`. Run `pda analyze --help` / `pda collect --help` for the full list of
-options.
+A root module name is required when a `project-root` is given. Output defaults to
+`<root-module>-imports.json` for `analyze`, and `<root-module>-modules.json` (or
+`modules.json`) for `collect`. Run `pda analyze --help` / `pda collect --help` for the
+full list of options.
 
 ## PDA Output
 
@@ -261,7 +261,12 @@ config = ModuleImportsAnalyzerConfig(
     collapse_level=2,
 )
 
-analyzer = ModuleImportsAnalyzer(config=config, project_root=Path("."), package="pda", source_roots=(Path("src"),))
+analyzer = ModuleImportsAnalyzer(
+    config=config,
+    project_root=Path("."),
+    root_module_name="pda",
+    source_roots=(Path("src"),),
+)
 graph = analyzer(Path("src/pda"))
 
 graph.save("pda-imports.json")     # node-link JSON on disk

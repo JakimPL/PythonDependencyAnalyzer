@@ -41,9 +41,6 @@ class Module(BaseModule):
         if not self.name:
             raise PDAMissingModuleNameError("Module name cannot be empty")
 
-        if self.package is not None and not self.package:
-            raise PDAMissingModuleNameError("Package name cannot be empty if provided")
-
         if self.origin_type == OriginType.PYTHON:
             if self.origin is None:
                 raise PDAInvalidOriginTypeError(f"Module '{self.name}' has file origin type but no origin path")
@@ -124,7 +121,6 @@ class Module(BaseModule):
     def from_spec(
         cls,
         spec: ModuleSpec,
-        package: Optional[str] = None,
     ) -> Module:
         """
         Create a Module instance from a ModuleSpec and category.
@@ -139,7 +135,6 @@ class Module(BaseModule):
 
         return cls(
             name=spec.name,
-            package=package,
             origin=origin,
             origin_type=origin_type,
             submodule_search_locations=submodule_search_locations,

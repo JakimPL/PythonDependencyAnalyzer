@@ -21,7 +21,6 @@ class BaseModule(Specification, ABC):
     """
 
     name: str = Field(description="Fully qualified module name, e.g. 'package.module'")
-    package: Optional[str] = Field(default=None, description="Corresponding package name, e.g. 'package'")
 
     @model_validator(mode="after")
     @abstractmethod
@@ -50,8 +49,7 @@ class BaseModule(Specification, ABC):
 
     @property
     def top_level_module(self) -> str:
-        top_level = self.package or self.name
-        return top_level.split(DELIMITER)[0]
+        return self.name.split(DELIMITER)[0]
 
     @property
     def is_top_level(self) -> bool:

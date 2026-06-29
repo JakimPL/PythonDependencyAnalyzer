@@ -11,7 +11,7 @@ def test_module_source_is_filesystem_context_without_resolution_methods(tmp_path
     origin = package / "module.py"
     origin.write_text("")
 
-    source = ModuleSource(origin=origin, base_path=tmp_path, package="pkg")
+    source = ModuleSource(origin=origin, base_path=tmp_path)
 
     assert source.relative.module == "pkg.module"
     assert source.top_level == "pkg"

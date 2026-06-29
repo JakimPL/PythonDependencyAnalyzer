@@ -4,6 +4,7 @@ from importlib import invalidate_caches
 from pathlib import Path
 from typing import Generic, Optional
 
+from pda.analyzer.target import AnalysisTarget
 from pda.config import ConfigT
 from pda.specification.modules.spec.spec import clear_module_spec_cache
 from pda.tools.logger import logger
@@ -32,14 +33,14 @@ class BaseAnalyzer(ABC, Generic[ConfigT, AnyT]):
         self,
         config: Optional[ConfigT] = None,
         project_root: Optional[Pathlike] = None,
-        package: Optional[str] = None,
+        analysis_target: Optional[AnalysisTarget] = None,
     ) -> None:
         self.config = config or self.default_config()
         self._project_root = Path(project_root).resolve() if project_root is not None else None
         if self._project_root is not None:
             register_search_path(self._project_root)
 
-        self._package = package
+        self._analysis_target = analysis_target
 
     @abstractmethod
     def __bool__(self) -> bool:
@@ -72,14 +73,14 @@ class BaseAnalyzer(ABC, Generic[ConfigT, AnyT]):
         self.clear()
 
     @property
-    def package(self) -> Optional[str]:
-        return self._package
+    def analysis_target(self) -> Optional[AnalysisTarget]:
+        return self._analysis_target
 
-    @package.setter
-    def package(self, value: Optional[str]) -> None:
-        self._package = value
+    @analysis_target.setter
+    def analysis_target(self, value: Optional[AnalysisTarget]) -> None:
+        self._analysis_target = value
         if self:
-            logger.info("Package changed. Clearing the graph and modules.")
+            logger.info("Analysis target changed. Clearing analyzer state.")
 
         self.clear()
 

@@ -24,6 +24,14 @@ The filesystem boundary used to decide whether a resolved module belongs to the
 analyzed project.
 _Avoid_: package root, repository root
 
+**Analysis Target**:
+The import root the user asks PDA to examine within an analyzed project.
+_Avoid_: package when referring to analyzer input
+
+**Root Module Name**:
+The absolute module identity string that names an analysis target.
+_Avoid_: package name, path name
+
 **Module Identity**:
 The fully qualified import name by which a module is known in the target
 environment.
@@ -49,8 +57,8 @@ module identity and location in the target environment.
 _Avoid_: import, lookup
 
 **Source Module Context**:
-The module identity, package context, and source-root context attached to a
-source file before resolving its imports or symbols.
+The module identity, containing-package context, and source-root context
+attached to a source file before resolving its imports or symbols.
 _Avoid_: source file metadata
 
 **Import Path**:

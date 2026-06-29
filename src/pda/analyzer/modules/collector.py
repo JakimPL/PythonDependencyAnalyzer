@@ -6,9 +6,14 @@ from typing import Optional, Tuple, Union, overload
 from pda.analyzer.base import BaseAnalyzer, register_search_path
 from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
 from pda.analyzer.lazy import lazy_execution
-from pda.analyzer.modules.lookup import ModuleLookup, ProjectModuleLookup, RuntimeModuleLookup
+from pda.analyzer.modules.lookup import (
+    ModuleLookup,
+    ProjectModuleLookup,
+    RuntimeModuleLookup,
+)
 from pda.analyzer.modules.pkg import PkgModuleScanner
 from pda.analyzer.modules.scanner import FileSystemScanner
+from pda.analyzer.target import AnalysisTarget
 from pda.config import ModulesCollectorConfig
 from pda.exceptions import PDACategoryDisabledWarning
 from pda.models import ModuleGraph, ModuleNode
@@ -33,12 +38,13 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         self,
         config: ModulesCollectorConfig,
         project_root: Optional[Pathlike] = None,
-        package: Optional[str] = None,
+        root_module_name: Optional[str] = None,
         *,
         source_roots: Optional[Tuple[Pathlike, ...]] = None,
         local_boundary: Optional[Pathlike] = None,
     ) -> None:
-        super().__init__(config=config, project_root=project_root, package=package)
+        analysis_target = AnalysisTarget(root_module_name=root_module_name) if root_module_name is not None else None
+        super().__init__(config=config, project_root=project_root, analysis_target=analysis_target)
 
         self._collection: ModulesCollection = ModulesCollection(allow_unavailable=False)
         self._graph: ModuleGraph = ModuleGraph()
@@ -68,6 +74,9 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
                 raise ValueError("source_roots and local_boundary require a project_root")
 
             return (), RuntimeModuleLookup.create()
+
+        if self._analysis_target is None:
+            raise ValueError("root_module_name is required when project_root is provided")
 
         context = ProjectResolutionContext.create(
             self._project_root,
@@ -153,7 +162,10 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         self._graph.clear()
         self._collection.clear()
 
-    def get_category(self, module: Union[str, ModuleSpec, Module, CategorizedModule]) -> ModuleCategory:
+    def get_category(
+        self,
+        module: Union[str, ModuleSpec, Module, CategorizedModule],
+    ) -> ModuleCategory:
         if isinstance(module, ModuleSpec):
             module = module.name
 
@@ -189,7 +201,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
             self._add_module(
                 name=module_info.name,
                 base_path=module_info.base_path,
-                package=module_info.package,
+                containing_package=module_info.containing_package,
                 parent_context=CategoryContext.root(),
             )
 
@@ -201,7 +213,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
             self._add_submodules_from_files(
                 location=source_root,
                 base_path=source_root,
-                package=self._package,
+                containing_package=None,
                 parent_context=CategoryContext.root(),
             )
 
@@ -211,7 +223,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         base_path: Path,
         *,
         parent: Optional[ModuleNode] = None,
-        package: Optional[str] = None,
+        containing_package: Optional[str] = None,
         level: int = 0,
         parent_context: CategoryContext,
     ) -> None:
@@ -224,7 +236,10 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
             return
 
         for filepath in self._fs_scanner.get_submodule_paths(origin):
-            import_path = self._fs_scanner.path_to_import_path(filepath, base_path)
+            import_path = self._fs_scanner.path_to_import_path(
+                filepath,
+                base_path,
+            )
             if import_path is None:
                 continue
 
@@ -232,7 +247,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
                 import_path,
                 base_path,
                 origin=filepath,
-                package=package,
+                containing_package=containing_package,
                 parent=parent,
                 level=level,
                 parent_context=parent_context,
@@ -243,14 +258,18 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         name: Union[str, ImportPath],
         base_path: Path,
         *,
-        package: Optional[str] = None,
+        containing_package: Optional[str] = None,
         parent: Optional[ModuleNode] = None,
         level: int = 0,
         origin: Optional[Pathlike] = None,
         parent_context: CategoryContext,
     ) -> None:
         name = str(name)
-        module = self._get_module(name, package=package, origin=origin)
+        module = self._get_module(
+            name,
+            containing_package=containing_package,
+            origin=origin,
+        )
 
         if not module:
             return
@@ -265,18 +284,26 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         if self.config.hide_private and module.is_private:
             return
 
-        node = ModuleNode(module, level=level, qualified_name=self.config.qualified_names)
+        node = ModuleNode(
+            module,
+            level=level,
+            qualified_name=self.config.qualified_names,
+        )
         self._add(node, parent)
         if self._depth_policy.should_recurse(context):
             self._add_submodules(
                 node,
                 base_path,
-                package=name,
+                containing_package=name,
                 level=level + 1,
                 parent_context=context,
             )
 
-    def _add(self, node: ModuleNode, parent: Optional[ModuleNode] = None) -> None:
+    def _add(
+        self,
+        node: ModuleNode,
+        parent: Optional[ModuleNode] = None,
+    ) -> None:
         self._graph.add_node(node)
         self._collection.add(node.module)
         if parent is not None:
@@ -287,7 +314,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         node: ModuleNode,
         base_path: Path,
         *,
-        package: Optional[str] = None,
+        containing_package: Optional[str] = None,
         level: int = 0,
         parent_context: CategoryContext,
     ) -> None:
@@ -300,7 +327,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
                 location,
                 base_path=base_path,
                 parent=node,
-                package=package,
+                containing_package=containing_package,
                 level=level,
                 parent_context=parent_context,
             )
@@ -308,16 +335,19 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
     def _get_module(
         self,
         name: str,
-        package: Optional[str] = None,
+        containing_package: Optional[str] = None,
         origin: Optional[Pathlike] = None,
     ) -> Optional[CategorizedModule]:
         if name in self._collection:
             return None
 
         if origin is not None:
-            module = self._module_lookup.filesystem_module(origin, package=package)
+            module = self._module_lookup.filesystem_module(origin)
         else:
-            module = self._module_lookup.discovered_module(name, package=package)
+            module = self._module_lookup.discovered_module(
+                name,
+                containing_package=containing_package,
+            )
 
         category = module.category
         if name in self._collection[category]:

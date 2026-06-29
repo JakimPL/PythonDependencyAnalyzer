@@ -1,6 +1,6 @@
 import argparse
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Final, List, Optional, Tuple
 
 from pda.analyzer import ModuleImportsAnalyzer, ModulesCollector
 from pda.analyzer.imports.report import build_cycle_report
@@ -11,12 +11,19 @@ from pda.resolution import ProjectResolutionContext
 from pda.tools.logger import logger
 from pda.tools.serialization import save_json
 
+SUFFIX_IMPORTS: Final = "imports"
+SUFFIX_MODULES: Final = "modules"
+
 
 def _source_roots_arg(args: argparse.Namespace) -> Optional[Tuple[Path, ...]]:
     if args.source_roots is None:
         return None
 
     return tuple(args.source_roots)
+
+
+def _append_suffix(name: Optional[str], suffix: str) -> str:
+    return suffix if name is None else f"{name}-{suffix}"
 
 
 def _default_analyze_paths(
@@ -26,21 +33,40 @@ def _default_analyze_paths(
     if source_roots is None:
         return [project_root]
 
-    return list(ProjectResolutionContext.create(project_root, source_roots=source_roots).source_roots)
+    return list(
+        ProjectResolutionContext.create(
+            project_root,
+            source_roots=source_roots,
+        ).source_roots,
+    )
 
 
 def run_analyze(args: argparse.Namespace) -> int:
     project_root: Path = args.project_root
-    package: str = args.package
+    root_module_name: str = args.root_module
     source_roots = _source_roots_arg(args)
-    paths: List[Path] = args.paths if args.paths is not None else _default_analyze_paths(project_root, source_roots)
-    output, fmt = resolve_output(args.output, args.format, f"{package}-imports")
+    paths: List[Path] = (
+        args.paths
+        if args.paths is not None
+        else _default_analyze_paths(
+            project_root,
+            source_roots,
+        )
+    )
+    output, fmt = resolve_output(
+        args.output,
+        args.format,
+        _append_suffix(
+            root_module_name,
+            SUFFIX_IMPORTS,
+        ),
+    )
 
     config = build_config(ModuleImportsAnalyzerConfig, args)
     analyzer = ModuleImportsAnalyzer(
         config=config,
         project_root=project_root,
-        package=package,
+        root_module_name=root_module_name,
         source_roots=source_roots,
         local_boundary=args.local_boundary,
     )
@@ -53,30 +79,42 @@ def run_analyze(args: argparse.Namespace) -> int:
         )
         save_json(report, args.cycles_output)
 
-    return export(graph, output, fmt, theme=args.theme or "light", layout=args.layout)
+    return export(
+        graph,
+        output,
+        fmt,
+        theme=args.theme or "light",
+        layout=args.layout,
+    )
 
 
 def run_collect(args: argparse.Namespace) -> int:
     project_root: Optional[Path] = args.project_root
-    package: Optional[str] = args.package
+    root_module_name: Optional[str] = args.root_module
     source_roots = _source_roots_arg(args)
-    if project_root is not None and package is None:
-        logger.error("A package name is required when a project root is provided.")
+    if project_root is not None and root_module_name is None:
+        logger.error("A root module name is required when a project root is provided.")
         return 2
 
     if project_root is None and (source_roots is not None or args.local_boundary is not None):
         logger.error("source roots and local boundary require a project root.")
         return 2
 
-    stem = f"{package}-modules" if package is not None else "modules"
+    stem = _append_suffix(root_module_name, SUFFIX_MODULES)
     output, fmt = resolve_output(args.output, args.format, stem)
 
     config = build_config(ModulesCollectorConfig, args)
     collector = ModulesCollector(
         config=config,
         project_root=project_root,
-        package=package,
+        root_module_name=root_module_name,
         source_roots=source_roots,
         local_boundary=args.local_boundary,
     )
-    return export(collector(), output, fmt, theme=args.theme or "light", layout=args.layout)
+    return export(
+        collector(),
+        output,
+        fmt,
+        theme=args.theme or "light",
+        layout=args.layout,
+    )

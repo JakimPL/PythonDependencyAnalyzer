@@ -51,7 +51,7 @@ def _analyze(
         if scan_kwargs
         else ModuleImportsAnalyzerConfig()
     )
-    analyzer = ModuleImportsAnalyzer(config, project_root=project_root, package=PKG, source_roots=source_roots)
+    analyzer = ModuleImportsAnalyzer(config, project_root=project_root, root_module_name=PKG, source_roots=source_roots)
     analyzer(paths)
     return analyzer
 
@@ -128,7 +128,7 @@ class TestMultiRoot:
     def test_caching_and_refresh(self, project: Tuple[Path, Path]) -> None:
         root, pkg = project
         config = ModuleImportsAnalyzerConfig()
-        analyzer = ModuleImportsAnalyzer(config, project_root=root, package=PKG)
+        analyzer = ModuleImportsAnalyzer(config, project_root=root, root_module_name=PKG)
 
         first = analyzer([pkg / "a.py", pkg / "b.py"])
         cached = analyzer([pkg / "a.py", pkg / "b.py"])
@@ -140,7 +140,7 @@ class TestMultiRoot:
 
     def test_no_inputs_raises(self, project: Tuple[Path, Path]) -> None:
         root, _ = project
-        analyzer = ModuleImportsAnalyzer(ModuleImportsAnalyzerConfig(), project_root=root, package=PKG)
+        analyzer = ModuleImportsAnalyzer(ModuleImportsAnalyzerConfig(), project_root=root, root_module_name=PKG)
 
         with pytest.raises(ValueError):
             analyzer()

@@ -29,7 +29,6 @@ class ModuleSource(Specification):
 
     origin: Path = Field(description="Absolute file path to the module")
     base_path: Path = Field(description="Absolute path to the top-level project directory")
-    package: str = Field(description="Package name corresponding to the base path")
 
     @model_validator(mode="after")
     def validate_paths(self) -> Self:

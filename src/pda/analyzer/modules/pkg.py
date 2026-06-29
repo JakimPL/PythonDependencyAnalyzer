@@ -3,7 +3,7 @@ from __future__ import annotations
 import pkgutil
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
 from pda.config import ModuleScanConfig
@@ -35,13 +35,19 @@ class PkgModuleScanner:
             if base_path is None:
                 continue
 
-            package = name if pkg_module.ispkg else None
-            discovered.append(PKGModuleInfo(name=name, base_path=base_path, package=package))
+            containing_package = name if pkg_module.ispkg else None
+            discovered.append(
+                PKGModuleInfo(
+                    name=name,
+                    base_path=base_path,
+                    containing_package=containing_package,
+                )
+            )
 
         return discovered
 
     @staticmethod
-    def _finder_base_path(finder: object) -> Optional[Path]:
+    def _finder_base_path(finder: Any) -> Optional[Path]:
         path = getattr(finder, "path", None)
         if path is not None:
             return Path(path)

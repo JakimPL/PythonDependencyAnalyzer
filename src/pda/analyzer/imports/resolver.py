@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional
 
+from pda.analyzer.target import AnalysisTarget
 from pda.config import ModuleImportsAnalyzerConfig
 from pda.models import ModuleNode
 from pda.resolution import (
@@ -24,18 +25,18 @@ class ImportResolver:
     def __init__(
         self,
         project_context: ProjectResolutionContext,
-        package: str,
+        analysis_target: AnalysisTarget,
         config: ModuleImportsAnalyzerConfig,
     ) -> None:
         self._project_context = project_context
         self._project_root = project_context.project_root
-        self._package = package
+        self._analysis_target = analysis_target
         self._config = config
         self._resolution = ModuleResolutionService(project_context.environment)
 
     def create_root(self, filepath: Path) -> ModuleNode:
         resolution = self._resolution.resolve_filesystem_path(filepath)
-        module = self._resolution.to_categorized_module(resolution, package=self._package)
+        module = self._resolution.to_categorized_module(resolution)
 
         return ModuleNode(module, qualified_name=self._config.qualified_names)
 
@@ -74,8 +75,7 @@ class ImportResolver:
         else:
             resolution = self._resolution.resolve_import_path(context, import_path)
 
-        package = resolution.identity.parent_name if resolution.identity is not None else None
-        return self._resolution.to_categorized_module(resolution, package=package)
+        return self._resolution.to_categorized_module(resolution)
 
     def resolve_batch(
         self,

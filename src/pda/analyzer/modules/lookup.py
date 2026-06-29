@@ -13,15 +13,13 @@ class ModuleLookup(Protocol):
     def filesystem_module(
         self,
         origin: Pathlike,
-        *,
-        package: Optional[str],
     ) -> CategorizedModule: ...
 
     def discovered_module(
         self,
         name: str,
         *,
-        package: Optional[str],
+        containing_package: Optional[str],
     ) -> CategorizedModule: ...
 
     def category(self, module: Module) -> ModuleCategory: ...
@@ -42,23 +40,18 @@ class ProjectModuleLookup:
     def filesystem_module(
         self,
         origin: Pathlike,
-        *,
-        package: Optional[str],
     ) -> CategorizedModule:
         resolution = self.resolver.resolve_filesystem_path(origin)
-        return self.resolver.to_categorized_module(
-            resolution,
-            package=package,
-        )
+        return self.resolver.to_categorized_module(resolution)
 
     def discovered_module(
         self,
         name: str,
         *,
-        package: Optional[str],
+        containing_package: Optional[str],
     ) -> CategorizedModule:
-        resolution = self.resolver.resolve_project_name(name, package=package)
-        return self.resolver.to_categorized_module(resolution, package=package)
+        resolution = self.resolver.resolve_project_name(name, containing_package=containing_package)
+        return self.resolver.to_categorized_module(resolution)
 
     def category(self, module: Module) -> ModuleCategory:
         return module.get_category(self.context.local_boundary)
@@ -75,8 +68,6 @@ class RuntimeModuleLookup:
     def filesystem_module(
         self,
         origin: Pathlike,
-        *,
-        package: Optional[str],
     ) -> CategorizedModule:
         raise RuntimeError("Runtime module collection does not resolve local filesystem modules")
 
@@ -84,9 +75,9 @@ class RuntimeModuleLookup:
         self,
         name: str,
         *,
-        package: Optional[str],
+        containing_package: Optional[str],
     ) -> CategorizedModule:
-        return self.creator.create_module(name, package=package)
+        return self.creator.create_module(name, containing_package=containing_package)
 
     def category(self, module: Module) -> ModuleCategory:
         return module.get_category(None)

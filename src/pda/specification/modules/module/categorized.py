@@ -113,13 +113,12 @@ class CategorizedModule(NamedTuple):
         *,
         category: Optional[ModuleCategory] = None,
         project_root: Optional[Pathlike] = None,
-        package: Optional[str] = None,
     ) -> CategorizedModule:
         module: Union[Module, UnavailableModule]
         try:
-            module = Module.from_spec(spec, package=package)
+            module = Module.from_spec(spec)
         except PDAModuleSpecError as error:
-            module = UnavailableModule(name=spec.name, package=package, error=error)
+            module = UnavailableModule(name=spec.name, error=error)
         return CategorizedModule.from_module(
             module,
             category=category,
@@ -141,7 +140,7 @@ class CategorizedModule(NamedTuple):
         name: str,
         *,
         project_root: Optional[Pathlike] = None,
-        package: Optional[str] = None,
+        containing_package: Optional[str] = None,
         validation_options: Optional[ValidationOptions] = None,
     ) -> CategorizedModule:
         options: ValidationOptions = validation_options or ValidationOptions.strict()
@@ -149,7 +148,7 @@ class CategorizedModule(NamedTuple):
         spec: Optional[ModuleSpec] = None
         error: Optional[PDAModuleSpecError] = None
         try:
-            spec = find_module_spec(name, package=package, **options.model_dump())
+            spec = find_module_spec(name, containing_package=containing_package, **options.model_dump())
         except PDAModuleSpecError as exception:
             error = exception
             if options.raise_error:
@@ -159,7 +158,6 @@ class CategorizedModule(NamedTuple):
             logger.debug("Module '%s' not found", name)
             module = UnavailableModule(
                 name=name,
-                package=package,
                 error=error,
             )
             return CategorizedModule(
@@ -170,7 +168,6 @@ class CategorizedModule(NamedTuple):
         return CategorizedModule.from_spec(
             spec,
             project_root=project_root,
-            package=package,
         )
 
     @staticmethod

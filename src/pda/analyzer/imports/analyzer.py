@@ -22,6 +22,7 @@ from pda.analyzer.imports.parser import ImportStatementParser
 from pda.analyzer.imports.report import build_cycle_report, format_cycle_report
 from pda.analyzer.imports.resolver import ImportResolver
 from pda.analyzer.lazy import lazy_execution
+from pda.analyzer.target import AnalysisTarget
 from pda.config import ModuleImportsAnalyzerConfig
 from pda.exceptions import PDADependencyCycleError
 from pda.models import ModuleGraph, ModuleNode, gather_python_files
@@ -57,22 +58,20 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self,
         config: ModuleImportsAnalyzerConfig,
         project_root: Pathlike,
-        package: str,
+        root_module_name: str,
         *,
         source_roots: Optional[Tuple[Pathlike, ...]] = None,
         local_boundary: Optional[Pathlike] = None,
     ) -> None:
+        analysis_target = AnalysisTarget(root_module_name=root_module_name)
         super().__init__(
             config=config,
             project_root=project_root,
-            package=package,
+            analysis_target=analysis_target,
         )
 
         if not self._project_root:
             raise ValueError("Project root must be provided")
-
-        if not self._package:
-            raise ValueError("Package must be provided")
 
         self._project_context = ProjectResolutionContext.create(
             self._project_root,
@@ -89,7 +88,7 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self._parser: ImportStatementParser = ImportStatementParser()
         self._resolver: ImportResolver = ImportResolver(
             project_context=self._project_context,
-            package=self._package,
+            analysis_target=analysis_target,
             config=config,
         )
         self._depth_policy: CategoryDepthPolicy = CategoryDepthPolicy(
@@ -233,7 +232,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self,
         filepath: Path,
         base_path: Path,
-        package: str,
         *,
         is_root: bool = False,
     ) -> CategorizedModuleDict:
@@ -244,7 +242,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         module_source = ModuleSource(
             origin=filepath,
             base_path=base_path,
-            package=package,
         )
 
         import_paths = self._collect_imports(module_source, is_root=is_root)
@@ -272,7 +269,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         return self.analyze_file(
             module.origin,
             module.base_path,
-            module.top_level_module,
             is_root=is_root,
         )
 

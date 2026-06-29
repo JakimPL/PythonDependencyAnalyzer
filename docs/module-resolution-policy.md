@@ -293,8 +293,8 @@ Required fields:
 - local boundary;
 - target import environment.
 
-This replaces the overloaded use of `package` as both a top-level package name
-and a relative-import anchor.
+This replaces the overloaded use of `package` as both an analysis target and a
+relative-import anchor.
 
 ### Scope Identity
 
@@ -773,9 +773,9 @@ source roots:
 local boundary: project_root
 ```
 
-The CLI continues accepting `project_root` and `package`, but internally PDA
-uses a normalized `ProjectResolutionContext` with explicit source roots and a
-local boundary.
+The CLI accepts `project_root` and a root module name. Internally PDA uses a
+normalized `ProjectResolutionContext` with explicit source roots and a local
+boundary, and an `AnalysisTarget` for the import root being examined.
 
 The current public API and README examples use `project_root` as an import
 search root:
@@ -1024,10 +1024,10 @@ These should be resolved before implementation:
 7. Should `package` mean top-level distribution/import package, current package
    context for relative imports, or both? The current term is overloaded and may
    need replacement by more specific names.
-   - Recommendation: replace internal uses with explicit terms:
-     `top_level_name`, `containing_package`, and `source_module_context`.
-   - Keep public `package` arguments temporarily as compatibility aliases for
-     top-level import package.
+   - Decision: do not use `package` for the analyzer target. Use
+     `AnalysisTarget.root_module_name` for the requested import root,
+     `ModuleIdentity.top_level_name` for the first FQN component, and
+     `SourceModuleContext.containing_package` for relative import resolution.
 
 8. How precise should first-generation call resolution be?
    - Recommendation: start with direct lexical calls, import-bound calls, and

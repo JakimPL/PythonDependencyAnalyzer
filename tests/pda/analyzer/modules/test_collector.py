@@ -38,7 +38,7 @@ def project(tmp_path: Path) -> Path:
 
 def _collect(
     project_root: Path,
-    package: str = PKG,
+    root_module_name: str = PKG,
     *,
     source_roots: Optional[Tuple[Path, ...]] = None,
     **config_kwargs: object,
@@ -51,7 +51,12 @@ def _collect(
         hide_unavailable=False,
     )
     config = ModulesCollectorConfig(module_scan=module_scan, **config_kwargs)
-    collector = ModulesCollector(config, project_root=project_root, package=package, source_roots=source_roots)
+    collector = ModulesCollector(
+        config,
+        project_root=project_root,
+        root_module_name=root_module_name,
+        source_roots=source_roots,
+    )
     collector()
     return collector
 
@@ -95,7 +100,7 @@ class TestCollectorMaxDepth:
             loaded = importlib.import_module(module_name)
             assert loaded.__spec__.origin == str(external_package / "__init__.py")
 
-            collector = _collect(project_root, package=module_name)
+            collector = _collect(project_root, root_module_name=module_name)
 
             module = collector.modules[module_name]
             assert module.category == ModuleCategory.LOCAL
@@ -114,7 +119,7 @@ class TestCollectorMaxDepth:
         namespace.mkdir(parents=True)
         (namespace / "leaf.py").write_text("")
 
-        collector = _collect(project_root, package="namespace_pkg")
+        collector = _collect(project_root, root_module_name="namespace_pkg")
 
         module = collector.modules["namespace_pkg"]
         assert module.category == ModuleCategory.LOCAL

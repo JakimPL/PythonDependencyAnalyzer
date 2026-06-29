@@ -4,7 +4,12 @@ from typing import List, get_args
 
 from pda.cli.commands import run_analyze, run_collect
 from pda.cli.flags import add_flags, flags_for
-from pda.config import LayoutMode, ModuleImportsAnalyzerConfig, ModulesCollectorConfig, Theme
+from pda.config import (
+    LayoutMode,
+    ModuleImportsAnalyzerConfig,
+    ModulesCollectorConfig,
+    Theme,
+)
 
 
 def _split_paths(value: str) -> List[Path]:
@@ -41,10 +46,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     analyze = subparsers.add_parser(
         "analyze",
-        help="Build a package's import-dependency graph and export it as JSON or interactive HTML.",
+        help="Build an import-dependency graph for a root module and export it as JSON or interactive HTML.",
     )
-    analyze.add_argument("project_root", type=Path, help="Path to the project root.")
-    analyze.add_argument("package", help="Top-level package name to analyze.")
+    analyze.add_argument(
+        "project_root",
+        type=Path,
+        help="Path to the project root.",
+    )
+    analyze.add_argument(
+        "root_module",
+        help="Root module name to analyze.",
+    )
     analyze.add_argument(
         "--paths",
         type=_split_paths,
@@ -68,7 +80,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         default=None,
-        help="Output path. Format follows the extension or --format; defaults to '<package>-imports.json'.",
+        help="Output path. Format follows the extension or --format; defaults to '<root-module>-imports.json'.",
     )
     analyze.add_argument(
         "--cycles-output",
@@ -92,10 +104,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional path to the project root.",
     )
     collect.add_argument(
-        "package",
+        "root_module",
         nargs="?",
         default=None,
-        help="Package name. Required when a project root is provided.",
+        help="Root module name. Required when a project root is provided.",
     )
     collect.add_argument(
         "--source-roots",
@@ -114,7 +126,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         default=None,
-        help="Output path. Format follows the extension or --format; defaults to '<package>-modules.json'.",
+        help="Output path. Format follows the extension or --format; defaults to '<root-module>-modules.json'.",
     )
     _add_output_format_flags(collect)
     add_flags(collect, flags_for(ModulesCollectorConfig))

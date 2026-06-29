@@ -9,9 +9,11 @@ from pda.analyzer.modules.scanner import FileSystemScanner
 from pda.analyzer.scope.analyzer import ScopeAnalyzer
 from pda.analyzer.scope.builder import ScopeBuilder
 from pda.analyzer.scope.collector import SymbolCollector
+from pda.analyzer.target import AnalysisTarget
 
 __all__ = [
     "BaseAnalyzer",
+    "AnalysisTarget",
     # Modules collector
     "ModuleCreator",
     "PkgModuleScanner",

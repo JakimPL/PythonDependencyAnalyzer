@@ -43,27 +43,27 @@ class ModuleCreator:
     def create_module(
         self,
         name: str,
-        package: Optional[str] = None,
+        containing_package: Optional[str] = None,
     ) -> CategorizedModule:
         """
         Create a CategorizedModule from a module name.
 
         Args:
             name: Module name to create.
-            package: Optional package name.
+            containing_package: Optional containing package for relative names.
 
         Returns:
             CategorizedModule instance, or unavailable module if error during creation.
         """
         try:
             if self._resolver is not None:
-                resolution = self._resolver.resolve_project_name(name, package=package)
-                return self._resolver.to_categorized_module(resolution, package=package)
+                resolution = self._resolver.resolve_project_name(name, containing_package=containing_package)
+                return self._resolver.to_categorized_module(resolution)
 
             return CategorizedModule.create(
                 name,
                 project_root=self._project_root,
-                package=package,
+                containing_package=containing_package,
                 validation_options=self._VALIDATION_OPTIONS,
             )
 
@@ -78,7 +78,6 @@ class ModuleCreator:
             return CategorizedModule(
                 module=UnavailableModule(
                     name=name,
-                    package=package,
                     error=error,
                 ),
                 category=ModuleCategory.UNKNOWN,
