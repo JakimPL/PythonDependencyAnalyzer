@@ -52,6 +52,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Comma-separated entry-point files or directories. Defaults to the project root.",
     )
     analyze.add_argument(
+        "--source-roots",
+        type=_split_paths,
+        default=None,
+        help="Comma-separated import source roots, resolved relative to the project root when relative.",
+    )
+    analyze.add_argument(
+        "--local-boundary",
+        type=Path,
+        default=None,
+        help="Filesystem boundary for local module categorization. Defaults to the project root.",
+    )
+    analyze.add_argument(
         "-o",
         "--output",
         type=Path,
@@ -84,6 +96,18 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         default=None,
         help="Package name. Required when a project root is provided.",
+    )
+    collect.add_argument(
+        "--source-roots",
+        type=_split_paths,
+        default=None,
+        help="Comma-separated import source roots, resolved relative to the project root when relative.",
+    )
+    collect.add_argument(
+        "--local-boundary",
+        type=Path,
+        default=None,
+        help="Filesystem boundary for local module categorization. Defaults to the project root.",
     )
     collect.add_argument(
         "-o",

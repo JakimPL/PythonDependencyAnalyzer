@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Optional, Protocol
 
 from pda.analyzer.modules.creator import ModuleCreator
-from pda.resolution import ModuleResolutionService, TargetEnvironment
-from pda.specification import CategorizedModule
+from pda.resolution import ModuleResolutionService, ProjectResolutionContext
+from pda.specification import CategorizedModule, Module, ModuleCategory
 from pda.types import Pathlike
 
 
@@ -25,21 +24,19 @@ class ModuleLookup(Protocol):
         package: Optional[str],
     ) -> CategorizedModule: ...
 
+    def category(self, module: Module) -> ModuleCategory: ...
+
 
 @dataclass(frozen=True)
 class ProjectModuleLookup:
-    source_root: Path
+    context: ProjectResolutionContext
     resolver: ModuleResolutionService
 
     @classmethod
-    def create(cls, source_root: Path) -> ProjectModuleLookup:
+    def create(cls, context: ProjectResolutionContext) -> ProjectModuleLookup:
         return cls(
-            source_root=source_root,
-            resolver=ModuleResolutionService(
-                TargetEnvironment.create(
-                    (source_root,),
-                )
-            ),
+            context=context,
+            resolver=ModuleResolutionService(context.environment),
         )
 
     def filesystem_module(
@@ -48,10 +45,7 @@ class ProjectModuleLookup:
         *,
         package: Optional[str],
     ) -> CategorizedModule:
-        resolution = self.resolver.resolve_filesystem_path(
-            origin,
-            source_root=self.source_root,
-        )
+        resolution = self.resolver.resolve_filesystem_path(origin)
         return self.resolver.to_categorized_module(
             resolution,
             package=package,
@@ -65,6 +59,9 @@ class ProjectModuleLookup:
     ) -> CategorizedModule:
         resolution = self.resolver.resolve_project_name(name, package=package)
         return self.resolver.to_categorized_module(resolution, package=package)
+
+    def category(self, module: Module) -> ModuleCategory:
+        return module.get_category(self.context.local_boundary)
 
 
 @dataclass(frozen=True)
@@ -90,3 +87,6 @@ class RuntimeModuleLookup:
         package: Optional[str],
     ) -> CategorizedModule:
         return self.creator.create_module(name, package=package)
+
+    def category(self, module: Module) -> ModuleCategory:
+        return module.get_category(None)

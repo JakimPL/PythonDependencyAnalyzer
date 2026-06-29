@@ -43,6 +43,7 @@ def project(tmp_path: Path) -> Tuple[Path, Path]:
 def _analyze(
     project_root: Path,
     paths: Union[Pathlike, Iterable[Pathlike]],
+    source_roots: Optional[Tuple[Pathlike, ...]] = None,
     **scan_kwargs: object,
 ) -> ModuleImportsAnalyzer:
     config = (
@@ -50,7 +51,7 @@ def _analyze(
         if scan_kwargs
         else ModuleImportsAnalyzerConfig()
     )
-    analyzer = ModuleImportsAnalyzer(config, project_root=project_root, package=PKG)
+    analyzer = ModuleImportsAnalyzer(config, project_root=project_root, package=PKG, source_roots=source_roots)
     analyzer(paths)
     return analyzer
 
@@ -108,6 +109,21 @@ class TestMultiRoot:
 
         assert analyzer.filepaths == [pkg / "a.py"]
         assert f"{PKG}.shared" in _names(analyzer, ModuleCategory.LOCAL)
+
+    def test_explicit_source_root_controls_module_fqns(self, tmp_path: Path) -> None:
+        project_root = tmp_path / "repo"
+        source_root = project_root / "src"
+        package = source_root / PKG
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("")
+        (package / "a.py").write_text(f"import {PKG}.b\n")
+        (package / "b.py").write_text("")
+
+        analyzer = _analyze(project_root, package / "a.py", source_roots=(Path("src"),))
+
+        local = _names(analyzer, ModuleCategory.LOCAL)
+        assert {f"{PKG}.a", f"{PKG}.b"} <= local
+        assert all(not name.startswith("src.") for name in local)
 
     def test_caching_and_refresh(self, project: Tuple[Path, Path]) -> None:
         root, pkg = project

@@ -3,7 +3,7 @@ from importlib.machinery import ModuleSpec
 from pathlib import Path
 from typing import Optional, Tuple, Union, overload
 
-from pda.analyzer.base import BaseAnalyzer
+from pda.analyzer.base import BaseAnalyzer, register_search_path
 from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
 from pda.analyzer.lazy import lazy_execution
 from pda.analyzer.modules.lookup import ModuleLookup, ProjectModuleLookup, RuntimeModuleLookup
@@ -12,6 +12,7 @@ from pda.analyzer.modules.scanner import FileSystemScanner
 from pda.config import ModulesCollectorConfig
 from pda.exceptions import PDACategoryDisabledWarning
 from pda.models import ModuleGraph, ModuleNode
+from pda.resolution import ProjectResolutionContext
 from pda.specification import (
     CategorizedModule,
     CategorizedModuleDict,
@@ -33,25 +34,50 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         config: ModulesCollectorConfig,
         project_root: Optional[Pathlike] = None,
         package: Optional[str] = None,
+        *,
+        source_roots: Optional[Tuple[Pathlike, ...]] = None,
+        local_boundary: Optional[Pathlike] = None,
     ) -> None:
         super().__init__(config=config, project_root=project_root, package=package)
 
         self._collection: ModulesCollection = ModulesCollection(allow_unavailable=False)
         self._graph: ModuleGraph = ModuleGraph()
 
-        self._module_lookup: ModuleLookup = self._create_module_lookup()
+        self._source_roots, self._module_lookup = self._create_source_roots_and_lookup(
+            source_roots=source_roots,
+            local_boundary=local_boundary,
+        )
         self._pkg_scanner: PkgModuleScanner = PkgModuleScanner(config=self.config.module_scan)
-        self._fs_scanner: FileSystemScanner = FileSystemScanner(project_root=self._project_root)
+        self._fs_scanner: FileSystemScanner = FileSystemScanner(
+            project_root=self._project_root,
+            source_roots=self._source_roots or None,
+        )
         self._depth_policy: CategoryDepthPolicy = CategoryDepthPolicy(
             self.config.stdlib_depth,
             self.config.external_depth,
         )
 
-    def _create_module_lookup(self) -> ModuleLookup:
-        if self._project_root is not None:
-            return ProjectModuleLookup.create(self._project_root)
+    def _create_source_roots_and_lookup(
+        self,
+        *,
+        source_roots: Optional[Tuple[Pathlike, ...]],
+        local_boundary: Optional[Pathlike],
+    ) -> Tuple[Tuple[Path, ...], ModuleLookup]:
+        if self._project_root is None:
+            if source_roots is not None or local_boundary is not None:
+                raise ValueError("source_roots and local_boundary require a project_root")
 
-        return RuntimeModuleLookup.create()
+            return (), RuntimeModuleLookup.create()
+
+        context = ProjectResolutionContext.create(
+            self._project_root,
+            source_roots=source_roots,
+            local_boundary=local_boundary,
+        )
+        for source_root in context.source_roots:
+            register_search_path(source_root)
+
+        return context.source_roots, ProjectModuleLookup.create(context)
 
     def __bool__(self) -> bool:
         return bool(self._collection)
@@ -142,7 +168,7 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         if isinstance(module, CategorizedModule):
             return module.category
 
-        return module.get_category(self._project_root)
+        return self._module_lookup.category(module)
 
     def _collect_modules(self) -> None:
         self.clear()
@@ -168,15 +194,16 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
             )
 
     def _collect_local_modules(self) -> None:
-        if not self._project_root:
+        if not self._source_roots:
             return
 
-        self._add_submodules_from_files(
-            location=self._project_root,
-            base_path=self._project_root,
-            package=self._package,
-            parent_context=CategoryContext.root(),
-        )
+        for source_root in self._source_roots:
+            self._add_submodules_from_files(
+                location=source_root,
+                base_path=source_root,
+                package=self._package,
+                parent_context=CategoryContext.root(),
+            )
 
     def _add_submodules_from_files(
         self,

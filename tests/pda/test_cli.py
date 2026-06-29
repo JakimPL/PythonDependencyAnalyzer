@@ -25,8 +25,21 @@ def _graph(edges: List[Tuple[str, str]]) -> ModuleGraph:
 def _patch(monkeypatch: pytest.MonkeyPatch, attr: str, graph: ModuleGraph) -> Dict[str, object]:
     captured: Dict[str, object] = {}
 
-    def factory(*, config: object, project_root: object, package: object) -> Callable[..., ModuleGraph]:
-        captured.update(config=config, project_root=project_root, package=package)
+    def factory(
+        *,
+        config: object,
+        project_root: object,
+        package: object,
+        source_roots: object = None,
+        local_boundary: object = None,
+    ) -> Callable[..., ModuleGraph]:
+        captured.update(
+            config=config,
+            project_root=project_root,
+            package=package,
+            source_roots=source_roots,
+            local_boundary=local_boundary,
+        )
 
         def run(paths: object = None, *, refresh: bool = False) -> ModuleGraph:
             captured["paths"] = paths
@@ -48,6 +61,8 @@ class TestAnalyze:
         assert code == 0
         assert captured["project_root"] == tmp_path
         assert captured["package"] == "mypkg"
+        assert captured["source_roots"] is None
+        assert captured["local_boundary"] is None
         assert captured["paths"] == [tmp_path]
 
         data = json.loads((tmp_path / "mypkg-imports.json").read_text(encoding="utf-8"))
@@ -63,6 +78,17 @@ class TestAnalyze:
         assert output.exists()
         assert captured["paths"] == [Path("a.py"), Path("b.py")]
 
+    def test_source_roots_become_default_paths(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured = _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("mypkg.a", "mypkg.b")]))
+        source_root = tmp_path / "src"
+        monkeypatch.chdir(tmp_path)
+
+        code = cli.main(["analyze", str(tmp_path), "mypkg", "--source-roots", "src"])
+
+        assert code == 0
+        assert captured["source_roots"] == (Path("src"),)
+        assert captured["paths"] == [source_root]
+
 
 class TestCollect:
     def test_default_output_with_package(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -75,6 +101,18 @@ class TestCollect:
         assert captured["project_root"] == tmp_path
         assert captured["package"] == "mypkg"
         assert (tmp_path / "mypkg-modules.json").exists()
+
+    def test_source_roots_are_passed_to_collector(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured = _patch(monkeypatch, "ModulesCollector", _graph([("mypkg", "mypkg.sub")]))
+        monkeypatch.chdir(tmp_path)
+
+        code = cli.main(
+            ["collect", str(tmp_path), "mypkg", "--source-roots", "src,lib", "--local-boundary", str(tmp_path)]
+        )
+
+        assert code == 0
+        assert captured["source_roots"] == (Path("src"), Path("lib"))
+        assert captured["local_boundary"] == tmp_path
 
     def test_default_output_without_arguments(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         captured = _patch(monkeypatch, "ModulesCollector", _graph([("os", "os.path")]))
@@ -91,6 +129,16 @@ class TestCollect:
         monkeypatch.chdir(tmp_path)
 
         code = cli.main(["collect", str(tmp_path)])
+
+        assert code == 2
+        assert list(tmp_path.glob("*.json")) == []
+
+    def test_source_roots_without_project_root_are_rejected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+
+        code = cli.main(["collect", "--source-roots", "src"])
 
         assert code == 2
         assert list(tmp_path.glob("*.json")) == []
@@ -164,7 +212,14 @@ class TestConfigFlags:
 
 class TestErrors:
     def test_runtime_error_returns_one(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        def action(*, config: object, project_root: object, package: object) -> Callable[..., ModuleGraph]:
+        def action(
+            *,
+            config: object,
+            project_root: object,
+            package: object,
+            source_roots: object = None,
+            local_boundary: object = None,
+        ) -> Callable[..., ModuleGraph]:
             def run(paths: Optional[object] = None, *, refresh: bool = False) -> ModuleGraph:
                 raise ValueError("no modules found")
 

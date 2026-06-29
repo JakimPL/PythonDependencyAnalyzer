@@ -773,8 +773,9 @@ source roots:
 local boundary: project_root
 ```
 
-The CLI may continue accepting `project_root` and `package`, but internally PDA
-should derive or accept source roots separately.
+The CLI continues accepting `project_root` and `package`, but internally PDA
+uses a normalized `ProjectResolutionContext` with explicit source roots and a
+local boundary.
 
 The current public API and README examples use `project_root` as an import
 search root:
@@ -785,22 +786,23 @@ pda collect src pda
 ```
 
 In these examples, `src` is functionally a source root. To avoid breaking users,
-the existing argument should remain accepted and should be interpreted as the
-default source root. A separate local boundary can be introduced for workflows
-that need repository-level classification:
+the existing argument remains accepted and is interpreted as the default source
+root. Workflows that need repository-level classification can pass the
+repository as `project_root` and use `--source-roots`:
 
 ```bash
 pda analyze src pda
 # source roots: [src]
 # local boundary: src by default
 
-pda analyze src pda --local-boundary .
-# source roots: [src]
+pda analyze . pda --source-roots src
+# source roots: [./src]
 # local boundary: repository root
 ```
 
-Open point: exact CLI names can change, but internally the model should use
-`source_roots` and `local_boundary` rather than relying on one path to mean both.
+`--local-boundary` can override the classification boundary when it should differ
+from the project root. Explicit `source_roots` take precedence over any future
+layout inference.
 
 ## Expected Resolver Responsibilities
 
@@ -980,12 +982,13 @@ layouts, or Python-version-specific frozen-module sets.
 These should be resolved before implementation:
 
 1. How should users configure source roots?
-   - Recommendation: keep the current positional path as a backward-compatible
-     default source root.
-   - Add explicit configuration for multiple source roots.
-   - Add an optional local boundary/repository root for classification.
+   - Decision: keep the current positional path as a backward-compatible default
+     source root.
+   - Add explicit `source_roots` API/CLI configuration for one or more source
+     roots.
+   - Add `local_boundary` API/CLI configuration for classification.
    - Layout inference such as `src/` may be added later, but explicit
-     configuration should take precedence.
+     configuration takes precedence.
 
 2. Should local filesystem collection include directories without
    `__init__.py` as namespace packages by default?

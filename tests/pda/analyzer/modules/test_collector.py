@@ -1,7 +1,7 @@
 import importlib
 import sys
 from pathlib import Path
-from typing import Set
+from typing import Optional, Set, Tuple
 
 import pytest
 
@@ -36,7 +36,13 @@ def project(tmp_path: Path) -> Path:
         clear_module_spec_cache()
 
 
-def _collect(project_root: Path, package: str = PKG, **config_kwargs: object) -> ModulesCollector:
+def _collect(
+    project_root: Path,
+    package: str = PKG,
+    *,
+    source_roots: Optional[Tuple[Path, ...]] = None,
+    **config_kwargs: object,
+) -> ModulesCollector:
     # stdlib_depth/external_depth = 0 keeps the collector to local modules only (fast).
     module_scan = ModuleScanConfig(
         stdlib_depth=0,
@@ -45,7 +51,7 @@ def _collect(project_root: Path, package: str = PKG, **config_kwargs: object) ->
         hide_unavailable=False,
     )
     config = ModulesCollectorConfig(module_scan=module_scan, **config_kwargs)
-    collector = ModulesCollector(config, project_root=project_root, package=package)
+    collector = ModulesCollector(config, project_root=project_root, package=package, source_roots=source_roots)
     collector()
     return collector
 
@@ -116,6 +122,20 @@ class TestCollectorMaxDepth:
         assert module.origin is None
         assert module.submodule_search_locations == (namespace,)
         assert "namespace_pkg.leaf" in collector.modules
+
+    def test_explicit_source_root_controls_module_fqns(self, tmp_path: Path) -> None:
+        project_root = tmp_path / "repo"
+        source_root = project_root / "src"
+        package = source_root / PKG
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("")
+        (package / "a.py").write_text("")
+
+        collector = _collect(project_root, source_roots=(Path("src"),))
+
+        names = _qualified_names(collector)
+        assert {PKG, f"{PKG}.a"} <= names
+        assert all(not name.startswith("src.") for name in names)
 
 
 class TestCollectorCollapse:

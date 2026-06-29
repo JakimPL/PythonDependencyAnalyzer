@@ -7,9 +7,9 @@ from pda.config import ModuleImportsAnalyzerConfig
 from pda.models import ModuleNode
 from pda.resolution import (
     ModuleResolutionService,
+    ProjectResolutionContext,
     ResolvedModuleKind,
     SourceModuleContext,
-    TargetEnvironment,
 )
 from pda.specification import (
     CategorizedModule,
@@ -23,17 +23,18 @@ from pda.tools.logger import logger
 class ImportResolver:
     def __init__(
         self,
-        project_root: Path,
+        project_context: ProjectResolutionContext,
         package: str,
         config: ModuleImportsAnalyzerConfig,
     ) -> None:
-        self._project_root = project_root.resolve()
+        self._project_context = project_context
+        self._project_root = project_context.project_root
         self._package = package
         self._config = config
-        self._resolution = ModuleResolutionService(TargetEnvironment.create((self._project_root,)))
+        self._resolution = ModuleResolutionService(project_context.environment)
 
     def create_root(self, filepath: Path) -> ModuleNode:
-        resolution = self._resolution.resolve_filesystem_path(filepath, source_root=self._project_root)
+        resolution = self._resolution.resolve_filesystem_path(filepath)
         module = self._resolution.to_categorized_module(resolution, package=self._package)
 
         return ModuleNode(module, qualified_name=self._config.qualified_names)
@@ -89,4 +90,4 @@ class ImportResolver:
         return modules
 
     def _source_context(self, module_source: ModuleSource) -> Optional[SourceModuleContext]:
-        return self._resolution.source_context(module_source.origin, source_root=module_source.base_path)
+        return self._resolution.source_context(module_source.origin)

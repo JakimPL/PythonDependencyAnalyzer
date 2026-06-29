@@ -10,6 +10,7 @@ import pytest
 from pda.analyzer.imports.resolver import ImportResolver
 from pda.config import ModuleImportsAnalyzerConfig
 from pda.models import ModuleNode
+from pda.resolution import ProjectResolutionContext
 from pda.specification import ImportPath, ModuleCategory, ModuleSource, clear_module_spec_cache
 from pda.specification.modules.module.unavailable import UnavailableModule
 
@@ -50,7 +51,8 @@ def _resolver(
     package: str = PKG,
 ) -> ImportResolver:
     config = ModuleImportsAnalyzerConfig(qualified_names=qualified_names)
-    return ImportResolver(project_root=source_root, package=package, config=config)
+    context = ProjectResolutionContext.create(source_root)
+    return ImportResolver(project_context=context, package=package, config=config)
 
 
 def _source(
