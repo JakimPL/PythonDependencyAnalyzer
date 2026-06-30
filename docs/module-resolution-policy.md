@@ -1,12 +1,12 @@
 # Module Resolution Policy
 
-Status: draft for review
+Status: design guide
 
-This document defines how PDA should understand Python modules, packages,
-namespace packages, import paths, and fully qualified names. It is intentionally
-written as a design document before implementation. The goal is to make future
-changes to module resolution principled, testable, and aligned with Python's
-import machinery.
+This document defines how PDA understands Python modules, packages, namespace
+packages, import paths, and fully qualified names. It is the north star for
+module resolution: changes to resolution should be principled, testable, aligned
+with Python's import machinery, and reconciled here rather than allowed to
+diverge from it.
 
 ## Why This Policy Exists
 
@@ -21,10 +21,10 @@ similar to Python's import system, but not always identical:
 - Which modules and submodules should be scanned recursively?
 - What fully qualified name should be attached to a module or symbol?
 
-These questions currently appear in several parts of the codebase. That is a
-signal that "module resolution" is an explicit domain concept, not an incidental
-helper. A robust design should centralize the policy while still allowing
-different analyzers to ask different use-case questions.
+These questions span several analyzers, so "module resolution" is an explicit
+domain concept rather than an incidental helper. The policy centralizes that
+concept in one place while still letting each analyzer ask its own use-case
+questions.
 
 The motivating failure case is a project containing a top-level `tests` package
 or namespace package while another repository or installed distribution also
@@ -209,8 +209,8 @@ presented as stable PDA facts.
 
 Examples:
 
-- `Module`, `ImportPath`, `ImportStatement`, `SourceSpan`, and
-  `NamespacePortion` are specification facts.
+- `Module`, `ModuleKind`, `ImportPath`, `ImportStatement`, `SourceSpan`,
+  `NamespacePortion`, and `ResolutionDiagnostic` are specification facts.
 - `ModuleLocation`, `ModuleResolution`, `SourceModuleContext`, and
   `TargetEnvironment` are resolution-layer facts or query context.
 - `ModuleCoordinates`, `FilesystemModuleLookup`, `PendingNode`, parser scope
@@ -441,100 +441,64 @@ Rules:
 
 ## Resolution Modes
 
-PDA has at least three legitimate resolution modes. They must be explicit.
+All resolution runs against an explicit *target environment* — an ordered,
+reproducible search context, never the ambient process state. The environment
+fixes search behavior and tags every result with a provenance *mode*, so a result
+always records how it was found and the mode can never disagree with the search.
+Resolution performs spec discovery only: it may inspect filesystem entries and
+return a `ModuleSpec`, but it never executes analyzed code and never consults
+`sys.modules`.
 
-> Implementation status: the resolver realizes these modes through a single
-> `ModuleResolutionService.resolve_name` query whose `ResolutionMode` is a
-> property of the `TargetEnvironment` it runs against (`PROJECT` for project
-> contexts, `RUNTIME` for `TargetEnvironment.runtime()`). Filesystem-path
-> resolution is stamped `FILESYSTEM` because it is operation-derived. These
-> currently share one `PathFinder`-based algorithm and never consult
-> `sys.modules` or `importlib.util.find_spec`, so mode is a provenance label that
-> cannot disagree with search behavior. Environment inventory is performed by the
-> module scanner (`pkgutil`), not the resolver, so a distinct `ENVIRONMENT`
-> resolver mode is not modeled. A genuine interpreter-state strategy that observes
-> `sys.modules`/`find_spec` (a `SpecSource` strategy selected by the environment)
-> remains a future option, not a current behavior.
-
-Spec discovery is allowed in static analysis. The boundary is code execution
-and runtime module-cache dependence. A path-based finder may inspect filesystem
-entries and return a `ModuleSpec` without executing the target module. A runtime
-import, or a convenience API that imports parent packages or trusts
-`sys.modules`, belongs to runtime resolution unless explicitly requested.
+Three kinds of question arise, each with its own entry point and mode.
 
 ### Project Resolution
 
-Project resolution answers: "What module would this target project environment
-resolve?"
+Answers: "What module would this target project environment resolve?" This is the
+default for import dependency analysis.
 
 Rules:
 
 1. Search explicit source roots before external roots.
 2. Use Python's parent-path traversal for dotted names.
-3. Do not let `sys.modules` override the target environment.
-4. Do not execute target project code or populate `sys.modules` as a side
-   effect.
-5. Use `PathFinder.find_spec()` or an equivalent path-based mechanism against
-   explicit paths.
-6. Preserve namespace package portions instead of collapsing them to a fake
+3. Resolve against explicit paths with `PathFinder.find_spec()` or an equivalent
+   path-based mechanism, and fall back to built-in/frozen recognition.
+4. Never let `sys.modules` override the target environment, and never execute
+   target code or populate `sys.modules` as a side effect.
+5. Preserve namespace package portions instead of collapsing them to a fake
    single origin.
-7. Fall back to built-in/frozen recognition where appropriate.
-8. Treat active `sys.path` as external search input only when the caller enables
-   it. This can preserve application-level environment discovery while keeping
-   low-level project contexts strict by default.
-
-This should be the default mode for import dependency analysis.
+6. Treat the active interpreter `sys.path` as external search input only when the
+   environment enables it, so source roots are still searched first.
 
 ### Filesystem Resolution
 
-Filesystem resolution answers: "What module identity does this known local path
-represent?"
+Answers: "What module identity does this known local path represent?" This is the
+default for collecting local project modules from the filesystem.
 
 Rules:
 
-1. Start from a known filesystem path and a selected source root or local root.
-2. Derive the module name by relative path conversion.
-3. Use `DELIMITER` to join module-name components.
-4. Treat `__init__.py` as the package module for its directory.
-5. Treat a directory without `__init__.py` as a namespace package portion only
-   when policy permits namespace packages in that location.
-6. Do not ask runtime import discovery to rediscover the same name before
-   creating the local module identity.
-7. Use runtime specs only as optional compatibility evidence, not as the source
-   of truth.
+1. Start from a known filesystem path and a selected source root.
+2. Derive the module name by relative path conversion, joining components with
+   `DELIMITER`.
+3. Treat `__init__.py` as the package module for its directory.
+4. Treat a directory without `__init__.py` as a namespace package portion only
+   under the rules in the namespace package policy below.
+5. Derive identity directly from the path; do not ask runtime discovery to
+   rediscover the same name. Runtime specs are optional compatibility evidence,
+   not the source of truth.
 
-This should be the default mode for collecting local project modules from the
-filesystem.
+### Runtime Environment
 
-### Runtime Resolution
+A runtime target environment adds the active interpreter `sys.path` so PDA can
+inventory and resolve third-party and standard-library packages that are not part
+of the analyzed project. It is opt-in and answers "what can this environment
+import?" workflows. It stays path-based and deterministic with respect to the
+given `sys.path`; it does not consult `sys.modules` or execute code. Project
+resolution never silently inherits interpreter state; a workflow that wants the
+live environment asks for a runtime environment explicitly.
 
-Runtime resolution answers: "What would the interpreter running PDA resolve
-right now?"
-
-Rules:
-
-1. It may consult `sys.modules`.
-2. It may use `importlib.util.find_spec()`.
-3. It may import parent packages as Python's convenience APIs do.
-4. It must be opt-in for static analysis because it can observe notebook state,
-   test-runner state, editable installs, and unrelated repositories.
-
-This mode is useful for diagnostics and compatibility checks, but should not be
-the default for project-local analysis.
-
-### Environment Resolution
-
-Environment resolution answers: "What modules are visible in the current Python
-environment?"
-
-This mode may use runtime import machinery, `sys.modules`, package metadata,
-`pkgutil`, and importlib. It is appropriate for standard-library and external
-inventory, where exact static scanning of all possible packages is not
-realistic. It must still report when a module cannot be read or safely scanned.
-
-Environment resolution is allowed to observe interpreter state. Project
-resolution should not silently inherit that state unless the user asks for this
-mode.
+Enumerating what is installed — as opposed to resolving a specific name — is a
+scanner concern that uses `pkgutil`/importlib metadata, not the resolver. The
+scanner must still report when a module cannot be read or safely scanned.
 
 ## Import Path Resolution Policy
 
@@ -588,10 +552,9 @@ When deriving a symbol FQN:
 3. Append the symbol name.
 4. Use `DELIMITER` for the final FQN string.
 
-Open point: PDA should decide whether local variables inside functions should
-receive public-looking FQNs, internal scope FQNs, or a separate qualified symbol
-path. The policy should not let module-resolution changes accidentally define
-symbol semantics.
+Module-resolution changes must not accidentally define symbol semantics; the FQN
+policy for function-local bindings is deferred to the symbol and call-graph phase
+(see Open Questions).
 
 ## Symbol and Call-Graph Readiness
 
@@ -639,10 +602,10 @@ class method: pda.example.Widget.render
 local variable: pda.example.outer.<locals>.value or an equivalent internal path
 ```
 
-Open point: the exact spelling for internal local scope components, such as
-`<locals>`, lambdas, and comprehensions, should be chosen once and tested. The
-important rule is that internal symbol paths are stable and clearly marked as
-non-importable when they are not valid module-level names.
+The important rule is that internal symbol paths are stable and clearly marked as
+non-importable when they are not valid module-level names. The exact spelling of
+internal scope components (for example `<locals>`, lambdas, and comprehensions)
+is an open question for the symbol phase.
 
 ### Import Binding Policy
 
@@ -758,6 +721,9 @@ Rules:
    behavior. PDA's filesystem collection mode may still represent a local
    namespace portion, but project import resolution must state whether that
    namespace portion is actually importable in the target environment.
+7. A directory without `__init__.py` is treated as a local namespace portion only
+   when it contains at least one Python file or package-like child. Empty or
+   non-Python directories are not scanned.
 
 This distinction is important. "Exists under the project tree" and "wins during
 Python import resolution" are different facts.
@@ -785,7 +751,7 @@ namespace has more than one portion for import resolution.
 
 ## Source Roots and Project Roots
 
-PDA should stop assuming that the project root is always a source root.
+The project root is not necessarily a source root.
 
 Examples:
 
@@ -830,32 +796,32 @@ The CLI accepts `project_root` and a root module name. Internally PDA uses a
 normalized `ProjectResolutionContext` with explicit source roots and a local
 boundary, and an `AnalysisTarget` for the import root being examined.
 
-The current public API and README examples use `project_root` as an import
-search root:
-
-```bash
-pda analyze src pda
-pda collect src pda
-```
-
-In these examples, `src` is functionally a source root. To avoid breaking users,
-the existing argument remains accepted and is interpreted as the default source
-root. Workflows that need repository-level classification can pass the
-repository as `project_root` and use `--source-roots`:
+The CLI takes a `project_root` and a root module name; `project_root` acts as the
+default source root:
 
 ```bash
 pda analyze src pda
 # source roots: [src]
 # local boundary: src by default
+```
 
+Workflows that need repository-level classification pass the repository as
+`project_root` and name source roots explicitly:
+
+```bash
 pda analyze . pda --source-roots src
 # source roots: [./src]
 # local boundary: repository root
 ```
 
-`--local-boundary` can override the classification boundary when it should differ
-from the project root. Explicit `source_roots` take precedence over any future
-layout inference.
+`--local-boundary` overrides the classification boundary when it should differ
+from the project root. Explicit `source_roots`, `external_roots`, and
+`local_boundary` form one grouped resolution configuration and take precedence
+over any layout inference. External discovery through the active interpreter
+`sys.path` is controlled by `include_sys_path`: it may default on for
+compatibility but must be disable-able for deterministic runs, and PDA should
+warn when external traversal is requested with neither `sys.path` nor explicit
+`external_roots` to search.
 
 When an analyzer has an `AnalysisTarget`, omitted entry paths should be derived
 from that target rather than from the whole source root. A target may resolve to
@@ -907,7 +873,7 @@ present the answers.
 - resolved module name;
 - origin and origin type;
 - submodule search locations;
-- module type;
+- module kind;
 - metadata captured at resolution time.
 
 `Module` should not own:
@@ -1033,97 +999,27 @@ Assertions should target PDA policy results:
 Avoid asserting exact installed package inventories, exact stdlib filesystem
 layouts, or Python-version-specific frozen-module sets.
 
-## Open Decisions
+## Open Questions
 
-These should be resolved before implementation:
+Decisions that are settled live in the policy sections that own them. What
+remains open belongs to the future symbol and call-graph phase and should be
+settled when that work begins:
 
-1. How should users configure source roots?
-   - Decision: keep the current positional path as a backward-compatible default
-     source root.
-   - Add explicit `source_roots` API/CLI configuration for one or more source
-     roots.
-   - Add `local_boundary` API/CLI configuration for classification.
-   - Layout inference such as `src/` may be added later, but explicit
-     configuration takes precedence.
+1. Symbol FQN spelling for function-local bindings — assignments, comprehensions,
+   lambdas, and exception aliases. Model a lexical symbol path for every binding
+   PDA tracks, mark each path importable or internal, keep runtime target
+   resolution separate from lexical identity, and choose the spelling of internal
+   scope components (for example `<locals>`) once and test it.
 
-   Active-environment external discovery is separately controlled by
-   `include_sys_path`. Analyzer and CLI defaults may enable it for compatibility,
-   but production or deterministic runs should be able to disable it explicitly.
-   Explicit `external_roots` are dependency roots and should remain available
-   even when active `sys.path` is disabled.
-   If external traversal is enabled while both `include_sys_path` is disabled and
-   `external_roots` is empty, PDA should warn because no third-party search roots
-   are available.
+2. First-generation call-resolution precision. Start with direct lexical calls,
+   import-bound calls, and module attribute calls; represent dynamic or
+   object-dependent calls as unresolved or partially resolved; add type/value
+   inference incrementally rather than folding it into module resolution.
 
-2. Should local filesystem collection include directories without
-   `__init__.py` as namespace packages by default?
-   - Recommendation: yes, but only when the pruned filesystem tree sees at
-     least one Python file or package-like child below that directory.
-   - Empty non-Python directories should not be scanned.
-
-3. How should PDA categorize a namespace package with both local and external
-   portions?
-   - Recommendation: keep module kind and category separate.
-   - Record namespace portions individually.
-   - Categorize the module for local scanning as local when at least one
-     portion is under the local boundary.
-   - Preserve external portions in metadata for environment/import analysis.
-
-4. Should project resolution ignore `sys.modules` entirely, or should it allow
-   an opt-in compatibility mode that observes it?
-   - Recommendation: project resolution should not let `sys.modules` silently
-     override explicit source roots.
-   - Runtime/environment resolution should be allowed to observe `sys.modules`
-     because some PDA workflows intentionally inspect the active interpreter
-     environment.
-
-5. Should `ModuleSpec` be stored directly in PDA models, or should PDA store a
-   serializable import descriptor derived from the spec?
-   - Decision: `ModuleSpec` stays inside the resolution layer as transient
-     import-system evidence. PDA models store serializable facts: identity,
-     origin, origin type, submodule search locations, kind, and category.
-
-6. What is the exact symbol FQN policy for function-local assignments,
-   comprehensions, lambdas, and exception aliases?
-   - Recommendation: model a lexical symbol path for every binding PDA tracks.
-   - Mark paths as importable or internal.
-   - Keep runtime target resolution separate from lexical symbol identity.
-
-7. Should `package` mean top-level distribution/import package, current package
-   context for relative imports, or both? The current term is overloaded and may
-   need replacement by more specific names.
-   - Decision: do not use `package` for the analyzer target. Use
-     `AnalysisTarget.root_module_name` for the requested import root,
-     `ModuleIdentity.top_level_name` for the first FQN component, and
-     `SourceModuleContext.containing_package` for relative import resolution.
-
-8. How precise should first-generation call resolution be?
-   - Recommendation: start with direct lexical calls, import-bound calls, and
-     module attribute calls.
-   - Represent dynamic or object-dependent calls as unresolved or partially
-     resolved.
-   - Add type/value inference incrementally instead of making it part of module
-     resolution.
-
-9. Should PDA use Python's `symtable` module as an authority for lexical scopes?
-   - Recommendation: evaluate it in the test-harness phase.
-   - Prefer it where it matches Python semantics better than hand-rolled AST
-     traversal.
-   - Keep PDA's own source spans, import binding model, and cross-module
-     resolution because `symtable` does not solve those parts.
-
-## Migration Shape
-
-The implementation should proceed in small reviewable steps:
-
-1. Add tests around the policy with temporary project layouts.
-2. Introduce a central resolver and result type without removing current
-   callers.
-3. Migrate import analysis to the central resolver.
-4. Migrate module collection to the central resolver.
-5. Move `Module` away from ambient lazy resolution.
-6. Remove duplicated resolver/creator behavior.
-7. Add an ADR once the policy is accepted and the trade-offs are final.
+3. Whether to use Python's `symtable` module as the authority for lexical scopes.
+   Prefer it where it matches Python semantics better than hand-rolled AST
+   traversal, but keep PDA's own source spans, import-binding model, and
+   cross-module resolution, which `symtable` does not cover.
 
 ## References
 
