@@ -74,6 +74,9 @@ def _classify(annotation: Any) -> Tuple[Optional[str], Optional[Tuple[Any, ...]]
 def flags_for(model: type[BaseModel], container: Optional[str] = None) -> List[_Flag]:
     flags: List[_Flag] = []
     for name, info in model.model_fields.items():
+        if isinstance(info.json_schema_extra, dict) and info.json_schema_extra.get("cli") is False:
+            continue
+
         annotation = info.annotation
         if annotation is None:
             continue

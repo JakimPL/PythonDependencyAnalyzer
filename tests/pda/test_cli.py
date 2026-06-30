@@ -25,8 +25,17 @@ def _graph(edges: List[Tuple[str, str]]) -> ModuleGraph:
 def _patch(monkeypatch: pytest.MonkeyPatch, attr: str, graph: ModuleGraph) -> Dict[str, object]:
     captured: Dict[str, object] = {}
 
-    def factory(*, config: object, project_root: object, package: object) -> Callable[..., ModuleGraph]:
-        captured.update(config=config, project_root=project_root, package=package)
+    def factory(
+        *,
+        config: object,
+        project_root: object,
+        root_module_name: object,
+    ) -> Callable[..., ModuleGraph]:
+        captured.update(
+            config=config,
+            project_root=project_root,
+            root_module_name=root_module_name,
+        )
 
         def run(paths: object = None, *, refresh: bool = False) -> ModuleGraph:
             captured["paths"] = paths
@@ -38,17 +47,30 @@ def _patch(monkeypatch: pytest.MonkeyPatch, attr: str, graph: ModuleGraph) -> Di
     return captured
 
 
+def _write_package_root(source_root: Path, name: str = "mypkg") -> Path:
+    package = source_root / name
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+    return package
+
+
 class TestAnalyze:
     def test_default_output_and_paths(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         captured = _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("mypkg.a", "mypkg.b")]))
+        package = _write_package_root(tmp_path)
         monkeypatch.chdir(tmp_path)
 
         code = cli.main(["analyze", str(tmp_path), "mypkg"])
 
         assert code == 0
         assert captured["project_root"] == tmp_path
-        assert captured["package"] == "mypkg"
-        assert captured["paths"] == [tmp_path]
+        assert captured["root_module_name"] == "mypkg"
+        resolution = captured["config"].resolution
+        assert resolution.source_roots is None
+        assert resolution.local_boundary is None
+        assert resolution.external_roots == ()
+        assert resolution.include_sys_path is True
+        assert captured["paths"] == [package]
 
         data = json.loads((tmp_path / "mypkg-imports.json").read_text(encoding="utf-8"))
         assert {node["id"] for node in data["nodes"]} == {"mypkg.a", "mypkg.b"}
@@ -63,9 +85,46 @@ class TestAnalyze:
         assert output.exists()
         assert captured["paths"] == [Path("a.py"), Path("b.py")]
 
+    def test_source_roots_become_default_paths(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured = _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("mypkg.a", "mypkg.b")]))
+        source_root = tmp_path / "src"
+        package = _write_package_root(source_root)
+        monkeypatch.chdir(tmp_path)
+
+        code = cli.main(["analyze", str(tmp_path), "mypkg", "--source-roots", "src"])
+
+        assert code == 0
+        assert captured["config"].resolution.source_roots == (Path("src"),)
+        assert captured["paths"] == [package]
+
+    def test_external_roots_and_sys_path_policy_are_passed_to_analyzer(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        captured = _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("mypkg.a", "mypkg.b")]))
+        _write_package_root(tmp_path)
+        monkeypatch.chdir(tmp_path)
+
+        code = cli.main(
+            [
+                "analyze",
+                str(tmp_path),
+                "mypkg",
+                "--external-roots",
+                ".venv/site-packages, vendor",
+                "--no-include-sys-path",
+            ]
+        )
+
+        assert code == 0
+        resolution = captured["config"].resolution
+        assert resolution.external_roots == (Path(".venv/site-packages"), Path("vendor"))
+        assert resolution.include_sys_path is False
+
 
 class TestCollect:
-    def test_default_output_with_package(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_default_output_with_root_module(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         captured = _patch(monkeypatch, "ModulesCollector", _graph([("mypkg", "mypkg.sub")]))
         monkeypatch.chdir(tmp_path)
 
@@ -73,8 +132,37 @@ class TestCollect:
 
         assert code == 0
         assert captured["project_root"] == tmp_path
-        assert captured["package"] == "mypkg"
+        assert captured["root_module_name"] == "mypkg"
+        resolution = captured["config"].resolution
+        assert resolution.external_roots == ()
+        assert resolution.include_sys_path is True
         assert (tmp_path / "mypkg-modules.json").exists()
+
+    def test_source_roots_are_passed_to_collector(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured = _patch(monkeypatch, "ModulesCollector", _graph([("mypkg", "mypkg.sub")]))
+        monkeypatch.chdir(tmp_path)
+
+        code = cli.main(
+            [
+                "collect",
+                str(tmp_path),
+                "mypkg",
+                "--source-roots",
+                "src,lib",
+                "--local-boundary",
+                str(tmp_path),
+                "--external-roots",
+                ".venv/site-packages",
+                "--no-include-sys-path",
+            ]
+        )
+
+        assert code == 0
+        resolution = captured["config"].resolution
+        assert resolution.source_roots == (Path("src"), Path("lib"))
+        assert resolution.local_boundary == tmp_path
+        assert resolution.external_roots == (Path(".venv/site-packages"),)
+        assert resolution.include_sys_path is False
 
     def test_default_output_without_arguments(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         captured = _patch(monkeypatch, "ModulesCollector", _graph([("os", "os.path")]))
@@ -84,13 +172,38 @@ class TestCollect:
 
         assert code == 0
         assert captured["project_root"] is None
-        assert captured["package"] is None
+        assert captured["root_module_name"] is None
+        resolution = captured["config"].resolution
+        assert resolution.external_roots == ()
+        assert resolution.include_sys_path is True
         assert (tmp_path / "modules.json").exists()
 
-    def test_project_root_without_package_is_rejected(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_project_root_without_root_module_is_rejected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.chdir(tmp_path)
 
         code = cli.main(["collect", str(tmp_path)])
+
+        assert code == 2
+        assert list(tmp_path.glob("*.json")) == []
+
+    def test_source_roots_without_project_root_are_rejected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+
+        code = cli.main(["collect", "--source-roots", "src"])
+
+        assert code == 2
+        assert list(tmp_path.glob("*.json")) == []
+
+    def test_external_roots_without_project_root_are_rejected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+
+        code = cli.main(["collect", "--external-roots", ".venv/site-packages"])
 
         assert code == 2
         assert list(tmp_path.glob("*.json")) == []
@@ -99,6 +212,7 @@ class TestCollect:
 class TestConfigFlags:
     def test_analyze_defaults_when_no_flags(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         captured = _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("a", "b")]))
+        _write_package_root(tmp_path)
         monkeypatch.chdir(tmp_path)
 
         cli.main(["analyze", str(tmp_path), "mypkg"])
@@ -113,6 +227,7 @@ class TestConfigFlags:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         captured = _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("a", "b")]))
+        _write_package_root(tmp_path)
         monkeypatch.chdir(tmp_path)
 
         cli.main(
@@ -157,20 +272,32 @@ class TestConfigFlags:
 
     def test_invalid_collapse_level_returns_one(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("a", "b")]))
+        _write_package_root(tmp_path)
         monkeypatch.chdir(tmp_path)
 
         assert cli.main(["analyze", str(tmp_path), "mypkg", "--collapse-level", "-1"]) == 1
 
 
 class TestErrors:
+    def test_missing_default_analysis_target_returns_one(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("a", "b")]))
+
+        assert cli.main(["analyze", str(tmp_path), "missing_pkg"]) == 1
+
     def test_runtime_error_returns_one(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        def action(*, config: object, project_root: object, package: object) -> Callable[..., ModuleGraph]:
+        def action(
+            *,
+            config: object,
+            project_root: object,
+            root_module_name: object,
+        ) -> Callable[..., ModuleGraph]:
             def run(paths: Optional[object] = None, *, refresh: bool = False) -> ModuleGraph:
                 raise ValueError("no modules found")
 
             return run
 
         monkeypatch.setattr(commands, "ModuleImportsAnalyzer", action)
+        _write_package_root(tmp_path)
 
         assert cli.main(["analyze", str(tmp_path), "mypkg"]) == 1
 
@@ -208,6 +335,7 @@ class TestFormatResolution:
 class TestHtmlOutput:
     def test_analyze_writes_self_contained_html(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("mypkg.a", "mypkg.b")]))
+        _write_package_root(tmp_path)
         output = tmp_path / "graph.html"
 
         code = cli.main(["analyze", str(tmp_path), "mypkg", "--output", str(output)])
@@ -220,6 +348,7 @@ class TestHtmlOutput:
 
     def test_format_html_overrides_json_extension(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("mypkg.a", "mypkg.b")]))
+        _write_package_root(tmp_path)
         output = tmp_path / "graph.json"
 
         code = cli.main(["analyze", str(tmp_path), "mypkg", "--output", str(output), "--format", "html"])
@@ -229,6 +358,7 @@ class TestHtmlOutput:
 
     def test_unsupported_extension_returns_one(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         _patch(monkeypatch, "ModuleImportsAnalyzer", _graph([("mypkg.a", "mypkg.b")]))
+        _write_package_root(tmp_path)
 
         assert cli.main(["analyze", str(tmp_path), "mypkg", "--output", str(tmp_path / "graph.txt")]) == 1
 

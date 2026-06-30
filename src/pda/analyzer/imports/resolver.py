@@ -3,59 +3,43 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional
 
-from pda.config import ModuleImportsAnalyzerConfig, ValidationOptions
-from pda.exceptions import PDAFindSpecError, PDAImportPathError
+from pda.analyzer.target import AnalysisTarget
+from pda.config import ModuleImportsAnalyzerConfig
 from pda.models import ModuleNode
+from pda.resolution import (
+    ModuleResolution,
+    ModuleResolutionService,
+    ProjectResolutionContext,
+    ResolutionAlternativeKind,
+    ResolutionStatus,
+    SourceModuleContext,
+)
 from pda.specification import (
     CategorizedModule,
     CategorizedModuleDict,
     ImportPath,
-    ModuleCategory,
+    ModuleKind,
     ModuleSource,
-    SysPaths,
-    UnavailableModule,
-    is_namespace_package,
-    validate_spec_origin,
 )
 from pda.tools.logger import logger
 
 
-class ModuleResolver:
-    _ROOT_VALIDATION_OPTIONS = ValidationOptions.strict()
-    _MODULE_VALIDATION_OPTIONS = ValidationOptions(
-        allow_missing_spec=True,
-        validate_origin=True,
-        expect_python=False,
-        raise_error=False,
-    )
-
+class ImportResolver:
     def __init__(
         self,
-        project_root: Path,
-        package: str,
+        project_context: ProjectResolutionContext,
+        analysis_target: AnalysisTarget,
         config: ModuleImportsAnalyzerConfig,
     ) -> None:
-        self._project_root = project_root.resolve()
-        self._package = package
+        self._project_context = project_context
+        self._project_root = project_context.project_root
+        self._analysis_target = analysis_target
         self._config = config
-
-    @property
-    def module_validation_options(self) -> ValidationOptions:
-        return self._MODULE_VALIDATION_OPTIONS
+        self._resolution = ModuleResolutionService(project_context.environment)
 
     def create_root(self, filepath: Path) -> ModuleNode:
-        root_source = ModuleSource(
-            origin=filepath,
-            base_path=self._project_root,
-            package=self._package,
-        )
-
-        module = CategorizedModule.create(
-            name=root_source.module.name,
-            project_root=self._project_root,
-            package=self._package,
-            validation_options=self._ROOT_VALIDATION_OPTIONS,
-        )
+        resolution = self._resolution.resolve_filesystem_path(filepath)
+        module = self._resolution.to_categorized_module(resolution)
 
         return ModuleNode(module, qualified_name=self._config.qualified_names)
 
@@ -64,81 +48,39 @@ class ModuleResolver:
         module_source: ModuleSource,
         import_path: ImportPath,
     ) -> Optional[ImportPath]:
-        spec = module_source.get_spec(import_path)
-        if spec is None:
+        context = self._source_context(module_source)
+        if context is None:
             logger.debug("Module spec not found for import path '%s'; keeping it for categorization", import_path)
             return import_path
 
-        if is_namespace_package(spec):
-            return None
-
-        origin = validate_spec_origin(spec, expect_python=self._MODULE_VALIDATION_OPTIONS.expect_python)
-        resolved = SysPaths.resolve(
-            origin,
-            base_path=module_source.base_path,
-            validation_options=self._MODULE_VALIDATION_OPTIONS,
-        )
-        if resolved is not None:
-            return resolved
-
-        if isinstance(origin, Path) and origin.is_absolute():
-            logger.debug("Origin '%s' for '%s' is outside known roots; categorizing as-is", origin, import_path)
+        resolution = self._resolution.resolve_import_path(context, import_path)
+        resolution = self._module_dependency_resolution(resolution)
+        if not resolution.resolved or resolution.identity is None:
+            logger.debug("Module spec not found for import path '%s'; keeping it for categorization", import_path)
             return import_path
 
-        return None
+        if resolution.kind == ModuleKind.NAMESPACE_PACKAGE:
+            return None
+
+        return ImportPath.from_string(resolution.identity.name)
 
     def resolve_to_module(
         self,
         module_source: ModuleSource,
         import_path: ImportPath,
     ) -> CategorizedModule:
-        spec = module_source.get_spec(import_path)
-        package_spec = module_source.get_package_spec(import_path)
-        package = package_spec.name if package_spec is not None else None
-
-        def create_unavailable_module(error: Exception) -> CategorizedModule:
-            return CategorizedModule(
-                module=UnavailableModule(
-                    name=import_path.module if import_path.module else "<unknown>",
-                    package=package,
-                    error=error,
-                ),
-                category=ModuleCategory.UNKNOWN,
-            )
-
-        if spec is None:
+        context = self._source_context(module_source)
+        if context is None:
             logger.debug(
-                "Module spec not found for import path '%s' (package: '%s')",
+                "Source context not found while resolving import path '%s'",
                 import_path,
-                package_spec.name if package_spec is not None else None,
             )
+            resolution = self._resolution.resolve_name(import_path.module or "<unknown>")
+        else:
+            resolution = self._resolution.resolve_import_path(context, import_path)
 
-            return create_unavailable_module(PDAFindSpecError(import_path))
-
-        try:
-            return CategorizedModule.from_spec(
-                spec,
-                project_root=self._project_root,
-                package=package,
-            )
-        except (AttributeError, KeyError, IndexError) as error:
-            logger.warning(
-                "Module '%s' error:\n%s: [%s]",
-                spec.name,
-                error.__class__.__name__,
-                error,
-            )
-            unavailable_module = create_unavailable_module(error)
-        except PDAImportPathError as import_error:
-            logger.debug(
-                "Module '%s' import path error:\n%s: [%s]",
-                spec.name,
-                import_error.__class__.__name__,
-                import_error,
-            )
-            unavailable_module = create_unavailable_module(import_error)
-
-        return unavailable_module
+        resolution = self._module_dependency_resolution(resolution)
+        return self._resolution.to_categorized_module(resolution)
 
     def resolve_batch(
         self,
@@ -151,3 +93,23 @@ class ModuleResolver:
             modules[module.name] = module
 
         return modules
+
+    def _source_context(self, module_source: ModuleSource) -> Optional[SourceModuleContext]:
+        return self._resolution.source_context(module_source.origin)
+
+    def _module_dependency_resolution(
+        self,
+        resolution: ModuleResolution,
+    ) -> ModuleResolution:
+        if resolution.status != ResolutionStatus.AMBIGUOUS:
+            return resolution
+
+        for kind in (
+            ResolutionAlternativeKind.SUBMODULE,
+            ResolutionAlternativeKind.EXPORTED_OBJECT,
+        ):
+            for alternative in resolution.alternatives:
+                if alternative.kind == kind and alternative.resolution.resolved:
+                    return alternative.resolution
+
+        return resolution

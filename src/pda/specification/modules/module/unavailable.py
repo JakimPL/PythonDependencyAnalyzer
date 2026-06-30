@@ -1,11 +1,10 @@
-from pathlib import Path
 from typing import Optional, Self
 
 from pydantic import Field, model_validator
 
 from pda.exceptions import PDAMissingModuleNameError
+from pda.specification.modules.diagnostics import ResolutionDiagnostic
 from pda.specification.modules.module.base import BaseModule
-from pda.specification.modules.module.category import ModuleCategory
 
 
 class UnavailableModule(BaseModule):
@@ -15,8 +14,9 @@ class UnavailableModule(BaseModule):
     provide information about the unavailable module in the dependency graph.
     """
 
-    error: Optional[Exception] = Field(
-        default=None, description="The exception that caused the module to be unavailable, if any."
+    diagnostic: Optional[ResolutionDiagnostic] = Field(
+        default=None,
+        description="Structured resolution diagnostic explaining why the module is unavailable.",
     )
 
     @model_validator(mode="after")
@@ -24,18 +24,8 @@ class UnavailableModule(BaseModule):
         if not self.name:
             raise PDAMissingModuleNameError("Module name cannot be empty")
 
-        if self.package is not None and not self.package:
-            raise PDAMissingModuleNameError("Package name cannot be empty if provided")
-
         return self
-
-    @property
-    def spec(self) -> None:
-        return None
 
     @property
     def base_path(self) -> None:
         return None
-
-    def get_category(self, base_path: Optional[Path] = None) -> ModuleCategory:
-        return ModuleCategory.UNKNOWN

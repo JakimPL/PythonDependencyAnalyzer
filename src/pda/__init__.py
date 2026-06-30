@@ -1,5 +1,5 @@
-from pda.analyzer import ImportStatementParser, ModuleImportsAnalyzer, ModulesCollector, ScopeAnalyzer
-from pda.config import ModuleImportsAnalyzerConfig, ModuleScanConfig, ModulesCollectorConfig
+from pda.analyzer import AnalysisTarget, ImportStatementParser, ModuleImportsAnalyzer, ModulesCollector, ScopeAnalyzer
+from pda.config import ModuleImportsAnalyzerConfig, ModuleResolutionConfig, ModuleScanConfig, ModulesCollectorConfig
 from pda.constants import APPLICATION_NAME
 from pda.models import (
     ASTForest,
@@ -45,6 +45,7 @@ __all__ = [
     "Graph",
     # Configs
     "ModuleScanConfig",
+    "ModuleResolutionConfig",
     "ModuleImportsAnalyzerConfig",
     "ModulesCollectorConfig",
     # Specification
@@ -54,6 +55,7 @@ __all__ = [
     "Module",
     "ModuleSource",
     # Analyzers
+    "AnalysisTarget",
     "ModulesCollector",
     "ImportStatementParser",
     "ModuleImportsAnalyzer",

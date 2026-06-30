@@ -10,6 +10,7 @@ from typing import (
     NamedTuple,
     Optional,
     Set,
+    Tuple,
     Union,
     overload,
     override,
@@ -19,11 +20,13 @@ from pda.analyzer.base import BaseAnalyzer
 from pda.analyzer.depth import CategoryContext, CategoryDepthPolicy
 from pda.analyzer.imports.parser import ImportStatementParser
 from pda.analyzer.imports.report import build_cycle_report, format_cycle_report
-from pda.analyzer.imports.resolver import ModuleResolver
+from pda.analyzer.imports.resolver import ImportResolver
 from pda.analyzer.lazy import lazy_execution
+from pda.analyzer.target import AnalysisTarget
 from pda.config import ModuleImportsAnalyzerConfig
 from pda.exceptions import PDADependencyCycleError
 from pda.models import ModuleGraph, ModuleNode, gather_python_files
+from pda.resolution import ProjectResolutionContext
 from pda.specification import (
     CategorizedModule,
     CategorizedModuleDict,
@@ -55,28 +58,33 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self,
         config: ModuleImportsAnalyzerConfig,
         project_root: Pathlike,
-        package: str,
+        root_module_name: str,
     ) -> None:
+        analysis_target = AnalysisTarget(root_module_name=root_module_name)
         super().__init__(
             config=config,
             project_root=project_root,
-            package=package,
+            analysis_target=analysis_target,
         )
 
         if not self._project_root:
             raise ValueError("Project root must be provided")
 
-        if not self._package:
-            raise ValueError("Package must be provided")
-
+        self._project_context = ProjectResolutionContext.create(
+            self._project_root,
+            source_roots=config.resolution.source_roots,
+            local_boundary=config.resolution.local_boundary,
+            external_roots=config.resolution.external_roots,
+            include_sys_path=config.resolution.include_sys_path,
+        )
         self._files: Optional[List[Path]] = None
         self._root_origins: FrozenSet[Optional[Path]] = frozenset()
         self._collection: ModulesCollection = ModulesCollection(allow_unavailable=True)
         self._graph: ModuleGraph = ModuleGraph()
         self._parser: ImportStatementParser = ImportStatementParser()
-        self._resolver: ModuleResolver = ModuleResolver(
-            project_root=self._project_root,
-            package=self._package,
+        self._resolver: ImportResolver = ImportResolver(
+            project_context=self._project_context,
+            analysis_target=analysis_target,
             config=config,
         )
         self._depth_policy: CategoryDepthPolicy = CategoryDepthPolicy(
@@ -119,6 +127,10 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
     @property
     def filepaths(self) -> List[Path]:
         return list(self._files) if self._files is not None else []
+
+    @property
+    def source_roots(self) -> Tuple[Path, ...]:
+        return self._project_context.source_roots
 
     @property
     @lazy_execution
@@ -216,7 +228,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         self,
         filepath: Path,
         base_path: Path,
-        package: str,
         *,
         is_root: bool = False,
     ) -> CategorizedModuleDict:
@@ -227,8 +238,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         module_source = ModuleSource(
             origin=filepath,
             base_path=base_path,
-            package=package,
-            validation_options=self._resolver.module_validation_options,
         )
 
         import_paths = self._collect_imports(module_source, is_root=is_root)
@@ -256,7 +265,6 @@ class ModuleImportsAnalyzer(BaseAnalyzer[ModuleImportsAnalyzerConfig, ModuleGrap
         return self.analyze_file(
             module.origin,
             module.base_path,
-            module.top_level_module,
             is_root=is_root,
         )
 

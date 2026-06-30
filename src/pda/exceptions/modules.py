@@ -11,3 +11,7 @@ class PDAMissingModuleNameError(PDAModuleError):
 
 class PDAMissingTopLevelModuleError(PDAModuleError):
     """Raised when the top-level module name cannot be determined from the import path."""
+
+
+class PDAInvalidModuleOriginError(PDAModuleError):
+    """Raised when a module fact has an invalid origin for its origin type."""

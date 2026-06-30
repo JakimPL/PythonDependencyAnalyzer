@@ -1,9 +1,12 @@
-from typing import Optional
+import warnings
+from typing import Optional, Self
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
+from pda.config.analyzer.resolution import ModuleResolutionConfig
 from pda.config.analyzer.scan import ModuleScanConfig
 from pda.config.base import BaseConfig
+from pda.exceptions import PDAExternalResolutionWarning
 
 
 class ModuleAnalyzerConfig(BaseConfig):
@@ -14,6 +17,11 @@ class ModuleAnalyzerConfig(BaseConfig):
     module_scan: ModuleScanConfig = Field(
         default_factory=ModuleScanConfig,
         description="Configuration for scanning modules.",
+    )
+    resolution: ModuleResolutionConfig = Field(
+        default_factory=ModuleResolutionConfig,
+        description="Configuration for resolving project and dependency modules.",
+        json_schema_extra={"cli": False},
     )
     qualified_names: bool = Field(
         default=False,
@@ -39,6 +47,25 @@ class ModuleAnalyzerConfig(BaseConfig):
             raise ValueError("collapse_level must be >= 0 or None")
 
         return value
+
+    @model_validator(mode="after")
+    def _warn_if_external_depth_has_no_external_search_roots(self) -> Self:
+        external_depth = self.module_scan.external_depth
+        if (
+            (external_depth is None or external_depth > 0)
+            and not self.resolution.include_sys_path
+            and not self.resolution.external_roots
+        ):
+            warnings.warn(
+                (
+                    "external_depth is enabled, but include_sys_path is disabled and no external_roots are "
+                    "configured; external dependencies cannot be resolved as external modules."
+                ),
+                PDAExternalResolutionWarning,
+                stacklevel=2,
+            )
+
+        return self
 
     @property
     def collect_metadata(self) -> bool:

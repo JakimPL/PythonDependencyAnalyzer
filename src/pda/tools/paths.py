@@ -274,16 +274,7 @@ def filter_subdirectories(paths: Iterable[Pathlike]) -> List[Path]:
 
     filtered: List[Path] = []
     for path in resolved_paths:
-        is_subdirectory = False
-        for root in filtered:
-            try:
-                path.relative_to(root)
-                is_subdirectory = True
-                break
-            except ValueError:
-                continue
-
-        if not is_subdirectory:
+        if not any(path.is_relative_to(root) for root in filtered):
             filtered.append(path)
 
     return sorted(filtered)

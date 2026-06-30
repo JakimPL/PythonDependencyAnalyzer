@@ -14,10 +14,10 @@ from pda.models import ModuleGraph, module_pyvis_converter
 PACKAGES = Path(__file__).parent / "packages"
 
 
-def _analyze(package: str, **overrides: Any) -> ModuleGraph:
+def _analyze(root_module_name: str, **overrides: Any) -> ModuleGraph:
     config = ModuleImportsAnalyzerConfig(**overrides)
-    analyzer = ModuleImportsAnalyzer(config=config, project_root=PACKAGES, package=package)
-    return analyzer(PACKAGES / package)
+    analyzer = ModuleImportsAnalyzer(config=config, project_root=PACKAGES, root_module_name=root_module_name)
+    return analyzer(PACKAGES / root_module_name)
 
 
 def _edges(graph: ModuleGraph) -> Set[Tuple[str, str]]:

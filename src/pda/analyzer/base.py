@@ -1,28 +1,26 @@
 import sys
 from abc import ABC, abstractmethod
+from importlib import invalidate_caches
 from pathlib import Path
 from typing import Generic, Optional
 
+from pda.analyzer.target import AnalysisTarget
 from pda.config import ConfigT
-from pda.specification.modules.spec.spec import clear_module_spec_cache
 from pda.tools.logger import logger
 from pda.types import AnyT, Pathlike
 
 
 def register_search_path(path: Path) -> None:
     """
-    Ensure ``path`` is on ``sys.path`` so module resolution can locate a project
-    that is not installed in the current interpreter.
+    Ensure ``path`` is on ``sys.path`` for explicit runtime-compatible workflows.
 
-    pda resolves modules via ``importlib.util.find_spec``, which only searches the
-    interpreter running pda. Adding the project root lets a project be analyzed
-    without being installed. The spec cache is cleared whenever a new path is added
-    so previously failed lookups are retried against the updated search path.
+    Project analyzers should use ``ProjectResolutionContext`` instead of mutating
+    the interpreter search path.
     """
     entry = str(path)
-    if entry not in sys.path:
-        sys.path.insert(0, entry)
-        clear_module_spec_cache()
+    sys.path[:] = [existing for existing in sys.path if existing != entry]
+    sys.path.insert(0, entry)
+    invalidate_caches()
 
 
 class BaseAnalyzer(ABC, Generic[ConfigT, AnyT]):
@@ -30,14 +28,11 @@ class BaseAnalyzer(ABC, Generic[ConfigT, AnyT]):
         self,
         config: Optional[ConfigT] = None,
         project_root: Optional[Pathlike] = None,
-        package: Optional[str] = None,
+        analysis_target: Optional[AnalysisTarget] = None,
     ) -> None:
         self.config = config or self.default_config()
         self._project_root = Path(project_root).resolve() if project_root is not None else None
-        if self._project_root is not None:
-            register_search_path(self._project_root)
-
-        self._package = package
+        self._analysis_target = analysis_target
 
     @abstractmethod
     def __bool__(self) -> bool:
@@ -61,23 +56,20 @@ class BaseAnalyzer(ABC, Generic[ConfigT, AnyT]):
     @project_root.setter
     def project_root(self, value: Optional[Pathlike]) -> None:
         self._project_root = Path(value).resolve() if value is not None else None
-        if self._project_root is not None:
-            register_search_path(self._project_root)
-
         if self:
             logger.info("Project root changed. Clearing the graph and modules")
 
         self.clear()
 
     @property
-    def package(self) -> Optional[str]:
-        return self._package
+    def analysis_target(self) -> Optional[AnalysisTarget]:
+        return self._analysis_target
 
-    @package.setter
-    def package(self, value: Optional[str]) -> None:
-        self._package = value
+    @analysis_target.setter
+    def analysis_target(self, value: Optional[AnalysisTarget]) -> None:
+        self._analysis_target = value
         if self:
-            logger.info("Package changed. Clearing the graph and modules.")
+            logger.info("Analysis target changed. Clearing analyzer state.")
 
         self.clear()
 

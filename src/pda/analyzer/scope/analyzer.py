@@ -26,7 +26,6 @@ class ScopeAnalyzer(BaseAnalyzer[ScopeAnalyzerConfig, ScopeForest]):
         self,
         config: Optional[ScopeAnalyzerConfig] = None,
         project_root: Optional[Pathlike] = None,
-        package: Optional[str] = None,
     ) -> None:
         """
         Initialize the scope analyzer.
@@ -34,9 +33,8 @@ class ScopeAnalyzer(BaseAnalyzer[ScopeAnalyzerConfig, ScopeForest]):
         Args:
             config: Optional configuration for the analyzer.
             project_root: Optional project root directory.
-            package: Optional package name.
         """
-        super().__init__(config=config, project_root=project_root, package=package)
+        super().__init__(config=config, project_root=project_root)
         self._files: Optional[List[Path]] = None
         self._scope_forest: Optional[ScopeForest] = None
         self._symbols_by_scope: Dict[ScopeNode[Any], Dict[str, Symbol]] = {}
@@ -134,7 +132,10 @@ class ScopeAnalyzer(BaseAnalyzer[ScopeAnalyzerConfig, ScopeForest]):
         for scope in self._scope_forest:
             self._symbols_by_scope[scope] = scope.symbols
 
-    def _resolve_paths(self, paths: Optional[Union[List[Pathlike], List[Path]]]) -> List[Path]:
+    def _resolve_paths(
+        self,
+        paths: Optional[Union[List[Pathlike], List[Path]]],
+    ) -> List[Path]:
         """
         Resolve a list of paths to absolute Path objects.
 

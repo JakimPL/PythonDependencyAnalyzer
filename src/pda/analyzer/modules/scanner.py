@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 from pda.models import PathForest, PathNode
 from pda.specification import ImportPath, SysPaths
@@ -11,8 +11,19 @@ from pda.tools.logger import logger
 class FileSystemScanner:
     """Scans filesystem for Python modules and converts paths to ImportPaths."""
 
-    def __init__(self, project_root: Optional[Path] = None) -> None:
-        paths: List[Path] = SysPaths.get_candidates(base_path=project_root)
+    def __init__(
+        self,
+        project_root: Optional[Path] = None,
+        *,
+        source_roots: Optional[Iterable[Path]] = None,
+    ) -> None:
+        paths: List[Path]
+        if source_roots is None:
+            paths = SysPaths.get_candidates(base_path=project_root)
+        else:
+            paths = list(source_roots)
+            paths.extend(SysPaths.get_candidates())
+
         self._path_forest: PathForest = PathForest(paths)
 
     def get_submodule_paths(self, origin: Optional[Path] = None) -> List[Path]:

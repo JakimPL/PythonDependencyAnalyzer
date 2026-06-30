@@ -4,7 +4,12 @@ from typing import List, get_args
 
 from pda.cli.commands import run_analyze, run_collect
 from pda.cli.flags import add_flags, flags_for
-from pda.config import LayoutMode, ModuleImportsAnalyzerConfig, ModulesCollectorConfig, Theme
+from pda.config import (
+    LayoutMode,
+    ModuleImportsAnalyzerConfig,
+    ModulesCollectorConfig,
+    Theme,
+)
 
 
 def _split_paths(value: str) -> List[Path]:
@@ -32,6 +37,21 @@ def _add_output_format_flags(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_resolution_environment_flags(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--external-roots",
+        type=_split_paths,
+        default=None,
+        help="Comma-separated dependency search roots, resolved relative to the project root when relative.",
+    )
+    parser.add_argument(
+        "--include-sys-path",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Use the active interpreter sys.path for external dependency resolution. Enabled by default.",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pda",
@@ -41,10 +61,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     analyze = subparsers.add_parser(
         "analyze",
-        help="Build a package's import-dependency graph and export it as JSON or interactive HTML.",
+        help="Build an import-dependency graph for a root module and export it as JSON or interactive HTML.",
     )
-    analyze.add_argument("project_root", type=Path, help="Path to the project root.")
-    analyze.add_argument("package", help="Top-level package name to analyze.")
+    analyze.add_argument(
+        "project_root",
+        type=Path,
+        help="Path to the project root.",
+    )
+    analyze.add_argument(
+        "root_module",
+        help="Root module name to analyze.",
+    )
     analyze.add_argument(
         "--paths",
         type=_split_paths,
@@ -52,11 +79,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Comma-separated entry-point files or directories. Defaults to the project root.",
     )
     analyze.add_argument(
+        "--source-roots",
+        type=_split_paths,
+        default=None,
+        help="Comma-separated import source roots, resolved relative to the project root when relative.",
+    )
+    analyze.add_argument(
+        "--local-boundary",
+        type=Path,
+        default=None,
+        help="Filesystem boundary for local module categorization. Defaults to the project root.",
+    )
+    _add_resolution_environment_flags(analyze)
+    analyze.add_argument(
         "-o",
         "--output",
         type=Path,
         default=None,
-        help="Output path. Format follows the extension or --format; defaults to '<package>-imports.json'.",
+        help="Output path. Format follows the extension or --format; defaults to '<root-module>-imports.json'.",
     )
     analyze.add_argument(
         "--cycles-output",
@@ -80,17 +120,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional path to the project root.",
     )
     collect.add_argument(
-        "package",
+        "root_module",
         nargs="?",
         default=None,
-        help="Package name. Required when a project root is provided.",
+        help="Root module name. Required when a project root is provided.",
     )
+    collect.add_argument(
+        "--source-roots",
+        type=_split_paths,
+        default=None,
+        help="Comma-separated import source roots, resolved relative to the project root when relative.",
+    )
+    collect.add_argument(
+        "--local-boundary",
+        type=Path,
+        default=None,
+        help="Filesystem boundary for local module categorization. Defaults to the project root.",
+    )
+    _add_resolution_environment_flags(collect)
     collect.add_argument(
         "-o",
         "--output",
         type=Path,
         default=None,
-        help="Output path. Format follows the extension or --format; defaults to '<package>-modules.json'.",
+        help="Output path. Format follows the extension or --format; defaults to '<root-module>-modules.json'.",
     )
     _add_output_format_flags(collect)
     add_flags(collect, flags_for(ModulesCollectorConfig))

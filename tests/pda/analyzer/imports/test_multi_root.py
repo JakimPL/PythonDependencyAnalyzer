@@ -1,3 +1,4 @@
+import importlib
 import sys
 from pathlib import Path
 from typing import Iterable, Optional, Set, Tuple, Union
@@ -5,8 +6,8 @@ from typing import Iterable, Optional, Set, Tuple, Union
 import pytest
 
 from pda.analyzer import ModuleImportsAnalyzer
-from pda.config import ModuleImportsAnalyzerConfig, ModuleScanConfig
-from pda.specification import ModuleCategory, clear_module_spec_cache
+from pda.config import ModuleImportsAnalyzerConfig, ModuleResolutionConfig, ModuleScanConfig
+from pda.specification import ModuleCategory
 from pda.types import Pathlike
 
 PKG = "pdamultiroot"
@@ -28,7 +29,7 @@ def project(tmp_path: Path) -> Tuple[Path, Path]:
     (sub / "__init__.py").write_text("")
     (sub / "c.py").write_text(f"import {PKG}.shared\n")
 
-    clear_module_spec_cache()
+    importlib.invalidate_caches()
     try:
         yield tmp_path, pkg
     finally:
@@ -37,20 +38,23 @@ def project(tmp_path: Path) -> Tuple[Path, Path]:
         for module in list(sys.modules):
             if module == PKG or module.startswith(f"{PKG}."):
                 del sys.modules[module]
-        clear_module_spec_cache()
+        importlib.invalidate_caches()
 
 
 def _analyze(
     project_root: Path,
     paths: Union[Pathlike, Iterable[Pathlike]],
+    source_roots: Optional[Tuple[Pathlike, ...]] = None,
     **scan_kwargs: object,
 ) -> ModuleImportsAnalyzer:
-    config = (
-        ModuleImportsAnalyzerConfig(module_scan=ModuleScanConfig(**scan_kwargs))
-        if scan_kwargs
-        else ModuleImportsAnalyzerConfig()
-    )
-    analyzer = ModuleImportsAnalyzer(config, project_root=project_root, package=PKG)
+    config_kwargs = {}
+    if scan_kwargs:
+        config_kwargs["module_scan"] = ModuleScanConfig(**scan_kwargs)
+    if source_roots is not None:
+        config_kwargs["resolution"] = ModuleResolutionConfig(source_roots=source_roots)
+
+    config = ModuleImportsAnalyzerConfig(**config_kwargs)
+    analyzer = ModuleImportsAnalyzer(config, project_root=project_root, root_module_name=PKG)
     analyzer(paths)
     return analyzer
 
@@ -109,10 +113,25 @@ class TestMultiRoot:
         assert analyzer.filepaths == [pkg / "a.py"]
         assert f"{PKG}.shared" in _names(analyzer, ModuleCategory.LOCAL)
 
+    def test_explicit_source_root_controls_module_fqns(self, tmp_path: Path) -> None:
+        project_root = tmp_path / "repo"
+        source_root = project_root / "src"
+        package = source_root / PKG
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("")
+        (package / "a.py").write_text(f"import {PKG}.b\n")
+        (package / "b.py").write_text("")
+
+        analyzer = _analyze(project_root, package / "a.py", source_roots=(Path("src"),))
+
+        local = _names(analyzer, ModuleCategory.LOCAL)
+        assert {f"{PKG}.a", f"{PKG}.b"} <= local
+        assert all(not name.startswith("src.") for name in local)
+
     def test_caching_and_refresh(self, project: Tuple[Path, Path]) -> None:
         root, pkg = project
         config = ModuleImportsAnalyzerConfig()
-        analyzer = ModuleImportsAnalyzer(config, project_root=root, package=PKG)
+        analyzer = ModuleImportsAnalyzer(config, project_root=root, root_module_name=PKG)
 
         first = analyzer([pkg / "a.py", pkg / "b.py"])
         cached = analyzer([pkg / "a.py", pkg / "b.py"])
@@ -124,7 +143,7 @@ class TestMultiRoot:
 
     def test_no_inputs_raises(self, project: Tuple[Path, Path]) -> None:
         root, _ = project
-        analyzer = ModuleImportsAnalyzer(ModuleImportsAnalyzerConfig(), project_root=root, package=PKG)
+        analyzer = ModuleImportsAnalyzer(ModuleImportsAnalyzerConfig(), project_root=root, root_module_name=PKG)
 
         with pytest.raises(ValueError):
             analyzer()

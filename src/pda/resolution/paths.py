@@ -1,0 +1,46 @@
+from pathlib import Path
+from typing import Iterable, Optional
+
+from pda.constants import DELIMITER
+from pda.tools.paths import is_python_file
+
+
+def longest_containing_root(path: Path, roots: Iterable[Path]) -> Optional[Path]:
+    matching_roots = [root for root in roots if path.is_relative_to(root)]
+    if not matching_roots:
+        return None
+
+    return max(matching_roots, key=lambda root: len(root.parts))
+
+
+def unique_path_entries(paths: Iterable[Path]) -> tuple[str, ...]:
+    unique: list[str] = []
+    seen: set[str] = set()
+    for path in paths:
+        entry = str(path)
+        if entry in seen:
+            continue
+
+        seen.add(entry)
+        unique.append(entry)
+
+    return tuple(unique)
+
+
+def has_python_file_in_tree(path: Path) -> bool:
+    try:
+        return any(is_python_file(child) for child in path.rglob("*"))
+    except OSError:
+        return False
+
+
+def module_base_path_from_search_location(module_name: str, location: Path) -> Optional[Path]:
+    parts = tuple(part for part in module_name.split(DELIMITER) if part)
+    if not parts:
+        return None
+
+    parent_index = len(parts) - 1
+    if parent_index >= len(location.parents):
+        return None
+
+    return location.parents[parent_index]

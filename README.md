@@ -59,16 +59,31 @@ This installs the library and the `pda` command-line tool.
 
 ### Import dependency graph — `pda analyze`
 
-The minimal form analyses the `pda` package rooted at `src/` and writes
+The minimal form analyses the `pda` root module under `src/` and writes
 `pda-imports.json`:
 
 ```bash
 pda analyze src pda
 ```
 
-The project root is added to the import search path, so the package does not need to be
+The project root is added to the import search path, so the module does not need to be
 installed. `--paths` chooses the entry points to start from (comma-separated files or
-directories) and defaults to the whole project root.
+directories) and defaults to the resolved local path for the root module.
+
+For a repository-root invocation with a `src/` layout, keep the repository as the local
+boundary and set the import source root explicitly:
+
+```bash
+pda analyze . pda --source-roots src
+```
+
+When `--source-roots` is provided and `--paths` is omitted, PDA resolves the root module
+against those source roots and starts from the matching local package, namespace portion,
+or module file. Multiple roots can be provided as a comma-separated list:
+
+```bash
+pda analyze . pda --source-roots packages/app,packages/lib
+```
 
 Most of the work is in shaping the graph to the question you are asking. The extended form
 below keeps only your own modules, merges them to two name components, and labels nodes
@@ -89,11 +104,20 @@ pda analyze src pda \
 
 `pda collect` lists the modules that exist rather than following imports between them.
 Standard-library and external modules are included according to `--stdlib-depth` /
-`--external-depth`; a project root and package add that package's own modules.
+`--external-depth`; a project root and root module name add that root's own modules.
 
 ```bash
-# A package's own modules only (both category depths set to 0).
+# A root module's own modules only (both category depths set to 0).
 pda collect src pda \
+    --stdlib-depth 0 \
+    --external-depth 0
+```
+
+For `src/` layout collection from the repository root:
+
+```bash
+pda collect . pda \
+    --source-roots src \
     --stdlib-depth 0 \
     --external-depth 0
 ```
@@ -110,10 +134,10 @@ pda collect \
     --output environment-modules.json
 ```
 
-A `package` is required when a `project-root` is given. Output defaults to
-`<package>-imports.json` for `analyze`, and `<package>-modules.json` (or `modules.json`)
-for `collect`. Run `pda analyze --help` / `pda collect --help` for the full list of
-options.
+A root module name is required when a `project-root` is given. Output defaults to
+`<root-module>-imports.json` for `analyze`, and `<root-module>-modules.json` (or
+`modules.json`) for `collect`. Run `pda analyze --help` / `pda collect --help` for the
+full list of options.
 
 ## PDA Output
 
@@ -229,16 +253,21 @@ graph object directly:
 from pathlib import Path
 
 from pda.analyzer import ModuleImportsAnalyzer
-from pda.config import ModuleImportsAnalyzerConfig, ModuleScanConfig
+from pda.config import ModuleImportsAnalyzerConfig, ModuleResolutionConfig, ModuleScanConfig
 
 config = ModuleImportsAnalyzerConfig(
     module_scan=ModuleScanConfig(stdlib_depth=0, external_depth=0, hide_private=True),
+    resolution=ModuleResolutionConfig(source_roots=(Path("src"),)),
     unify_nodes=True,
     qualified_names=True,
     collapse_level=2,
 )
 
-analyzer = ModuleImportsAnalyzer(config=config, project_root=Path("src"), package="pda")
+analyzer = ModuleImportsAnalyzer(
+    config=config,
+    project_root=Path("."),
+    root_module_name="pda",
+)
 graph = analyzer(Path("src/pda"))
 
 graph.save("pda-imports.json")     # node-link JSON on disk
