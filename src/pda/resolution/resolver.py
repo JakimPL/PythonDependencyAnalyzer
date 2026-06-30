@@ -10,7 +10,6 @@ from pda.resolution.conversion import CategorizedModuleBuilder
 from pda.resolution.filesystem import FilesystemModuleLocator
 from pda.resolution.imports import ImportPathCandidateBuilder
 from pda.resolution.locations import ModuleLocationFactory
-from pda.resolution.models.diagnostics import ResolutionDiagnostic, ResolutionDiagnosticCode
 from pda.resolution.models.environment import TargetEnvironment
 from pda.resolution.models.location import ModuleCoordinates
 from pda.resolution.models.resolution import (
@@ -19,12 +18,17 @@ from pda.resolution.models.resolution import (
     ResolutionAlternativeKind,
     ResolutionMode,
     ResolutionStatus,
-    ResolvedModuleKind,
 )
 from pda.resolution.models.source import SourceModuleContext
 from pda.resolution.search.paths import TargetSearchPath
 from pda.resolution.search.specs import ModuleSpecResolver
-from pda.specification import CategorizedModule, ImportPath
+from pda.specification import (
+    CategorizedModule,
+    ImportPath,
+    ModuleKind,
+    ResolutionDiagnostic,
+    ResolutionDiagnosticCode,
+)
 from pda.types import Pathlike
 
 
@@ -42,55 +46,18 @@ class ModuleResolutionService:
     def environment(self) -> TargetEnvironment:
         return self._environment
 
-    def resolve_project_name(
+    def resolve_name(
         self,
         name: str,
         *,
         containing_package: Optional[str] = None,
-    ) -> ModuleResolution:
-        return self._resolve_module_name(
-            name,
-            containing_package=containing_package,
-            mode=ResolutionMode.PROJECT,
-        )
-
-    def resolve_runtime_name(
-        self,
-        name: str,
-        *,
-        containing_package: Optional[str] = None,
-    ) -> ModuleResolution:
-        return self._resolve_module_name(
-            name,
-            containing_package=containing_package,
-            mode=ResolutionMode.RUNTIME,
-        )
-
-    def resolve_environment_name(
-        self,
-        name: str,
-        *,
-        containing_package: Optional[str] = None,
-    ) -> ModuleResolution:
-        return self._resolve_module_name(
-            name,
-            containing_package=containing_package,
-            mode=ResolutionMode.ENVIRONMENT,
-        )
-
-    def _resolve_module_name(
-        self,
-        name: str,
-        *,
-        containing_package: Optional[str],
-        mode: ResolutionMode,
     ) -> ModuleResolution:
         fullname = self._resolve_name(name, containing_package)
         spec = self._specs.find(fullname)
         if spec is None:
             return self._unavailable(
                 requested=name,
-                mode=mode,
+                mode=self._environment.mode,
                 diagnostic=ResolutionDiagnostic.create(
                     ResolutionDiagnosticCode.MODULE_SPEC_NOT_FOUND,
                     f"Module spec for '{fullname}' not found",
@@ -101,7 +68,7 @@ class ModuleResolutionService:
         return self._resolved(
             self._locations.from_spec(spec),
             requested=name,
-            mode=mode,
+            mode=self._environment.mode,
         )
 
     def resolve_import_path(
@@ -118,13 +85,13 @@ class ModuleResolutionService:
         if not candidates:
             return self._unavailable(
                 requested=str(import_path),
-                mode=ResolutionMode.PROJECT,
+                mode=self._environment.mode,
                 diagnostic=self._import_path_diagnostic(context, import_path),
             )
 
         unresolved: Optional[ModuleResolution] = None
         for module_name in candidates:
-            resolution = self.resolve_project_name(module_name)
+            resolution = self.resolve_name(module_name)
             if resolution.resolved:
                 return resolution
 
@@ -132,7 +99,7 @@ class ModuleResolutionService:
 
         return unresolved or self._unavailable(
             requested=str(import_path),
-            mode=ResolutionMode.PROJECT,
+            mode=self._environment.mode,
             diagnostic=ResolutionDiagnostic.create(
                 ResolutionDiagnosticCode.IMPORT_PATH_UNRESOLVED,
                 f"Import path '{import_path}' does not resolve to an available module",
@@ -152,7 +119,7 @@ class ModuleResolutionService:
         if import_path.relative and base_name is None:
             return self._unavailable(
                 requested=str(import_path),
-                mode=ResolutionMode.PROJECT,
+                mode=self._environment.mode,
                 diagnostic=self._import_path_diagnostic(context, import_path),
             )
 
@@ -160,13 +127,10 @@ class ModuleResolutionService:
             return None
 
         submodule_name = f"{base_name}{DELIMITER}{import_path.name}"
-        submodule_resolution = self.resolve_project_name(submodule_name)
-        exported_object_resolution = self.resolve_project_name(base_name)
+        submodule_resolution = self.resolve_name(submodule_name)
+        exported_object_resolution = self.resolve_name(base_name)
 
-        if (
-            exported_object_resolution.resolved
-            and exported_object_resolution.kind == ResolvedModuleKind.NAMESPACE_PACKAGE
-        ):
+        if exported_object_resolution.resolved and exported_object_resolution.kind == ModuleKind.NAMESPACE_PACKAGE:
             return submodule_resolution
 
         if exported_object_resolution.resolved:
@@ -289,7 +253,7 @@ class ModuleResolutionService:
     ) -> ModuleResolution:
         return ModuleResolution(
             requested=requested,
-            mode=ResolutionMode.PROJECT,
+            mode=self._environment.mode,
             status=ResolutionStatus.AMBIGUOUS,
             diagnostic=ResolutionDiagnostic.create(
                 ResolutionDiagnosticCode.AMBIGUOUS_FROM_IMPORT,
@@ -319,11 +283,17 @@ class ModuleResolutionService:
         import_path: ImportPath,
     ) -> ResolutionDiagnostic:
         if import_path.relative:
+            containing_package = context.containing_package
+            if containing_package is None:
+                message = f"Relative import path '{import_path}' has no containing package"
+            else:
+                message = f"Relative import path '{import_path}' escapes package '{containing_package}'"
+
             return ResolutionDiagnostic.create(
                 ResolutionDiagnosticCode.RELATIVE_IMPORT_ESCAPES_PACKAGE,
-                f"Relative import path '{import_path}' escapes package '{context.containing_package}'",
+                message,
                 import_path=str(import_path),
-                containing_package=context.containing_package,
+                containing_package=containing_package or "",
             )
 
         return ResolutionDiagnostic.create(

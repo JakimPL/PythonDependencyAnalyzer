@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Sequence
 
 from pda.resolution.models.environment import TargetEnvironment
-from pda.resolution.paths import is_relative_to, unique_path_entries
+from pda.resolution.paths import unique_path_entries
 
 
 class TargetSearchPath:
@@ -25,5 +25,5 @@ class TargetSearchPath:
         return unique_path_entries(
             path
             for path in paths
-            if any(is_relative_to(path, source_root) for source_root in self._environment.source_roots)
+            if any(path.is_relative_to(source_root) for source_root in self._environment.source_roots)
         )

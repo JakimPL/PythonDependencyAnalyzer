@@ -4,13 +4,12 @@ from typing import Optional
 
 from pda.constants import DELIMITER
 from pda.resolution.classification import ModuleClassifier
-from pda.resolution.models.diagnostics import ResolutionDiagnostic, ResolutionDiagnosticCode
 from pda.resolution.models.environment import TargetEnvironment
 from pda.resolution.models.identity import ModuleIdentity
 from pda.resolution.models.location import ModuleCoordinates, ModuleLocation
 from pda.resolution.paths import has_python_file_in_tree, longest_containing_root
+from pda.specification import ResolutionDiagnostic, ResolutionDiagnosticCode
 from pda.specification.imports.origin import OriginType
-from pda.specification.modules.module.namespace import NamespacePortion
 from pda.tools.paths import is_dir, is_file, is_python_file
 from pda.types import Pathlike
 
@@ -108,18 +107,8 @@ class FilesystemModuleLocator:
             origin_type=origin_type,
             submodule_search_locations=locations,
             matched_root=root,
-            namespace_portions=self._namespace_portions(origin, locations),
+            namespace_portions=self._classifier.namespace_portions_for(origin, locations),
         )
-
-    def _namespace_portions(
-        self,
-        origin: Path | None,
-        locations: tuple[Path, ...],
-    ) -> tuple[NamespacePortion, ...]:
-        if origin is not None or not locations:
-            return ()
-
-        return self._classifier.namespace_portions(locations)
 
     def _is_package_like_directory(self, path: Path) -> bool:
         if is_file(path / "__init__.py"):

@@ -4,9 +4,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Optional
 
-from pda.specification import ModuleCategory
+from pda.specification import ModuleCategory, ModuleKind, ResolutionDiagnostic
 
-from .diagnostics import ResolutionDiagnostic
 from .identity import ModuleIdentity
 from .location import ModuleLocation
 
@@ -15,7 +14,6 @@ class ResolutionMode(StrEnum):
     PROJECT = "project"
     FILESYSTEM = "filesystem"
     RUNTIME = "runtime"
-    ENVIRONMENT = "environment"
 
 
 class ResolutionStatus(StrEnum):
@@ -27,16 +25,6 @@ class ResolutionStatus(StrEnum):
 class ResolutionAlternativeKind(StrEnum):
     SUBMODULE = "submodule"
     EXPORTED_OBJECT = "exported_object"
-
-
-class ResolvedModuleKind(StrEnum):
-    SOURCE_MODULE = "source_module"
-    REGULAR_PACKAGE = "regular_package"
-    NAMESPACE_PACKAGE = "namespace_package"
-    BUILTIN = "builtin"
-    FROZEN = "frozen"
-    EXTENSION = "extension"
-    UNKNOWN = "unknown"
 
 
 @dataclass(frozen=True)
@@ -52,7 +40,7 @@ class ModuleResolution:
     status: ResolutionStatus
     identity: Optional[ModuleIdentity] = None
     location: Optional[ModuleLocation] = None
-    kind: ResolvedModuleKind = ResolvedModuleKind.UNKNOWN
+    kind: ModuleKind = ModuleKind.UNKNOWN
     category: ModuleCategory = ModuleCategory.UNKNOWN
     diagnostic: Optional[ResolutionDiagnostic] = None
     alternatives: tuple[ResolutionAlternative, ...] = ()

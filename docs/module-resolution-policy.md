@@ -443,6 +443,19 @@ Rules:
 
 PDA has at least three legitimate resolution modes. They must be explicit.
 
+> Implementation status: the resolver realizes these modes through a single
+> `ModuleResolutionService.resolve_name` query whose `ResolutionMode` is a
+> property of the `TargetEnvironment` it runs against (`PROJECT` for project
+> contexts, `RUNTIME` for `TargetEnvironment.runtime()`). Filesystem-path
+> resolution is stamped `FILESYSTEM` because it is operation-derived. These
+> currently share one `PathFinder`-based algorithm and never consult
+> `sys.modules` or `importlib.util.find_spec`, so mode is a provenance label that
+> cannot disagree with search behavior. Environment inventory is performed by the
+> module scanner (`pkgutil`), not the resolver, so a distinct `ENVIRONMENT`
+> resolver mode is not modeled. A genuine interpreter-state strategy that observes
+> `sys.modules`/`find_spec` (a `SpecSource` strategy selected by the environment)
+> remains a future option, not a current behavior.
+
 Spec discovery is allowed in static analysis. The boundary is code execution
 and runtime module-cache dependence. A path-based finder may inspect filesystem
 entries and return a `ModuleSpec` without executing the target module. A runtime

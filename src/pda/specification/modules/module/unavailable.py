@@ -3,6 +3,7 @@ from typing import Optional, Self
 from pydantic import Field, model_validator
 
 from pda.exceptions import PDAMissingModuleNameError
+from pda.specification.modules.diagnostics import ResolutionDiagnostic
 from pda.specification.modules.module.base import BaseModule
 
 
@@ -13,8 +14,9 @@ class UnavailableModule(BaseModule):
     provide information about the unavailable module in the dependency graph.
     """
 
-    error: Optional[Exception] = Field(
-        default=None, description="The exception that caused the module to be unavailable, if any."
+    diagnostic: Optional[ResolutionDiagnostic] = Field(
+        default=None,
+        description="Structured resolution diagnostic explaining why the module is unavailable.",
     )
 
     @model_validator(mode="after")

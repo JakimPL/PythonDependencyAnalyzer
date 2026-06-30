@@ -72,6 +72,9 @@ class ModuleNode(Node[CategorizedModule]):
 
         if not self.available:
             data["available"] = False
+            diagnostic = self.module.diagnostic
+            if diagnostic is not None:
+                data["diagnostic"] = diagnostic.code.value
 
         origin = self.module.origin
         if origin is not None:

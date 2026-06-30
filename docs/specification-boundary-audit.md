@@ -22,6 +22,17 @@ must survive conversion into graph-facing `Module` instances.
 `pda.resolution.models`. It remains a resolution-internal DTO in
 `pda.resolution.models.location`.
 
+`ModuleKind` is now a specification fact. Module kind (source module, regular
+package, namespace package, builtin, frozen, extension, unknown) is a durable
+fact stored on `Module` and consumed across the graph boundary. It replaces the
+coarser `ModuleType`, which has been removed.
+
+`ResolutionDiagnostic`, `ResolutionDiagnosticCode`, and
+`ResolutionDiagnosticDetail` are now specification facts. They explain why a
+module is unavailable, are stored on `UnavailableModule`, and appear in
+serialized output, so they belong in `pda.specification` rather than in the
+resolution layer.
+
 ## Correctly Outside Specification
 
 These types are helper or subsystem types and should remain outside

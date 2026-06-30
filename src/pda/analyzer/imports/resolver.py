@@ -12,13 +12,13 @@ from pda.resolution import (
     ProjectResolutionContext,
     ResolutionAlternativeKind,
     ResolutionStatus,
-    ResolvedModuleKind,
     SourceModuleContext,
 )
 from pda.specification import (
     CategorizedModule,
     CategorizedModuleDict,
     ImportPath,
+    ModuleKind,
     ModuleSource,
 )
 from pda.tools.logger import logger
@@ -59,7 +59,7 @@ class ImportResolver:
             logger.debug("Module spec not found for import path '%s'; keeping it for categorization", import_path)
             return import_path
 
-        if resolution.kind == ResolvedModuleKind.NAMESPACE_PACKAGE:
+        if resolution.kind == ModuleKind.NAMESPACE_PACKAGE:
             return None
 
         return ImportPath.from_string(resolution.identity.name)
@@ -75,7 +75,7 @@ class ImportResolver:
                 "Source context not found while resolving import path '%s'",
                 import_path,
             )
-            resolution = self._resolution.resolve_project_name(import_path.module or "<unknown>")
+            resolution = self._resolution.resolve_name(import_path.module or "<unknown>")
         else:
             resolution = self._resolution.resolve_import_path(context, import_path)
 

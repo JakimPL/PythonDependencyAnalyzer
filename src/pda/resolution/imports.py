@@ -47,7 +47,11 @@ class ImportPathCandidateBuilder:
         if level == 0:
             return module
 
-        package_path = ImportPath.from_string(context.containing_package)
+        containing_package = context.containing_package
+        if containing_package is None:
+            return None
+
+        package_path = ImportPath.from_string(containing_package)
         levels_to_climb = level - 1
         if levels_to_climb >= len(package_path.parts):
             return None

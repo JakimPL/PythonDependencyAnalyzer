@@ -8,8 +8,8 @@ from pydantic import Field, model_validator
 from pda.exceptions import PDAInvalidModuleOriginError, PDAMissingModuleNameError
 from pda.specification.imports.origin import OriginType
 from pda.specification.modules.module.base import BaseModule
+from pda.specification.modules.module.kind import ModuleKind
 from pda.specification.modules.module.namespace import NamespacePortion
-from pda.specification.modules.module.type import ModuleType
 from pda.tools.paths import is_python_file
 
 
@@ -24,9 +24,10 @@ class Module(BaseModule):
         default=OriginType.PYTHON,
         description="Type of the origin, e.g. file, frozen, or built-in",
     )
-    submodule_search_locations: Optional[Tuple[Path, ...]] = Field(
-        default=None,
-        description="Tuple of directories to search for submodules. Only for packages.",
+    kind: ModuleKind = Field(description="Resolved module kind classified by the resolution layer.")
+    submodule_search_locations: Tuple[Path, ...] = Field(
+        default=(),
+        description="Directories to search for submodules. Empty for non-packages.",
     )
     metadata: Optional[Dict[str, Any]] = Field(
         default=None,
@@ -57,23 +58,11 @@ class Module(BaseModule):
 
     @property
     def is_package(self) -> bool:
-        return self.submodule_search_locations is not None
+        return self.kind in (ModuleKind.REGULAR_PACKAGE, ModuleKind.NAMESPACE_PACKAGE)
 
     @property
     def is_namespace_package(self) -> bool:
-        return self.is_package and self.origin is None
-
-    @property
-    def type(self) -> ModuleType:
-        match (self.is_package, self.is_namespace_package):
-            case (True, False):
-                return ModuleType.PACKAGE
-            case (True, True):
-                return ModuleType.NAMESPACE_PACKAGE
-            case (False, _):
-                return ModuleType.MODULE
-            case _:
-                raise ValueError(f"Invalid module type for module '{self.name}'")
+        return self.kind == ModuleKind.NAMESPACE_PACKAGE
 
     @property
     def path(self) -> Optional[Path]:

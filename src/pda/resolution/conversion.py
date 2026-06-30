@@ -14,13 +14,14 @@ class CategorizedModuleBuilder:
             return CategorizedModule(
                 module=UnavailableModule(
                     name=resolution.identity.name if resolution.identity is not None else resolution.requested,
-                    error=Exception(resolution.reason or "module not resolved"),
+                    diagnostic=resolution.diagnostic,
                 ),
                 category=ModuleCategory.UNKNOWN,
             )
 
         module = Module(
             name=resolution.identity.name,
+            kind=resolution.kind,
             origin=resolution.location.origin,
             origin_type=resolution.location.origin_type,
             submodule_search_locations=resolution.location.submodule_search_locations,

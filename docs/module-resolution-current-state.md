@@ -65,12 +65,22 @@ Callers must provide an explicit `ModuleCategory`, and project/runtime category
 decisions flow through resolution-layer classification or analyzer lookup
 adapters.
 
+`Module` stores the resolved `ModuleKind` (the single classifier's output) as a
+fact; `is_package`, `is_module`, and `is_namespace_package` derive from it
+rather than re-deriving packagehood from `submodule_search_locations`. The
+former `ModuleType` view has been removed.
+
 ### Structured Resolution Diagnostics
 
 Unavailable `ModuleResolution` results now carry a `ResolutionDiagnostic` with a
 stable `ResolutionDiagnosticCode`, human-readable message, and keyed details.
 The compatibility `reason` property is derived from the diagnostic message
 rather than being the only stored failure fact.
+
+`ResolutionDiagnostic` is a `pda.specification` fact. Conversion preserves it on
+`UnavailableModule` (replacing the former opaque `error: Exception`), so
+`CategorizedModule.availability_reason` and serialized module nodes expose the
+stable diagnostic code instead of only a bare string.
 
 Initial diagnostic codes cover missing module specs, empty import paths,
 relative imports escaping their package, unresolved import paths, ambiguous
@@ -99,15 +109,16 @@ local/external namespace information.
 Bare runtime/environment collection no longer uses `ModuleCreator`.
 `RuntimeModuleLookup` uses `ModuleResolutionService(TargetEnvironment.runtime())`.
 
-### Explicit Resolution Modes
+### Resolution Mode From The Environment
 
-Name-based resolution has explicit project, runtime, and environment entry
-points. `ModuleResolution.mode` now records the query mode selected by the
-caller instead of always reporting `PROJECT`.
-
-Runtime module lookup uses runtime name resolution, so runtime/environment
-collection preserves `ResolutionMode.RUNTIME` in resolver results instead of
-passing through the project-resolution path.
+Name resolution is a single `ModuleResolutionService.resolve_name` query. The
+recorded `ResolutionMode` is a property of the `TargetEnvironment`: project
+contexts resolve as `PROJECT`, `TargetEnvironment.runtime()` resolves as
+`RUNTIME`, and filesystem-path resolution is stamped `FILESYSTEM`. Mode can no
+longer disagree with search behavior because both derive from the same
+environment. The previously distinct `resolve_project_name` /
+`resolve_runtime_name` / `resolve_environment_name` entry points and the unused
+`ENVIRONMENT` mode have been removed.
 
 ### From-Import Ambiguity
 

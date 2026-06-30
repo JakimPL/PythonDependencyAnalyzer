@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pda.specification import Module, ModuleCategory, NamespacePortion
+from pda.specification import Module, ModuleCategory, ModuleKind, NamespacePortion
 from pda.specification.imports.origin import OriginType
 
 
@@ -23,6 +23,7 @@ def test_module_exposes_namespace_portions_as_specification_facts(tmp_path: Path
 
     module = Module(
         name="acme",
+        kind=ModuleKind.NAMESPACE_PACKAGE,
         origin=None,
         origin_type=OriginType.NONE,
         submodule_search_locations=(portion.path,),

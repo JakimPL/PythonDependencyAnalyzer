@@ -17,7 +17,7 @@ from pda.config import ModulesCollectorConfig
 from pda.exceptions import PDACategoryDisabledWarning
 from pda.models import ModuleGraph, ModuleNode
 from pda.resolution import ProjectResolutionContext
-from pda.resolution.paths import is_relative_to, longest_containing_root, module_base_path_from_search_location
+from pda.resolution.paths import longest_containing_root, module_base_path_from_search_location
 from pda.specification import (
     CategorizedModule,
     CategorizedModuleDict,
@@ -103,8 +103,8 @@ class ModulesCollector(BaseAnalyzer[ModulesCollectorConfig, ModuleGraph]):
         if self._project_context is None:
             return False
 
-        return is_relative_to(path, self._project_context.local_boundary) and not any(
-            is_relative_to(path, external_root) for external_root in self._project_context.external_roots
+        return path.is_relative_to(self._project_context.local_boundary) and not any(
+            path.is_relative_to(external_root) for external_root in self._project_context.external_roots
         )
 
     def __bool__(self) -> bool:

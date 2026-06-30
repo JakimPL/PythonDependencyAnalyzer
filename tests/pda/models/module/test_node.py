@@ -6,7 +6,7 @@ from pda.resolution import ModuleResolutionService, TargetEnvironment
 
 def _runtime_module(name: str):
     resolver = ModuleResolutionService(TargetEnvironment.runtime())
-    resolution = resolver.resolve_runtime_name(name)
+    resolution = resolver.resolve_name(name)
     return resolver.to_categorized_module(resolution)
 
 

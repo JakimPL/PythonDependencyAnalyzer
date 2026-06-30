@@ -39,7 +39,7 @@ class AnalysisTargetResolver:
         self._resolution = ModuleResolutionService(project_context.environment)
 
     def resolve(self, target: AnalysisTarget) -> ResolvedAnalysisTarget:
-        resolution = self._resolution.resolve_project_name(target.root_module_name)
+        resolution = self._resolution.resolve_name(target.root_module_name)
         if not resolution.resolved or resolution.location is None:
             raise ValueError(f"Analysis target '{target.root_module_name}' was not resolved")
 

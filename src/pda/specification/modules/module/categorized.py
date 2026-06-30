@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, NamedTuple, Optional, Tuple, Union
+from typing import NamedTuple, Optional, Tuple, Union
 
 from pda.specification.imports.origin import OriginType
+from pda.specification.modules.diagnostics import ResolutionDiagnostic
 from pda.specification.modules.module.category import ModuleCategory
+from pda.specification.modules.module.kind import ModuleKind
 from pda.specification.modules.module.module import Module
 from pda.specification.modules.module.namespace import NamespacePortion
-from pda.specification.modules.module.type import ModuleType
 from pda.specification.modules.module.unavailable import UnavailableModule
 from pda.tools.paths import is_file
 
@@ -15,9 +16,6 @@ from pda.tools.paths import is_file
 class CategorizedModule(NamedTuple):
     module: Union[Module, UnavailableModule]
     category: ModuleCategory
-
-    def __getattr__(self, item: Any) -> Any:
-        return getattr(self.module, item)
 
     @property
     def name(self) -> str:
@@ -67,20 +65,20 @@ class CategorizedModule(NamedTuple):
         return self.module.is_private
 
     @property
-    def is_module(self) -> Optional[bool]:
-        return self.module.is_module if isinstance(self.module, Module) else None
+    def is_module(self) -> bool:
+        return self.module.is_module if isinstance(self.module, Module) else False
 
     @property
-    def is_package(self) -> Optional[bool]:
-        return self.module.is_package if isinstance(self.module, Module) else None
+    def is_package(self) -> bool:
+        return self.module.is_package if isinstance(self.module, Module) else False
 
     @property
-    def is_namespace_package(self) -> Optional[bool]:
-        return self.module.is_namespace_package if isinstance(self.module, Module) else None
+    def is_namespace_package(self) -> bool:
+        return self.module.is_namespace_package if isinstance(self.module, Module) else False
 
     @property
-    def type(self) -> ModuleType:
-        return self.module.type if isinstance(self.module, Module) else ModuleType.UNKNOWN
+    def kind(self) -> ModuleKind:
+        return self.module.kind if isinstance(self.module, Module) else ModuleKind.UNKNOWN
 
     @property
     def available(self) -> bool:
@@ -93,9 +91,13 @@ class CategorizedModule(NamedTuple):
         return True
 
     @property
+    def diagnostic(self) -> Optional[ResolutionDiagnostic]:
+        return self.module.diagnostic if isinstance(self.module, UnavailableModule) else None
+
+    @property
     def availability_reason(self) -> Optional[str]:
         if isinstance(self.module, UnavailableModule):
-            return str(self.module.error) if self.module.error else "module not found"
+            return self.module.diagnostic.message if self.module.diagnostic is not None else "module not found"
 
         if not self.available:
             return "source not available for analysis"

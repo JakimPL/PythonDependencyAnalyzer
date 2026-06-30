@@ -5,16 +5,8 @@ from pda.constants import DELIMITER
 from pda.tools.paths import is_python_file
 
 
-def is_relative_to(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-        return True
-    except ValueError:
-        return False
-
-
 def longest_containing_root(path: Path, roots: Iterable[Path]) -> Optional[Path]:
-    matching_roots = [root for root in roots if is_relative_to(path, root)]
+    matching_roots = [root for root in roots if path.is_relative_to(root)]
     if not matching_roots:
         return None
 

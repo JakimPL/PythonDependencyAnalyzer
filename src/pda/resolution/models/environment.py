@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional, Tuple
 
+from pda.resolution.models.resolution import ResolutionMode
 from pda.types import Pathlike
 
 
@@ -16,6 +17,7 @@ class TargetEnvironment:
     external_roots: Tuple[Path, ...] = ()
     stdlib_roots: Tuple[Path, ...] = ()
     include_sys_path: bool = False
+    mode: ResolutionMode = ResolutionMode.PROJECT
 
     @classmethod
     def create(
@@ -42,6 +44,7 @@ class TargetEnvironment:
             local_boundary=None,
             stdlib_roots=default_stdlib_roots(),
             include_sys_path=True,
+            mode=ResolutionMode.RUNTIME,
         )
 
     @property

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 from .environment import TargetEnvironment
 from .identity import ModuleIdentity
@@ -17,9 +18,8 @@ class SourceModuleContext:
     environment: TargetEnvironment
 
     @property
-    def containing_package(self) -> str:
+    def containing_package(self) -> Optional[str]:
         if self.location.submodule_search_locations:
             return self.identity.public_fqn
 
-        parent_name = self.identity.parent_name
-        return parent_name or self.identity.top_level_name
+        return self.identity.parent_name

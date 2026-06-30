@@ -49,11 +49,11 @@ class ProjectModuleLookup:
         *,
         containing_package: Optional[str],
     ) -> CategorizedModule:
-        resolution = self.resolver.resolve_project_name(name, containing_package=containing_package)
+        resolution = self.resolver.resolve_name(name, containing_package=containing_package)
         return self.resolver.to_categorized_module(resolution)
 
     def category(self, module: Module) -> ModuleCategory:
-        resolution = self.resolver.resolve_project_name(module.name)
+        resolution = self.resolver.resolve_name(module.name)
         if resolution.resolved:
             return resolution.category
 
@@ -85,11 +85,11 @@ class RuntimeModuleLookup:
         *,
         containing_package: Optional[str],
     ) -> CategorizedModule:
-        resolution = self.resolver.resolve_runtime_name(name, containing_package=containing_package)
+        resolution = self.resolver.resolve_name(name, containing_package=containing_package)
         return self.resolver.to_categorized_module(resolution)
 
     def category(self, module: Module) -> ModuleCategory:
-        resolution = self.resolver.resolve_runtime_name(module.name)
+        resolution = self.resolver.resolve_name(module.name)
         if resolution.resolved:
             return resolution.category
 
