@@ -283,6 +283,15 @@ converter = module_pyvis_converter(theme="dark")
 html = converter(graph, html=True)  # interactive HTML string
 ```
 
+### Using individual components
+
+The two analyzers are orchestrations over smaller public components: filesystem-tree
+walking, AST parsing, per-file import extraction, scope and symbol analysis, and module
+resolution. Each can be used on its own — to parse a single module to AST nodes, list one
+file's imports, or resolve a single name — without building a graph.
+[docs/components.md](docs/components.md) documents these components as an API, with runnable
+examples.
+
 ## Notebook
 
 `notebooks/example.py` is a [marimo](https://marimo.io/) notebook that runs PDA

@@ -67,14 +67,17 @@ def _(mo):
         ModuleResolution,
         ModuleResolutionService,
         ProjectResolutionContext,
-        ResolutionDiagnosticCode,
         ResolutionMode,
         ResolutionStatus,
-        ResolvedModuleKind,
         SourceModuleContext,
         TargetEnvironment,
     )
-    from pda.specification import ImportPath, ModuleCategory
+    from pda.specification import (
+        ImportPath,
+        ModuleCategory,
+        ModuleKind,
+        ResolutionDiagnosticCode,
+    )
 
     return (
         Any,
@@ -85,6 +88,7 @@ def _(mo):
         ModuleCategory,
         ModuleImportsAnalyzer,
         ModuleImportsAnalyzerConfig,
+        ModuleKind,
         ModuleResolution,
         ModuleResolutionService,
         ModuleResolutionConfig,
@@ -96,7 +100,6 @@ def _(mo):
         ResolutionDiagnosticCode,
         ResolutionMode,
         ResolutionStatus,
-        ResolvedModuleKind,
         RuntimeModuleLookup,
         SourceModuleContext,
         TargetEnvironment,
@@ -470,18 +473,18 @@ def _(context_row, environment_with_external, mo, project_context, repo_context)
 @app.cell
 def _(project_service, service_with_external):
     project_name_resolutions = {
-        "regular package": project_service.resolve_project_name("demo_pkg"),
-        "source module": project_service.resolve_project_name("demo_pkg.core"),
-        "local namespace package": project_service.resolve_project_name("tests"),
-        "local namespace module": project_service.resolve_project_name("tests.test_local"),
-        "stdlib module": project_service.resolve_project_name("os"),
-        "missing module": project_service.resolve_project_name("missing_dependency"),
+        "regular package": project_service.resolve_name("demo_pkg"),
+        "source module": project_service.resolve_name("demo_pkg.core"),
+        "local namespace package": project_service.resolve_name("tests"),
+        "local namespace module": project_service.resolve_name("tests.test_local"),
+        "stdlib module": project_service.resolve_name("os"),
+        "missing module": project_service.resolve_name("missing_dependency"),
     }
     external_name_resolutions = {
-        "mixed namespace package": service_with_external.resolve_project_name("ns_pkg"),
-        "mixed namespace local module": service_with_external.resolve_project_name("ns_pkg.local_mod"),
-        "mixed namespace external module": service_with_external.resolve_project_name("ns_pkg.external_mod"),
-        "external regular package": service_with_external.resolve_project_name("external_pkg"),
+        "mixed namespace package": service_with_external.resolve_name("ns_pkg"),
+        "mixed namespace local module": service_with_external.resolve_name("ns_pkg.local_mod"),
+        "mixed namespace external module": service_with_external.resolve_name("ns_pkg.external_mod"),
+        "external regular package": service_with_external.resolve_name("external_pkg"),
     }
     return external_name_resolutions, project_name_resolutions
 
@@ -600,10 +603,10 @@ def _(graph_summary_rows, imports_graph, mo, modules_graph):
 @app.cell
 def _(repo_service):
     repo_resolutions = {
-        "pda": repo_service.resolve_project_name("pda"),
-        "pda.resolution": repo_service.resolve_project_name("pda.resolution"),
-        "pda.resolution.resolver": repo_service.resolve_project_name("pda.resolution.resolver"),
-        "tests outside configured source roots": repo_service.resolve_project_name("tests"),
+        "pda": repo_service.resolve_name("pda"),
+        "pda.resolution": repo_service.resolve_name("pda.resolution"),
+        "pda.resolution.resolver": repo_service.resolve_name("pda.resolution.resolver"),
+        "tests outside configured source roots": repo_service.resolve_name("tests"),
     }
     return (repo_resolutions,)
 
@@ -622,10 +625,10 @@ def _(mo, repo_resolutions, resolution_row):
 @app.cell
 def _(
     ModuleCategory,
+    ModuleKind,
     ResolutionDiagnosticCode,
     ResolutionMode,
     ResolutionStatus,
-    ResolvedModuleKind,
     external_name_resolutions,
     filesystem_resolutions,
     project_name_resolutions,
@@ -639,7 +642,7 @@ def _(
 
     assert project_name_resolutions["regular package"].mode == ResolutionMode.PROJECT
     assert project_name_resolutions["source module"].category == ModuleCategory.LOCAL
-    assert project_name_resolutions["local namespace package"].kind == ResolvedModuleKind.NAMESPACE_PACKAGE
+    assert project_name_resolutions["local namespace package"].kind == ModuleKind.NAMESPACE_PACKAGE
     assert project_name_resolutions["local namespace package"].category == ModuleCategory.LOCAL
     assert project_name_resolutions["stdlib module"].category == ModuleCategory.STDLIB
     assert project_name_resolutions["missing module"].status == ResolutionStatus.UNAVAILABLE
@@ -648,7 +651,7 @@ def _(
 
     mixed_namespace = external_name_resolutions["mixed namespace package"]
     require_resolved("ns_pkg", mixed_namespace)
-    assert mixed_namespace.kind == ResolvedModuleKind.NAMESPACE_PACKAGE
+    assert mixed_namespace.kind == ModuleKind.NAMESPACE_PACKAGE
     assert mixed_namespace.category == ModuleCategory.LOCAL
     assert mixed_namespace.location is not None
     assert {portion.category for portion in mixed_namespace.location.namespace_portions} == {
@@ -658,7 +661,7 @@ def _(
 
     assert filesystem_resolutions["regular package directory"].mode == ResolutionMode.FILESYSTEM
     assert filesystem_resolutions["source module file"].mode == ResolutionMode.FILESYSTEM
-    assert filesystem_resolutions["local namespace directory"].kind == ResolvedModuleKind.NAMESPACE_PACKAGE
+    assert filesystem_resolutions["local namespace directory"].kind == ModuleKind.NAMESPACE_PACKAGE
     assert filesystem_resolutions["empty namespace directory"].status == ResolutionStatus.UNAVAILABLE
     assert filesystem_resolutions["empty namespace directory"].diagnostic is not None
     assert (
@@ -680,7 +683,7 @@ def _(
 
 @app.cell
 def _(runtime_service):
-    runtime_sys_resolution = runtime_service.resolve_runtime_name("sys")
+    runtime_sys_resolution = runtime_service.resolve_name("sys")
     return (runtime_sys_resolution,)
 
 
