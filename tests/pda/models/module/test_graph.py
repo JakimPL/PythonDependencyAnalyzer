@@ -94,6 +94,56 @@ class TestSimplifyLevel:
         assert _labels(collapsed) == {"pkg", "other"}
 
 
+class TestReachability:
+    def test_find_returns_node_by_qualified_name(self) -> None:
+        graph = _build_graph([("pkg.a", "pkg.b")])
+
+        found = graph.find("pkg.a")
+
+        assert found is not None
+        assert found.module.qualified_name == "pkg.a"
+
+    def test_find_returns_none_for_unknown_name(self) -> None:
+        graph = _build_graph([("pkg.a", "pkg.b")])
+
+        assert graph.find("pkg.missing") is None
+
+    def test_imports_direct_edge(self) -> None:
+        graph = _build_graph([("pkg.a", "pkg.b")])
+
+        assert graph.imports("pkg.a", "pkg.b") is True
+
+    def test_imports_transitively(self) -> None:
+        graph = _build_graph([("pkg.a", "pkg.b"), ("pkg.b", "pkg.c")])
+
+        assert graph.imports("pkg.a", "pkg.c") is True
+
+    def test_imports_false_when_no_path(self) -> None:
+        graph = _build_graph([("pkg.a", "pkg.b"), ("pkg.c", "pkg.b")])
+
+        assert graph.imports("pkg.a", "pkg.c") is False
+
+    def test_imports_false_for_unknown_name(self) -> None:
+        graph = _build_graph([("pkg.a", "pkg.b")])
+
+        assert graph.imports("pkg.a", "pkg.missing") is False
+
+    def test_import_path_returns_transitive_witness(self) -> None:
+        graph = _build_graph([("pkg.a", "pkg.b"), ("pkg.b", "pkg.c")])
+
+        assert graph.import_path("pkg.a", "pkg.c") == ["pkg.a", "pkg.b", "pkg.c"]
+
+    def test_import_path_none_when_no_path(self) -> None:
+        graph = _build_graph([("pkg.a", "pkg.b"), ("pkg.c", "pkg.b")])
+
+        assert graph.import_path("pkg.a", "pkg.c") is None
+
+    def test_import_path_none_for_unknown_name(self) -> None:
+        graph = _build_graph([("pkg.a", "pkg.b")])
+
+        assert graph.import_path("pkg.a", "pkg.missing") is None
+
+
 class TestToDict:
     def test_node_link_structure(self) -> None:
         graph = _build_graph([("pkg.a", "pkg.b"), ("pkg.b", "other.c")])

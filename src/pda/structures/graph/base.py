@@ -110,6 +110,21 @@ class Graph(Generic[NodeT]):
 
         return []
 
+    def reaches(self, source: NodeT, target: NodeT) -> bool:
+        if not (self.has_node(source) and self.has_node(target)):
+            return False
+
+        return bool(nx.has_path(self._graph, source, target))
+
+    def path(self, source: NodeT, target: NodeT) -> Optional[List[NodeT]]:
+        if not (self.has_node(source) and self.has_node(target)):
+            return None
+
+        try:
+            return list(nx.shortest_path(self._graph, source, target))
+        except nx.NetworkXNoPath:
+            return None
+
     def _nontrivial_components(self) -> List[List[NodeT]]:
         components = [
             sorted(component, key=lambda node: node.identifier)

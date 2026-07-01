@@ -294,14 +294,21 @@ examples.
 
 ## Notebook
 
-`notebooks/example.py` is a [marimo](https://marimo.io/) notebook that runs PDA
-on its own source, with controls for the configuration so the graph updates as the
-parameters change. Launch it from the repository root so it can locate `src/`:
+The [marimo](https://marimo.io/) notebooks under `notebooks/` are interactive walkthroughs.
+Launch them from the repository root so they can locate `src/`:
 
 ```bash
 pip install -e ".[notebook]"          # installs marimo
 marimo edit notebooks/example.py
 ```
+
+- `example.py` — runs PDA on its own source, with controls for the configuration so the graph
+  updates as the parameters change.
+- `forbidden_imports.py` — a transitive "forbidden dependency" check: pick a module and a set
+  of anti-candidates and see whether it (directly or indirectly) imports any of them, with the
+  witness import path. Uses the component API from [docs/components.md](docs/components.md).
+- `ast_scope_explorer.py` — parses a single module and lets you browse its AST tree and scope
+  tree, selecting any node to inspect its properties.
 
 ## Development
 

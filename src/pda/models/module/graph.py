@@ -1,4 +1,4 @@
-from typing import Dict, FrozenSet, Self
+from typing import Dict, FrozenSet, List, Optional, Self
 
 import networkx as nx
 
@@ -9,6 +9,33 @@ from pda.structures.graph.base import Graph
 
 
 class ModuleGraph(Graph[ModuleNode]):
+    def find(self, name: str) -> Optional[ModuleNode]:
+        for node in self:
+            if node.module.qualified_name == name:
+                return node
+
+        return None
+
+    def imports(self, source: str, target: str) -> bool:
+        source_node = self.find(source)
+        target_node = self.find(target)
+        if source_node is None or target_node is None:
+            return False
+
+        return self.reaches(source_node, target_node)
+
+    def import_path(self, source: str, target: str) -> Optional[List[str]]:
+        source_node = self.find(source)
+        target_node = self.find(target)
+        if source_node is None or target_node is None:
+            return None
+
+        nodes = self.path(source_node, target_node)
+        if nodes is None:
+            return None
+
+        return [node.module.qualified_name for node in nodes]
+
     def _quotient_graph(self, level: int) -> nx.DiGraph:
         def partition(node1: ModuleNode, node2: ModuleNode) -> bool:
             return node1.module.prefix(level) == node2.module.prefix(level)
